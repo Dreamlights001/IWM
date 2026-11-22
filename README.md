@@ -1,6 +1,6 @@
 # 工厂级工业世界模型调研
 
-打开 [report.html](report.html) 阅读中文报告。报告不作技术路线推荐。
+打开 [index.html](index.html) 进入研究导航；从那里可以跳转到中文报告、链路看板和研究步骤看板。报告不作技术路线推荐。
 
 [pipeline_board.html](pipeline_board.html) 是链路看板：假设已有设备 STEP、实物扫描和一台带 URDF 的机器人，列出 9 条可搭建的世界模型链路（编号 L1–L10，L5 空缺），附步骤、时延、证据、局限、GitHub 项目与文献链接；形变、流体、断裂与加工不是单独链路，作为“跨链路条件”单独成节。同样不做推荐。重新生成：`python3 scripts/build_pipeline_board.py`。
 
