@@ -1,0 +1,27 @@
+{
+  "id": "P62",
+  "slug": "DROP",
+  "arxiv_id": "2409.14562",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2409.14562",
+  "accessed": "2026-11-11",
+  "title": "DROP: Dexterous Reorientation via Online Planning",
+  "authors": [
+    "Li, Albert H.",
+    "Culbertson, Preston",
+    "Kurtz, Vince",
+    "Ames, Aaron D."
+  ],
+  "publication_date": "2024/09/22",
+  "submitted_date": "2025/03/05",
+  "abstract": " Achieving human-like dexterity is a longstanding challenge in robotics, in part due to the complexity of planning and control for contact-rich systems. In reinforcement learning (RL), one popular approach has been to use massively-parallelized, domain-randomized simulations to learn a policy offline over a vast array of contact conditions, allowing robust sim-to-real transfer. Inspired by recent advances in real-time parallel simulation, this work considers instead the viability of online planning methods for contact-rich manipulation by studying the well-known in-hand cube reorientation task. We propose a simple architecture that employs a sampling-based predictive controller and vision-based pose estimator to search for contact-rich control actions online. We conduct thorough experiments to assess the real-world performance of our method, architectural design choices, and key factors for robustness, demonstrating that our simple sampling-based approach achieves performance comparable to prior RL-based works. Supplemental material: this https URL .",
+  "submission_history": "Submission history From: Albert Li [ view email ] [v1] Sun, 22 Sep 2024 19:00:53 UTC (47,482 KB) [v2] Tue, 1 Oct 2024 04:50:09 UTC (47,956 KB) [v3] Sat, 12 Oct 2024 01:01:32 UTC (47,957 KB) [v4] Wed, 5 Mar 2025 18:55:03 UTC (47,957 KB)",
+  "version": "v4",
+  "pdf_url": "https://arxiv.org/pdf/2409.14562v4",
+  "local_pdf": "papers/P62_DROP_2409.14562v4.pdf",
+  "sha256": "05cfc14cee42c1010ae1569375b98c8de85e418881cd584c20f92833f4f026a9",
+  "bytes": 49778516,
+  "pages": 14,
+  "text_file": "research/P62_DROP.txt",
+  "status": "downloaded_and_text_extracted"
+}

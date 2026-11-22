@@ -1,0 +1,522 @@
+                     MuJoCo: A physics engine for model-based control
+                                       Emanuel Todorov, Tom Erez and Yuval Tassa
+                                               University of Washington
+
+
+   Abstract— We describe a new physics engine tailored to              The essence of control optimization is to automatically
+model-based control. Multi-joint dynamics are represented in        construct many candidate controllers, evaluate their perfor-
+generalized coordinates and computed via recursive algorithms.      mance in simulation, and use the data to construct bet-
+Contact responses are computed via efficient new algorithms
+we have developed, based on the modern velocity-stepping            ter controllers. This process can rely on sampling (as in
+approach which avoids the difficulties with spring-dampers.         evolutionary algorithms or Reinforcement Learning) or on
+Models are specified using either a high-level C++ API or an        gradient information – which is usually obtained via finite
+intuitive XML file format. A built-in compiler transforms the       differencing because the dynamics of a complex robot are
+user model into an optimized data structure used for runtime        too complex to differentiate analytically, especially in the
+computation. The engine can compute both forward and inverse
+dynamics. The latter are well-defined even in the presence of       presence of contact dynamics. Either way, optimizing a
+contacts and equality constraints. The model can include tendon     controller requires a vast number of dynamics evaluations
+wrapping as well as actuator activation states (e.g. pneumatic      for different states and controls. For example, in our recent
+cylinders or muscles). To facilitate optimal control applications   work on de novo synthesis of humanoid running gaits [3] we
+and in particular sampling and finite differencing, the dynamics    needed around 200 000 000 evaluations – which takes less
+can be evaluated for different states and controls in parallel.
+Around 400,000 dynamics evaluations per second are possible         than 10 minutes on a 12-core machine using the software
+on a 12-core machine, for a 3D homanoid with 18 dofs and 6          described here. With a time-step of 15 msec (at which our
+active contacts. We have already used the engine in a number        simulations are stable) this is roughly 5 000 times faster than
+of control applications. It will soon be made publicly available.   real-time. If we used an engine that merely runs in real-time,
+                                                                    as for example the Open Dynamics Engine (ODE) when
+                      I. I NTRODUCTION                              used in a similar context [5], we would have to wait for a
+   As robotic hardware becomes more complex and capa-               month. The three orders-of-magnitude speed advantage can
+ble, the importance of simulation tools increases. Existing         be broken down as follows: one order of magnitude is due to
+physics engines can be used to test controllers that are            faster computation, one order of magnitude is due to parallel
+already designed. However they lack the speed, accuracy             processing which fully utilizes all available processors, and
+and overall feature sets needed to automate the controller          one order of magnitude is due to higher accuracy and stability
+design process itself. On the other hand, software packages         allowing larger time-steps; for comparison, ODE requires
+for automatic controller design (to the extent that they exists)    time-steps below 1 msec to achieve stable locomotion [5].
+are not integrated with physics engines, effectively limiting          Controller optimization also calls for high simulation
+them to scenarios where the plant dynamics can be written           accuracy. The approximations used in gaming engines are
+down explicitly. In the absence of adequate tools, the field        often justified with the argument that accuracy is not so
+continues to rely on manual controller designs – which may          important as long as the simulation is stable. This may be
+be a large part of the reason why present-day robots do not         true in scenarios where one can tune the engine’s parameters
+perform as well as one may have hoped given the impressive          to make an existing controller look realistic. In the context
+sensors, actuators and computing power that are available.          of control optimization, however, the controller is being
+   Before presenting our work, we brief1y discuss the re-           "tuned" to the engine and not the other way around. As
+quirements for controller design software. First and foremost,      Sims [7] pointed out, if the physics engine allows cheating
+such software should be based on a suitable mathematical            the optimization algorithm will find a way to exploit it –
+and algorithmic foundation. While many approaches to au-            and produce a controller that achieves its goal (in the sense
+tomatic control exist, and a proper comparison of their merits      of optimizing the specified cost function) in a physically
+is beyond the scope of this paper, we believe that numerical        unrealistic way. This has been our experience as well.
+optimization is the most powerful and generally applicable             The requirements for speed and accuracy are obvious
+tool for automating processes that would otherwise require          in principle. What is less obvious however is that, in the
+human intelligence. Indeed most algorithms in Artificial            context of control optimization, these requirements become
+Intelligence, Machine Learning, Computer Vision, System             so demanding that none of the existing physics engines can
+Identification, State Estimation come down to numerical             meet them. Indeed we were unaware of this a few years
+optimization. In the context of robotic control, numerical          back when we attempted to build the control functionality we
+optimization is the basis of Optimal Control and is equally         needed on top of ODE, and were quickly disappointed. ODE
+applicable to Path Planning, Model-predictive Control, and          as well as other game-oriented engines (such as NVIDIA
+in general tuning the parameters of any parametric controller.      PhysX and Bullet Physics) represent the system state in over-
+complete Cartesian coordinates and enforce joint constraints          laws, passive force fields, custom equality constraints,
+numerically. This is sensible when simulating a large number          and custom contact solvers.
+of mostly disconnected bodies with few joint constraints,           • Models are created in an intuitive XML format or using
+however it becomes both inaccurate and inefficient when               a C++ API, and then compiled automatically into low-
+simulating elaborate multi-joint systems such as humanoids.           level data structures optimized for runtime computation.
+Another issue with game engines lies in the contact dynam-            XML model files in other formats (e.g. URDF) can
+ics, formulated as (approximations to) linear complemen-              be converted to the native MuJoCo format. The native
+tarity problems or LCPs [8]. Although this approach is a              format is designed to be human readable and editable.
+significant improvement over earlier spring-damper models           The rest of the paper is organized as follows. Section
+of contact, it still requires manual tuning and small time       II describes the main algorithms implemented in MuJoCo.
+steps. On the other end of the spectrum are engines such         Section III provides an overview of the modeling conven-
+as SD/FAST and OpenSim, which represent the system state         tion. Section IV presents timing tests and comparisons to
+and perform all computations in joint coordinates, and thus      SD/FAST – which does not handle contacts, but is the best
+do not need to enforce joint constraints numerically (except     prior engine for multi-joint dynamics in our opinion. Section
+for occasional loop joints). However the latter engines either   V provides a summary and outlines future work.
+ignore contacts, or use spring-dampers resulting in large pen-
+etrations or in stiff dynamics. This limits their applications               II. A LGORITHMIC FOUNDATIONS
+to robotics where contact dynamics are key.                         Here we provide a summary of the numerical algorithms
+   These observations indicated that we need a new engine,       implemented in MuJoCo. We start with notation and smooth
+representing the state in joint coordinates and simulating       dynamics which are fairly standard, then explain the contact
+contacts in ways that are related to LCP but better. Thus        simulation algorithms in more detail, followed by computa-
+the name MuJoCo – which stands for Multi-Joint dynamics          tional complexity and inverse dynamics.
+with Contact. We developed several new formulations of
+the physics of contact [11], [12], [10] and implemented the      A. Equations of motion and smooth dynamics
+resulting algorithms in MuJoCo. Note that contact simulation       We will use the following notation:
+is an area of active research, unlike simulation of smooth
+                                                                  q     position in generalized coordinates
+multi-joint dynamics where the book has basically been
+                                                                  v     velocity in generalized coordinates
+written [4]. This is why we have decided to provide multiple
+                                                                       inertia matrix in generalized coordinates
+mechanisms for modeling contact dynamics, and allow the
+                                                                  b     "bias" forces: Coriolis, centrifugal, gravity, springs
+user to select the one most suitable for a given system.
+                                                                       external/applied forces
+In addition, MuJoCo has several unique features which are
+                                                                       equality constraints:  (q) = 0
+rarely needed for simulation purposes but greatly facilitate
+                                                                      Jacobian of equality constraints
+control applications:
+                                                                  v∗
+                                                                        desired velocity in equality constraint coordinates
+  • The same dynamical system can be evaluated in par-            f    impulse caused by equality constraints
+    allel (in shared memory or distributed architectures)             Jacobian of active contacts
+    for different states and controls. This is useful for         v    velocity in contact coordinates
+    approximating derivatives via finite differencing, which      f    impulse caused by contacts
+    in turn enables numerical optimization.                            time step
+  • Inverse dynamics can always be computed, even in the
+                                                                 3D rotations (ball joints and base orientations) are repre-
+    presence of contacts and equality constraints. Inverse       sented as unit quaternions, while their rotational velocities
+    dynamics are useful for analysis of recorded data as         are represented as 3D vectors. Thus in general we have
+    well as computed torque control applications.                dim (v)  dim (q), so we write v instead of q̇.
+  • Actuator dynamics such as the pressures inside pneu-
+                                                                    The equations of motion in continuous time are
+    matic or hydraulic cylinders as well as the activations
+    of biological muscles can be modeled. Actuators can             (q) v = (b (q v) +  ) 
+    transmit forces via linkages or tendons. Tendons can                               T                       T
+                                                                             +  (q) f (q v  ) +  (q) f (q v  )
+    wrap around 3D shapes, and can have hard length limits.
+  • There are multiple ways to access MuJoCo’s function-         Note that we have not divided by . This is because
+    ality: a standalone executable with interactive interface    constraint and contact forces are impulsive, and the latter
+    allowing the user to ’reach into’ the simulation with a      are generally inconsistent with continuous-time formulations
+    6D mouse; interfaces to MATLAB and soon ROS; and             (e.g. Painleve’s paradox). Indeed in order to model hard
+    a static C library that can be linked to user programs.      contacts (as opposed to spring-damper approximations), we
+  • The user can invoke the entire pipeline or only pieces       will have to adopt a discrete-time velocity-based formulation
+    of it, facilitating the implementation of non-standard       [8] which is now standard in gaming engines. The procedure
+    computations. MuJoCo’s functionality can be further          for solving the above equations of motion consists of the
+    extended with a variety of callbacks specifying control      following steps:
+   1) Compute the Cartesian positions and orientations of            sparse back-substitution (following¡sparse factorization),
+                                                                                                                  ¢T            and
+       all rigid bodies (i.e. the forward kinematics), detect        the recurring matrix  −1 T =   −1          is computed
+       potential collisions (with some safety margin), and           only once and reused when necessary.
+       construct the Jacobians    .                                At this point we know  r  in (2) and need to compute
+   2) Compute the inertia matrix  using the Composite               f , which corresponds to step 4 and will be described later.
+       Rigid Body (CRB) algorithm, the bias forces b using           Once this is done, we use (2) to obtain v+ , and then
+       the Recursive Newton Euler (RNE) algorithm, and the           integrate the position. MuJoCo provides two integrators. One
+       sparse LT DL factorization of  .                             is the semi-implicit Euler method:
+   3) Express the equality constraint impulse f as a func-
+       tion of the (still unknown) contact impulse f , and                             q+ = q ” + ” v+
+       project the dynamics in the subspace tangent to the           Semi-implicit refers to the fact that we are using the next-
+       equality constraint manifold. Apply constraint stabi-         step velocity. This approach tends to be more accurate than
+       lization.                                                     explicit integration, and is key to velocity-stepping schemes.
+   4) Further project the dynamics in contact coordinates,           The plus sign is in quotes because 3D rotations are expressed
+       and solve for the contact impulse f and the resulting        as unit quaternions while their velocities are 3D vectors, and
+       contact velocity v .                                         so we use formulas for quaternion integration rather than
+   5) Integrate numerically to obtain the next state.                simple addition. The other integrator is 4th -order Runge-
+   Steps 1, 2 are standard [4]. We now clarify steps 3, 4, 5.        Kutta, modified to work with next-step velocities rather than
+The desired next-step velocity v  ∗
+                                     (q) in equality constraint      accelerations.
+coordinates is computed from the constraint violation  (q),
+in such a way that if the system follows v    ∗
+                                                   exactly, the      B. Solving for the contact impulse
+violation will decay to 0 as a critically-damped spring. This          We now return to step 4. Substituting (2) in (1c) yields
+resembles Baumgarte stabilization, except that here v     ∗
+                                                              is     the following equation in contact coordinates:
+directly enforced at the next time step – which can be more
+                                                                                              f + v0 = v                        (3)
+accurate than traditional Baumgarte stabilization.
+   We now focus on the computations in a single time step.           where  v0 are defined as
+Replacing v with (v+ − v ) and  with , and taking
+                                                                                                 =   T
+into account the velocity transformations specified by the
+Jacobians, the equations of motion in discrete time become                                     v0 =  r
+
+         (q ) v+ = s (q  v   )                      (1a)   The matrix  is the inverse inertia projected in the sub-
+                                     T               T               space tangent to the equality constraint manifold, and then
+                       +  (q ) f +  (q ) f
+                                                                     expressed in the contact coordinates. The vector v0 is the
+                        ∗
+        (q ) v+ = v (q )                               (1b)   contact velocity which results in the absence of an impulse.
+        (q ) v+ = v                                     (1c)   The quantities  v0 are known, while f  v need to be
+                                                                     computed.
+where the vector s is defined as                                        Let dim (f ) = . We have to compute 2 scalar quanti-
+       s (q  v   ) =  (q ) v + b (q  v ) +           ties while (3) provides only  equality constraints. Thus we
+                                                                     need an additional  effective constraints in order to obtain
+We will now drop the time indices and functional dependen-           a unique solution. These additional constraints come from
+cies for clarity. At this point the quantities  s     v
+                                                                ∗
+                                                                     the Coulomb friction model with complementarity conditions
+are known, while f  f  v  v remain to be computed.             [8], or some approximation to it as discussed later. Focusing
+   Using (1a, 1b) and the fact that  is always invertible,          for the moment on a single   contact, let the contact impulse
+we can express f as a function of f :                                                     £        ¤
+                                                                     f be partitioned as  N ; f F where  N is the normal
+           ¡             ¢−1 ¡ ∗               ¡          ¢¢         component and f F ∈ R2 is the tangential/friction component,
+     f =   −1 T          v −   −1 s + T f
+                                                                     and similarly for v . Along the normal we have
+Substituting this in (1a) and solving for v yields
+                                                                                    N ≥ 0     N ≥ 0      N N = 0             (4)
+                        v =  T f + r                       (2)
+                                                                     These conditions correspond to the fact that the contact
+where  r are defined as                                            impulse cannot pull the bodies towards each other, the bodies
+                           ¡            ¢−1                          cannot penetrate, and if the contact is breaking then there can
+        =  −1 −  −1 T   −1 T        −1
+                         ¡            ¢−1 ∗                          be no contact impulse. In the tangent plane we have
+       r =  s +  −1 T   −1 T     v                                                            ­ F F®
+                                                                                 vF parallel to f F      v f     ≤0            (5)
+This is the projection in the subspace tangent to the equality                               ° F°
+                                                                                             °f ° ≤  N
+constraint manifold (step 3). When there are no equality
+constraints we have  =  −1 and r =  −1 s. In terms                The first line means that if there is slip then the friction force
+of implementation, multiplication by  −1 is done using              must act in the direction opposite to the slip velocity. The
+                                                                                                                                normal
+                                                                                                                                impulse
+
+
+                                                                                                                                           vertical
+                                                                                                                                           velocity
+                                                                                                                          0   200 400 600
+                                                                                                                           simulation time (ms)
+
+Fig. 1. Left: the algorithm is tested on a system consisting of several balls   Fig. 2. Left: Rendering of a humanoid (used for testing) in the MuJoCo
+moving inside a cube. Right: average number of Newton-like iterations as        interactive 3D GUI. Right: a ball-drop test of the convex contact solver.
+a function of the number of contacts nc and the friction coefficient mu.        Note how the contact impulse is smoothed, and yet there is no penetration.
+
+
+
+second line means that the contact force must lie inside the                    is surprisingly small, as illustrated in Fig. 1 taken from [11].
+friction cone, where  is the coefficient of friction.                          Each iteration involves factorization of a -by- matrix; this
+   Condition (4) is called a complementarity condition. To-                     could potentially be improved using Hessian-free methods.
+gether with a linear equation such as (3) it can form a linear
+complementarity problem (LCP). Condition (5) on the other                       D. Convex solver
+hand does not fit in the LCP framework because it involves                         A favorable trade-off between speed and accuracy is
+nonlinearities. One approach is to replace the friction cone                    obtained by replacing the nonlinear complementarity con-
+with a pyramid and convert the problem into an LCP [8],                         straints (4, 5) with a convex optimization problem, whose
+which can then be solved with Lemke’s algorithm or other                        solution is very similar in practice [1] yet it can be computed
+methods such as the PATH solver. These methods however do                       more efficiently. The algorithm is based on [12], which
+not scale well for larger problems [1], which is not surprising                 turns out to be related to [2] even though it was developed
+given that the problem is generally NP-hard [6]. Furthermore                    independently. The advantage of [12] is that the resulting
+the pyramid approximation introduces errors.                                    contact dynamics are invertible (see below).
+   Instead of following the LCP approach, MuJoCo imple-                            The idea here is that contact impulses act to reduce the
+ments three new algorithms for contact simulation based on                      relative velocity between contacting surfaces. It then makes
+our recent work, as summarized next.                                            sense to define the kinetic energy in contact space, which
+                                                                                is v   v 2, and minimize it subject to friction-cone
+                                                                                      −1
+C. Implicit complementarity solver                                              and non-penetration constraints. The remaining constraints
+   The most accurate of the solvers provided in MuJoCo is                       from (4, 5) are omitted because they make the optimization
+based on [11]. It aims to find an exact solution to (3, 4, 5).                  problem non-convex. The friction cone     ¡ is imposed
+                                                                                                                                    ¢      as a
+The key idea is as follows. Instead of treating f and v                       hard constraint, while non-penetration  N ≥ 0 is imposed
+as independent quantities constrained by complementarity,                       with a cost  (v ) because otherwise the inverse dynamics
+we express both as functions of a new hybrid variable x.                        could not be defined for trajectories that happen to have
+This is possible thanks to the complementarity conditions.                      penetration. We have
+In the normal direction for example, if the corresponding                                            1 
+component of x is positive it encodes force (in which case                       f = arg min          f ( + ) f + f  v0 +  (f + v0 ) (6)
+                                                                                             f ∈Cone 2
+the velocity is 0), otherwise it encodes velocity and the force
+is 0. We then solve the nonlinear equation                                       is a small (diagonal) regularization term. It is needed for
+                                                                                three reasons:  is often singular; without  the inverse
+                        f (x) + v0 = v (x)                                   cannot be defined (see below); one can enable contact
+                                                                                interactions from a distance – which can be very useful
+by converting it to an unconstrained optimization problem:
+                                                                                in continuation methods for numerical optimization – and
+                  min kf (x) + v0 − v (x)k2                                  control the contact force magnitude by increasing  with
+                    x
+                                                                                distance. In addition to enabling continuation, the convex
+The optimization uses a customized non-smooth Newton                            solver is well suited for numerical optimization because it
+method; in the line-search phase it exploits the fact that the                  smooths the dynamics while still producing phenomenolog-
+functions f (x) and v (x) are non-smooth only at planes                       ically hard contacts. This is illustrated with a ball-drop test
+and friction-cone boundaries. See [11] for details.                             in Fig. 2, taken from [12].
+   Since the underlying problem is NP-hard, the algorithm                          The convex solver is actually a family of solvers, because
+cannot always find the exact solution (which has 0 resid-                       the convex optimization problem (6) can be handled with a
+ual). Nevertheless it finds the exact solution almost all the                   variety of numerical methods. Interior-point methods were
+time, and when it does not it still converges to a sensible                     advocated in [2], [12] and they are certainly a viable option,
+solution. Furthermore the number of Newton-like iterations                      however projected methods (Newton, conjugate-gradient, or
+Gauss-Seidel) may be faster and have comparable accu-                 number of equality constraints ¡ is ¢usually small (if present
+racy. By "projected" we mean that the cone constraints are            at all), the bottleneck
+                                                                                       ¡ 3 ¢ is the    computation of  and
+                                                                                                        2
+
+enforced after each iteration, or a non-smooth line-search            the repeated   factorizations inside the contact solvers.
+respecting the constraints is used. Projected methods are             Third and perhaps most important, counting the number
+usually limited to box constraints, however we have been              of f1oating point operations used to be essential when
+able to generalize them to cone constraints. Presently a cone-        f1oating point arithmetic was slow, but this is no longer the
+projected Gauss-Seidel method is our favorite [9].                    case. Instead, modern processors use comparable numbers of
+                                                                      cycles for f1oating point, integer and indexing operations –
+E. Diagonal solver
+                                                                      all of which are very fast. The bottleneck now is in memory
+   The least accurate but fastest contact solver is a diagonal        access. Thus the performance of physics engines such as
+solver, which can be thought of as a mass-aware spring-               MuJoCo tends to be dominated by cache misses more than
+damper. The difficulty with traditional spring-damper models          traditional computational complexity considerations, and the
+is that, if the contact-space inertia is too large the contact will   only way to assess performance reliably is to run extensive
+be springy and result in large penetration and subsequent             timing tests.
+oscillation, while if the inertia is too small the dynamics              Forward dynamics in the absence of contacts can alterna-
+will be stiff and very difficult to integrate numerically. Since      tively be computed using  () recursive algorithms. How-
+the contact-space inertia is configuration-dependent while the        ever in the presence of branch-induced sparsity typical in
+spring-damper coefficients are fixed, this problem may seem           robotics these algorithms are not much faster than the present
+unavoidable. However, if we have access to the diagonal of            approach [4]. More importantly,  () forward dynamics
+the  matrix we can tune the spring-dampers online, and for           does not compute the inertia matrix  which is needed to
+example make sure that we always have critically-damped               compute , which in turn is needed for all contact simulation
+springs at all contacts. This is essentially what our diagonal        methods that avoid the shortcomings of spring-dampers.
+solver does, except it does not explicitly simulate spring-
+dampers. Instead it computes the desired next-state velocity          G. Inverse dynamics
+v∗
+     which would result if penetrations decayed like critically-         We now describe the computation of inverse dynamics,
+damped springs (similar to equality-constraint violations) and        which is a unique feature of MuJoCo. It can be used to
+there was no slip, and then solves                                    analyze data or to compute the torques that will cause a
+                        ∗                                             robot to follow a reference trajectory. Another important
+         diag () f = v − v0        st f ∈ Cone
+                                                                      application is in direct trajectory optimization (also known
+approximately. This is done by computing the components               as space-time optimization) where the variables being op-
+of f independently for each contact (the diagonal solver             timized are the sequence of positions q. Velocities v are
+ignores contact interactions by definition) and enforcing the         then defined via numeric differentiation, control forces  are
+friction-cone constraints, with the same projection method as         defined via inverse dynamics, and the cost of the trajectory
+above. A regularization term  can again be included.                 is computed as a function of all these quantities. These ideas
+                                                                      are developed at length in [3]. Here we limit ourselves to the
+F. Computational complexity                                           inverse dynamics computation.
+   We now address the computational complexity of the en-                Ignoring equality constraints and contacts for the moment,
+tire pipeline, including the smooth and impulsive dynamics.           the RNE algorithm can be used to compute
+Let  = dim (v),  = dim (v ), and  = dim (v ). Thus
+  are -by-,  is -by-,  is -by-, and  is                                   (q) v̇ − b (q v) = ftot
+-by-. The computational complexity of the different steps           where ftot is the sum of control forces  which we aim to
+can be summarized as follows:                                         compute, plus constraint and contact forces which are also
+   • computing b via RNE is  ()                                     unknown. Indeed RNE was originally designed for inverse
+                                     ¡ 2¢
+   • computing  via CRB is                                         dynamics, although it is also applicable in forward dynamics
+                           ¡ 3¢
+   • factorizing  is                                               for computing b, by setting v̇ = 0. The unusual negative sign
+                            ¡ 2 ¢
+   • computing  is                                               in front of b is our notational convention.
+                            ¡ 2 ¢
+   • computing  is                                                  Our goal now is to distribute ftot as
+                          ¡ 2 ¢
+   • computing  is   
+                          ¡ 2 ¢                                                                      T
+                                                                              ftot =  + −1  (q) f + −1  (q) f
+                                                                                                                        T
+   • computing  is   
+                          ¡ 3¢
+   • factorizing  is   .                                           where ftot      are known and  f  f are unknown.
+   While these theoretical results are important for under-           Importantly, we want the inverse dynamics to be well-defined
+standing how the CPU time will scale with the number of               for any (q v v̇) regardless of constraint and penetration
+DOFs, in practice the performance of the engine is dominated          violations. This is because such violations are likely to be
+by other factors, for the following reasons. First, the values of     present both in recorded data and in early stages of trajectory
+ are small – rarely exceeding 50 and usually less. Second,           optimization. Of course violations should be difficult to
+the branch-induced sparsity
+                      ¡ ¢ of  makes sparse factorization             achieve, i.e. the inferred control force  should be large in
+a lot faster than  3 as shown in [4]. Thus, since the               the corresponding subspace. Thus, in essence, we want the
+dynamics to become more springy. The forward dynamics                Here is a fully functional XML file in MJCF format,
+as defined above do not have this property because f              describing a f1oating box which can collide with the ground:
+and f are computed with knowledge of  , and are scaled
+automatically so as to cancel any components of  that would       <?xml version="1.0" encoding="utf-8"?>
+cause violations.                                                  <mujoco version="1.0">
+   This leads to the following general approach to inverse dy-       <world>
+namics in the presence of impulse solvers. Define a posthoc            <geom type="plane" pos="0 0 0"/>
+mode where all impulses are computed as if  = 0, and                  <body>
+then apply the actual  at the end of the time step by adding            <joint type="free"/>
+ −1  to the next-step velocity. We use a modified  in                <geom type="box" pos="0 0 5"
+this procedure, so that the inertia seen by the control forces                 size="1 2 3"/>
+is increased in the subspace corresponding to violations:              </body>
+                                                                     </world>
+              ←  +    +                            </mujoco>
+The coefficients    can be adjusted by the user.                 A physical simulation needs a lot more information than
+   When there are no equality constraints and the contact          what this file specifies directly. The missing information
+solver has an exact inverse, the inverse dynamics can be           is filled-in automatically using suitable defaults, which can
+computed without resorting to posthoc mode. The convex             themselves be redefined by the user. A full explanation of the
+contact solver in particular is invertible [12], meaning that      modeling convention is beyond the scope of this paper, but
+given  and  = f + v0 we can recover f and v0 .               one important feature is the ability to specify body inertial
+Indeed using the fact that f is the global minimizer of (6) in    properties automatically, by inferring them from the geom
+the forward dynamics, we can show that the same f can be          shapes and (default) material density. In fact one can define
+recovered in the inverse dynamics by solving the following         multiple geoms per body, and MuJoCo will combine their
+convex optimization problem:                                       masses and inertias and assign them to the body. Other
+                       1             ¡                  ¢          conveniences include an option to use either local or global
+      f = arg min f  f + f  v +  ∇ ( )                   coordinates, and multiple ways for specifying orientations.
+               f ∈Cone 2
+
+This is easier to solve numerically than (6) because the ob-
+jective function is now quadratic. If we omit the penetration      B. Elements of a MuJoCo model
+cost  ( ) and instead rely on energy minimization to set             a) Body: Bodies are the elements used to build kine-
+the normal velocity to near 0, the matrix  drops altogether,      matic trees. A MuJoCo model consists of one or several
+meaning that we can also omit the computation of  .               kinematic trees, which can have f1oating bases including
+                     III. M ODELING                                isolated objects. Bodies have mass and inertia matrix but do
+                                                                   not have any geometric properties; they are just coordinate
+A. Different ways to construct a MuJoCo model                      frames with inertial properties. Internally each body has a
+   MuJoCo models can exist on three levels of description:         local coordinate frame which is centered at the center of
+   • XML model file in a new format called MJCF;                   mass and is aligned with the principal axes of inertia. A
+   • Sequence of C++ API calls for model construction;             ’world’ body is always defined.
+   • Low-level C structure generated by the built-in com-               b) Joint: Joints are defined inside bodies. They create
+      piler, and optionally saved and loaded in binary files.      motion degrees of freedom between the body and its parent;
+   All descriptions contain the same information but in            in the absence of joints the parent and child bodies are
+different formats. They are related as follows. The MJCF           welded together. Note that this is the opposite of engines such
+file is an intuitive text description written by the user. The     as ODE – where joints constrain motion instead of enabling
+built-in parser loads the MJCF file and creates a runtime C++      motion. MuJoCo has four primitive joint types: slide,
+object describing the entire model. When using MuJoCo as           hinge, ball which is represented with a quaternion, and
+an executable, this is the only way to create models. When         free joint which is a 3D translation followed by a 3D
+MuJoCo is linked as a library to a user program, the user          quaternion rotation. The latter joint type is used to define
+can still call the parser programmatically, but now has the        a f1oating base. A unique feature of MuJoCo is that the
+option of making the same sequence of API calls that the           primitive joint types can be composed into more complex
+parser would have made and thereby constructing the same           joints, without having to define intermediate dummy bodies.
+model. The parser route is usually the most convenient.                 c) DOF: Degrees of freedom (DOFs) are closely re-
+The API route is better when working with large models             lated to joints, but are not in one-to-one correspondence
+that can be created programmatically, e.g. a chain with 100        because ball and free joints have multiple dofs. Since quater-
+identical links. Once a valid model object is created in the       nions are 4D vectors (with unit length) while their velocities
+runtime environment by either method, the built-in compiler        are 3D vectors, we often have more positional coordinates
+converts it into a low-level C structure used for all subsequent   than velocity coordinates. DOFs have damping, maximum
+computations.                                                      velocity, armature inertia. DOFs can also have friction which
+is handled by the impulse solver, together with contacts, joint     diagonal. The Chain model is a long chain of bodies, thus
+limits and tendon limits.                                            is dense. The Hand and Humanoid have sparse  .
+     d) Geom: Geoms are massless geometric objects. Their              Table 1 shows the number of dynamics evaluations per
+primary use in the engine is collision detection as well as ten-    second in a single thread. Results are averaged over 100 runs
+don wrapping. However they can also be used during model            on four different Intel processors: X9650 (3 GHz), X5570
+construction to specify the inertial properties of the body to      (2.93 GHz), i7 940 (2.93 GHz), X5860 (3.33 GHz). The
+which they belong. The supported geom types are plane,              columns "MuJoCo" and "SD/FAST" involve computing 
+sphere, capsule, ellipsoid, box, cone, mesh.                        and b as well as the forward kinematics and the Jacobians
+Collision detection uses dedicated pair-wise functions when         of all rigid bodies. The last column adds sparse factorization
+possible, and otherwise defaults to a general-purpose convex        of  followed by back-substitution; this is only tested in
+collider (implemented by libccd). Non-convex meshes can             MuJoCo because SD/FAST does not provide sparse factor-
+be rendered but are not used in collision detection; instead        ization.
+the user should decompose them into convex meshes.
+                                                                        Model (DOF)         SD/FAST       MuJoCo     with  \
+     e) Site: Sites are points of interest (along with 3D
+                                                                        Isolated (34)        122 000     151 000    133 000
+frames) defined in the local frames of the bodies, and thus
+                                                                        Chain (31)           128 000     103 000      41 000
+moving with the bodies. They are used in the engine to route
+                                                                        Hand (32)             89 000     101 000      76 000
+tendons and apply certain types of forces, but can also be
+                                                                        Humanoid (29)        130 000     123 000      75 000
+used by the user’s program to encode sensor locations etc.
+     f) Constraint: Constraints can be used to create loop             Table 1: Number of smooth dynamics evaluations per second in
+joints or impose any other kinematic equality constraint (i.e.      a single thread, rounded to 1 000.
+a constraint that only depends on position). MuJoCo has
+several predefined types of constraints: 3D position constraint        The key observation here is that MuJoCo is quite compa-
+forcing two points on two bodies to coincide (effectively           rable to SD/FAST. This was a pleasant surprise because, de-
+creating another ball joint), joint angle constraint allowing       spite all our efforts to optimize the code, SD/FAST generates
+joint angles to be coupled through polynomial functions,            model-specific C code which we had expected to be faster.
+tendon length constraint specifying that the length of a            But apparently modern compilers (Visual Studio 2010 in this
+given tendon must remain constant, as well as arbitrary user-       case) manage to blur the distinction. Note that as expected,
+defined constraints implemented via callbacks.                      the Hand and Humanoid models with sparse  are faster
+     g) Tendon: Tendons define spatial paths that can be            than the Chain model which has dense  , yet are slower
+used for actuation and also for imposing inequality or equal-       than the Isolated model with block-diagonal  .
+ity constraints; for example one can simulate a marionette or
+a tensegrity structure by specifying maximum tendon lengths.        B. Overall performance in trajectory optimization
+The tendon path is the shortest path that passes through a             We also tested the overall performance of MuJoCo in the
+sequence of specified sites or wraps around specified geoms.        context of trajectory optimization through inverse dynamics
+     h) Actuator: Actuators have control inputs, optional           [3]. The dynamical system is a 3D humanoid with 18 DOFs,
+activation states (used to model muscles and pneumatic              shown in Fig. 3C. The trajectory has 30 time steps and limit-
+cylinders) with suitable first-order dynamics, gains that can       cycle topology. There are 3 contact points on each foot. Table
+be fixed or depend on position and velocity (so as to               2 shows the time (in seconds) needed to evaluate the cost
+model the force-length-velocity properties of muscles). They        of the trajectory along with the cost gradient and Hessian.
+can transmit forces to the multi-joint mechanism by acting          The derivative computations are based on central finite
+directly on the joints, pulling on tendons, or acting via slider-   differences. We show results for two types of finite-difference
+crank mechanisms converting linear to angular motion.               clouds: quadratic and linear. The latter has 2 rather than
+                                                                    2 states. These tests were run on a PC with two 6-core
+                     IV. T IMING TESTS                              Intel X5860 processors (3.33 GHz), with Hyper-threading
+A. Performance on smooth dynamics compared to SD/FAST               enabled. This yields 24 virtual cores, so we compare 1 vs.
+                                                                    24 threads.
+   We measured the speed of multi-joint dynamics simula-
+tion in the absence of contacts or equality constraints. We             Threads    States    6 contacts     4 contacts   0 contacts
+constructed four identical models in MuJoCo and SD/FAST.                      1    42930         1096          0742        0245
+This was done not only for speed comparisons, but also                        1     3150         0071          0046        0014
+for debugging MuJoCo and making sure the results are                         24    42930         0111          0075        0027
+numerically correct. There were small differences on the                     24     3150         0008          0006        0003
+order of machine precision – which is because the different
+implementations of the algorithms have somewhat different              Table 2: CPU time (in seconds) for one evaluation of the
+round-off patterns.                                                 trajectory cost, gradient and Hessian. The number of states where
+   The Isolated model consists of isolated rigid bodies con-        the dynamics are evaluated corresponds to different Hessian ap-
+nected to the world with various joints; here  is block-           proximations.
+                                                                           and assemble the results. The cluster version should yield
+                                                                           another order of magnitude speedup. In addition we plan to
+                                                                           port the key pieces of code to OpenCL and run it on GPUs.
+                                                                           This has actually been a design goal from day one, and to
+                                                                           this end we have written all run-time code in C and avoided
+                                                                           external libraries.
+                                                                              With regard to simulation accuracy, we compared the
+                                                                           smooth portion of the dynamics to the output of SD/FAST
+                                                                           and found the differences to be within the margin of round-
+                                                                           off errors. The accuracy of the contact dynamics has not
+                                                                           yet been validated, however our implicit complementarity
+                                                                           method has a built-in accuracy check – when the residual is
+                                                                           0 we know that the problem has been solved exactly. The
+                                                                           convex solver should have similar accuracy to the one studied
+                                                                           in [1], which produced results indistinguishable from LCP
+                                                                           solvers but much faster. Of course our implementation is
+                                                                           different so this needs to be tested.
+                                                                              MuJoCo was developed to enable our research in model-
+                                                                           based control. The experience so far indicates that it is a
+Fig. 3. Illustration of projects where we have used MuJoCo for control     very useful and widely applicable tool, that can accelerate
+synthesis and modeling. A,B are from [9]. C is from [3]. D is from [13].   progress in robotic control. Thus we have decided to make
+                                                                           it publicly available. It will be free for non-profit research.
+                                                                           GPU-enabled and cluster versions, as well as additional func-
+    Threads      6 contacts      4 contacts      0 contacts                tionality regarding numerical optimization will be released
+          1         42 000         63 000        200 000                subsequently. The website will be www.mujoco.org
+         24        390 000        549 000     1 320 000
+                                                                                                  ACKNOWLEDGMENTS
+   Table 3: This is the inverse of Table 2. Here we show the number
+                                                                             This work was supported in part by the US National
+of dynamics evaluations per second.
+                                                                           Science Foundation and the US National Institutes of Health.
+   The results are quite remarkable. One a single desktop
+                                                                                                       R EFERENCES
+machine, we are able to run nearly 400 000 evaluations
+per second including contact dynamics. Using the Gauss-                     [1] E. Drumwright and Shell. Modeling contact friction and joint
+                                                                                friction in dynamic robotic simulation using the principle of maximum
+Newton approximation to the Hessian (i.e. linear could), this                   dissipation. International Workshop on the Algorithmic Foundations
+corresponds to nearly 100 quasi-Newton steps of trajectory                      of Robotics, 2010.
+optimization per second. With fewer active contacts the speed               [2] E. Drumwright and D. Shell. A robust and tractable contact model for
+                                                                                dynamic robotics simulation. Proc. of ACM Symposium on Applied
+is much higher. Note that these results do not take into ac-                    Computing, 2009.
+count the time needed to implement the actual minimization                  [3] T. Erez and E. Todorov. Trajectory optimization for domains with
+method, however since the Hessian is very sparse, this time                     contacts using inverse dynamics. IROS, 2012.
+                                                                            [4] R. Featherstone. Rigid Body Dynamics Algorithms. Springer, 2008.
+is a small fraction of the dynamics evaluations. Note also that             [5] M. de Lasa J. Wang and A. Hertzmann. Optimizing walking con-
+here we used an interior-point method for solving the convex                    trollers for uncertain inputs and environments. ACM Transactions on
+optimization problem (6). Our new projected methods appear                      Graphics, 2010.
+                                                                            [6] D. Kaufman, S. Sueda, D. James, and D. Pai. Staggered projections
+to be faster, although we have not yet done careful testing.                    for frictional contact in multibody systems. ACM Transactions on
+                                                                                Graphics (SIGGRAPH AISA), 164:1–11, 2008.
+              V. S UMMARY AND FUTURE WORK                                   [7] K. Sims. Evolving virtual creatures. SIGGRAPH, 1994.
+                                                                            [8] D. Stewart and J. Trinkle. An implicit time-stepping scheme for
+   We described our new physics engine designed for model-                      rigid-body dynamics with inelastic collisions and coulomb friction.
+based control, including algorithms, modeling conventions                       International Journal Numerical Methods Engineering, 39:2673–2691,
+                                                                                1996.
+and timing results. The engine has already been used suc-                   [9] Y. Tassa, T. Erez, and E. Todorov. Synthesis and stabilization of
+cessfully in a number of projects, as illustrated in Fig. 3.                    complex behaviors through online trajectory optimization. IROS, 2012.
+   In terms of smooth multi-joint dynamics, single-threaded                [10] Y. Tassa and E. Todorov. Stochastic complementarity for local control
+                                                                                of discontinuous dynamics. Robotics: Science and Systems, 2010.
+MuJoCo is comparable to SD/FAST. The contact-related                       [11] E. Todorov. Implicit nonlinear complementarity: A new approach to
+tests we reported are very encouraging. We have not yet                         contact dynamics. ICRA, 2010.
+performed systematic comparisons to gaming engines, how-                   [12] E. Todorov. A convex, smooth and invertible contact model for
+                                                                                trajectory optimization. ICRA, 2011.
+ever the existing literature indicates that gaming engines are             [13] J. Xu, V. Kumar, Y. Matsuoka, and E. Todorov. Design of an
+substantially slower when used in the same context.                             anthropomorphic robotic finger with biomimetic artificial joints. IEEE
+   The code is thread-safe and is already multi-threaded. The                   BioRob, 2012.
+next step is to implement a cluster version, where a central
+dispatcher will send subsets of states to individual machines
+

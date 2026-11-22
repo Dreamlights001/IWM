@@ -1,0 +1,29 @@
+{
+  "id": "P50",
+  "slug": "Thermomechanical_Machining_FEM",
+  "family": "cutting",
+  "arxiv_id": "",
+  "version": "Report-14-01",
+  "title": "Finite Element Simulation of macroscopic Machining Processes - Implementation of time dependent Domain and Boundary Conditions",
+  "authors": [
+    "Carsten Niebuhr",
+    "Daniel Niederwestberg",
+    "Alfred Schmidt"
+  ],
+  "publication_date": "2014-01",
+  "submitted_date": "2014-01",
+  "publication_title": "Berichte aus der Technomathematik",
+  "report_number": "14-01",
+  "institution": "Universität Bremen",
+  "source_url": "https://www.math.uni-bremen.de/zetem/cms/detail.php?person=CarstenNiebuhr&template=publikationen_person",
+  "pdf_url": "https://www.math.uni-bremen.de/zetem/cms/media.php/262/Zetem%20Report%2014-01.pdf",
+  "abstract": "A dexel-based material-removal simulation is coupled to thermomechanical finite elements and process models for cutting forces and heat flux, to predict macroscopic shape errors on a time-dependent domain. Microscopic chip formation is represented through process models rather than explicitly resolved.",
+  "accessed": "2026-11-09",
+  "local_pdf": "papers/P50_Thermomechanical_Machining_FEM_Report-14-01.pdf",
+  "bytes": 3586947,
+  "sha256": "53d03d57dd38603e53b0f0685bacc43aa2c4c19908e57e49bbe37ea96c38abff",
+  "text_file": "research/P50_Thermomechanical_Machining_FEM.txt",
+  "pages": 16,
+  "submission_history": "Institutional author manuscript; bibliographic source and PDF source recorded separately.",
+  "status": "downloaded_and_text_extracted"
+}

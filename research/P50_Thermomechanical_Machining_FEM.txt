@@ -1,0 +1,671 @@
+               Zentrum für Technomathematik
+                    Fachbereich 3 – Mathematik und Informatik
+
+
+
+
+                 Finite Element Simulation of
+               macroscopic Machining Processes -
+               Implementation of time dependent
+               Domain and Boundary Conditions
+               Carsten Niebuhr    Daniel Niederwestberg
+                            Alfred Schmidt
+
+
+                             Report 14–01
+
+
+
+
+                 Berichte aus der Technomathematik
+
+Report 14–01                                              Januar 2014
+     FINITE ELEMENT SIMULATION OF MACROSCOPIC
+    MACHINING PROCESSES - IMPLEMENTATION OF TIME
+    DEPENDENT DOMAIN AND BOUNDARY CONDITIONS
+
+
+               C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+        Abstract. In this article, the modeling and simulation of material removal
+        during machining processes with a finite element method is discussed. The
+        model links a dexel based material removal simulation with a thermomechani-
+        cal finite element method to forecast thermical and process-related shape errors
+        during machining processes. It is modeled mathematically by linking heat con-
+        duction equation with the deformation equation on a time dependent domain
+        including moving boundaries. We present here details from the finite element
+        implementation. The project is financed by DFG via SPP1480.
+
+
+
+
+                                    1. Introduction
+   The minimization of shape errors during dry machining processes like milling
+and drilling processes is a major challenge to modern production cycles. Consider-
+ing these thermomechanical effects in the NC-simulation offers great advantages for
+reduction of shape errors during machining processes. To achieve this goal a new
+method of material removal simulation in due consideration of thermomechanical
+effects is presented. While thermomechanical effects are modeled by a finite element
+(FE) simulation, the material removal is done by a dexel model. In combination
+with a process model for prediction of cutting forces and heat flux, thermal and
+mechanical effects during the process are reproduced realistically on the workpiece.
+This creates a closed simulation system that considers thermomechanical interde-
+pendencies. We consider here a macroscopic model which includes the microscopic
+effects of chip formation and removal only via the process model, [7, 8].
+   The so called dexel (“depth pixel” or “depth picture element”) model is compa-
+rable to a plain grid of parallel nails of different length. Earlier approaches used
+elements of only one direction, like for example the graphics rendering in graphics
+processor units (z-buffer), [15]. To decrease the dependency between the chosen
+dexel direction, the shape of the workpiece and the resulting accuracy, multi-dexel
+models have been introduced [4, 9, 12]. Usually three grids are used oriented to the
+main axes of a cartesian coordinate system.
+   An approach for modeling heat conduction and thermomechanical workpiece
+characteristics is the finite element (FE) model. It was used in several investiga-
+tions for modeling of machining processes [5, 10]. Especially the mapping of heat
+fluxes und process forces during continious (milling) and discontinious (drilling)
+processes to boundary conditions on a moving boundary is a challenge. Analyt-
+ical and numerical studies of the propagation of discretization errors in adaptive
+methods for related problems are presented in [1–3].
+   The NC-Simulation has to be extended with several properties to emulate ther-
+momechanical effects. These extensions can be divided analytically into two compo-
+nents, the process model and the workpiece model.The workpiece model describes
+the actual state of the workpiece in geometrical and thermomechanical aspects
+                                               1
+2               C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+
+
+              Figure 1.1. Detailed simulation cyrcle of data flow.
+
+
+
+
+(Fig. 1.1 left). Additional material removal algorithms allow changing the geomet-
+rical representation of the workpiece, while thermal conduction algorithms allocate
+modify the thermal condition of the workpiece.
+   The material removal process is controlled by a classical NC-Simulation, with
+kinematics and NC-Controller (Fig. 1.1 top) [6], for a realistic thermomechanical
+simulation the boundary conditions of the workpiece have to be changed by a pro-
+cess model. This process model has several sequences (Fig. 1.1 right). The local
+cutting conditions are calculated from the material removal process. With this data
+a cutting force and heat flux prediction is triggered that calculates the mechanical
+and thermal load. This changes the boundary conditions of the workpiece model,
+especially in the FE simulation.
+   The major aspect of this paper is the modeling of the workpiece model in his
+mathematical representation in the FE model with its input and output parameters
+(Fig. 1.1 left). The contact zone analysis and cutting force had been shown in [14].
+Linking the FE model for the heat conduction analysis and deformation behaviour
+to a dexel model for the material removal process allows considering both, volumet-
+ric changes and thermomechanical deformation, in the NC-Simulation, [8]. Thereby
+these components are considering the information of each other, so that the result-
+ing effects can be modeled. Here, the volume changes described by the material
+removal process is taken into account in the FE simulation for a more realistic heat
+conduction and workpiece deformation simulation. As input parameters for the FE
+simulation, moving heat sources and process forces has to be extracted from the
+material removal process and could only consider over the boundary conditions in
+the FE model. Moreover the surface of the workpiece and the boundary condi-
+tions of the process model changed in the dexel model by the current mechanical
+deformations and temperature distributions determinded by the FE simulation.
+   For the linking of all components a XML based communication system was
+implemented that is characterized by high flexibility and fault tolerance as shown
+in [13]. Thereby the pure thermoelastical simulation and the NC-Simulation run
+and communicate in synchronized unequal time steps.
+             FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                           3
+
+
+                              2. Mathematical model
+   The model of thermomechanical effects during machining processes includes the
+classical formulations of the heat equation and the quasi-stationary deformation
+equation on time dependent domains with moving boundary conditions.
+   We assume that the time dependent domain is a subset of a fixed Ω ⊂ Rd with
+d = 3. A corresponding model could also be applied in dimensions d < 3.
+
+2.1. Heat equation. Let Ω = Ωs (t) ∪ Ωm (t) ∪ ΓN (t) ⊂ Rd be the time dependent
+partition of the domain Ω for t ∈ [t0 , t1 ], consisting of a solid subdomain Ωs (t) and a
+removed subdomain Ωm (t) with Ωs ∩ Ωm = ∅. The domain boundary ∂Ωs (t) is sub-
+divided in parts with different boundary conditions, ΓN (t) and ΓR (t). Here, ΓN (t)
+denotes the moving boundary between the solid and the removed subdomain. A
+sketch of the different domains and their boundaries is given in Figure 2.1. Initially,
+we start with Ωm (0) = ∅, ΓN (0) = ∅ and ∂Ωs (0) = ΓR (0) = ∂Ω.
+
+
+
+
+         Figure 2.1. 2D sketch of a time-dependent moving boundary
+         problem on domain Ω = Ωs (t) ∪ Ωm (t).
+
+    The process is modeled by the heat equation only on Ωs (t) for the temperature
+θ : Ωs (t) → Rd with temperature dependent material properties of the density ρ(θ),
+the specific heat capacity ce (θ) and the heat conductivity κ(θ).
+    The heat equation is given by the PDE-System
+                      ∂
+(2.1)            ρce    θ − div (κ∇θ) = 0                in Ωs (t),
+                     ∂t
+where we assume the absence of interior heat sources. To complete the problem,
+we add conditions on the boundary. To model thermal radiation and convection
+cooling, we choose a Robin boundary condition on ΓR (t). In this case the heat flux
+over the boundary is proportional to the temperature between the interior and the
+external temperature θext . We obtain the following equation, where α is the heat
+transfer coefficient and n the outer normal vector.
+(2.2)             −κ∇θ· n = α(θ − θext )                     on ΓR (t).
+A Neumann boundary condition ΓN (t) is used for the moving boundary part. In
+this case the heat flux over the boundary would be described by a time and space
+dependent function g1 (x, t) for the incomming flux generated by the machining
+4                C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+process.
+(2.3)             −κ∇θ· n = g1 (x, t)                            on ΓN (t).
+In this way, equations (2.1), (2.2) and (2.3) give us the complete inital boundary
+value problem for heat conduction on time dependent domains.
+
+2.2. Deformation behaviour. In this section we introduce the model for defor-
+mation behaviour. We consider infinitesimal strain which means that the occurring
+deformations are ”small”. The assumption of small strains is valid for the settings
+of heat treatment with moderate external forces, we are dealing with. We introduce
+the balance of momentum which is fundamental in continuum mechanics.
+   Let Ωs (t) be the reference configuration for t ∈ [t0 , t1 ]. The displacement vector
+is defined as u : Ω̄s (t) → Rd . We consider here a linear elasticity model for an
+isotropic material, where the stress tensor σ(u) ∈ Rd×d is given by
+(2.4)                        σ(u) = λtr((u))I + 2µ(u)
+with Lamé coefficients λ, µ and the linearized strain tensor
+                                      1
+                                         ∇u + (∇u)T .
+                                                      
+(2.5)                         (u) :=
+                                      2
+   As the time scale for heat conduction is much slower than that for mechanical
+wave equation, we use here the elliptic quasi-stationary deformation equation on the
+time dependent domain with forces f from thermal expansion and maybe gravitation
+on the right hand side,
+(2.6a)          − div (σ(u)) = f                                 in Ωs (t),
+(2.6b)                       u = gf ix                           on Γf ix (t),
+(2.6c)              −σ(u) · n = g2 (x, t)                        on Γf ree (t)
+or, expressing the stress tensor via the strain tensor,
+(2.7a)        −µ∆u − (µ + λ) grad div u = f                             in Ωs (t),
+(2.7b)                                       u = gf ix                  on Γf ix (t),
+(2.7c)         − (λ(tr((u)))I + 2µ(u)) · n = g2 (x, t)                on Γf ree (t).
+Here we chose Dirichlet boundary conditions to prescribe the displacement gf ix on
+a boundary part Γf ix (t) and Neumann boundary condition to apply external forces
+via a time and space dependent function g2 (x, t) on Γf ree (t), where the domain
+boundary is devided into
+                             ∂Ωs (t) = Γf ix (t) ∪ Γf ree (t).
+
+2.3. Coupled Problem. In this section we want to present the fully coupled ther-
+momechanical problem. So mainly we gather the above presented equations but
+we also introduce the coupling therms. We present the equations with emphasis on
+the dependencies between the different quantities.
+   Due to the slow time scale of heat conduction, we ignore effects of dissipation.
+Thus, only the mechanical effect of domain deformation enters the heat equation.
+For small deformations, this is typically ignored.
+   The coupling between temperature and deformation is due to thermoelastic-
+ity. The Lamé coefficients can be considered to be temperature dependent, and
+the stress tensor is augmented by a term for thermal expansion reflecting density
+changes due to heating and cooling,
+(2.8)            σ(u) = 2µ(θ)((u) + (λ(θ)tr((u)) − 3α(θ − θ0 )) I,
+with the thermal expansion coefficient α and initial temperature θ0 .
+            FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                        5
+
+
+
+
+                   Figure 3.1. 2D-Boolean-Dexel-Operations
+
+
+                     3. Thermomechanical Dexel model
+   The simulation of material removal processes can be done by the so called dexel
+(“depth pixel” or “depth picture element”) model [4, 9, 12, 15]. For the modelling
+of the material removal process during the simulation of cutting processes, three
+Boolean-Operations are used, see (Fig. 3.1). Due to the method of machining the
+most used operation is shorten, where the dexel-end- or startpoint is shifted. In
+the case of undercut operations the dexel is divided. If a dexel has to be divided
+an additional dexel has to be included in the raster of the model on same position
+and both dexel are shortened. The last Boolean-Operation is the deletion, which
+has to be called when all material in one field of the model is machined. In this
+case the dexel is set to an invalid status and no start- or endpoint exist.
+   To consider the thermomechanical effects in the material removal simulation, the
+dexel model has to be extended by thermomechanical information. Temperature
+and deformation of the workpiece are specific data that have to be known and
+transfered into the dexel model.
+   The data structure of the dexel model enables a geometric representation of
+the workpiece surface by discrete start and endpoints of the dexels (Fig. 3.3). In
+cutting operations only near-surface areas are machined. Caused by this fact, only
+information in these areas of the workpiece is relevant for the material removal
+simulation. Therefore, an extension of the existing structure is only necessary in
+the start and endpoints of the dexels. To consider temperature and deformation, a
+dexel point was extended by a temperature value and a deformation vector. Using a
+deformation vector instead of alternative methods, like shortening and lengthening
+of the dexel or shifting of dexel points, gives essential advances. These are:
+     • keeping the consistency of the workpiece model,
+     • easier linking to the FE model structure,
+     • parallel representation of the chilled workpiece by the basic dexel structure.
+   Current thermomechanical data, continuously imported from the FE model into
+the dexel structure, now allows considering the thermomechanical effects in the
+NC-Simulation. These effects are caused by the local temperature and the local
+deformation of the workpiece in the cutting zone, see Fig. 3.2.
+   The actual temperature of the workpiece has a major influence on the specific
+characteristics of the material like shear yield stress and therefore on the resulting
+cutting forces.
+   The deformation of the workpiece globally influences the dimension of depth ap
+and width ae of cut and the geometric representation of the workpiece. Therefore,
+the deformation determined by analyzing the sweep-surface DCPs is inversely pro-
+jected onto the cutting tool (Fig. 3.3). By this method, the thermomechanical
+6               C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+
+
+          Figure 3.2. Thermomeachanical extended Dexel-Structure
+
+
+
+
+           Figure 3.3. Considering thermomechanical Deformation
+
+deformation of the workpiece can be considered and the resulting shape errors can
+be predicted.
+
+                           4. Numerical approach
+   Numerical implementations of the thermoelastic model and the linking to the
+dexel model have been integrated via the finite element toolbox ALBERTA. How
+to handle the communication between the two models, to simulate the material
+removal, and to implement the boundary conditions for the PDE system is shown
+in this section.
+4.1. ALBERTA. To compute heat conduction as well as thermomechanical elas-
+tic (and maybe plastic) deformation of the workpiece, the equations are discretized
+and simulated by a FE simulation. We are using a FE model that is based on the
+adaptive finite element toolbox ALBERTA, [11]. This Toolbox is using unstruc-
+tured simplicial meshes, like tetrahedrons in 3D, together with local adaptive mesh
+refinement and coarsening for appropriate approximation of domain and solutions,
+which is crucial for the simulation of machining processes.
+4.2. Communication between FE and Dexel model. To consider the material
+removal of the dexel model also in the FE simulation, the two models are linked.
+This linking of the models is based on the interchange of parameters and values
+such as the geometry of the workpiece, the thermomechanical displacements of the
+workpiece as well as heat flux and process forces produced by the cutting process.
+   To realize the interchange of information between the two models, an XML
+based communication system was implemented, which is used at a given timestep,
+[13]. In this system the geometrical information of the workpiece surface and other
+             FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                             7
+
+
+
+
+ (a) Dexel representation in one (b) Interpolation of domain (c) Dexel – FE-mesh overlay
+ direction                       boundary with graph G
+
+
+                 Figure 4.1. Sketch of virtual-domain approach
+
+information given at the dexel points described by the dexel fields in different
+directions (x-, y- and z-direction) is provided to the FE model. The FE model uses
+the information of the workpiece surface to determine Ωs (t). Then the information
+of heat fluxes and process forces are projected on the boundary surface of ∂Ωs (t)
+(see Section 4.4) and the linear systems of heat conduction and deformation are
+solved. At last the numerical results of temperature and deformation are given
+back to the dexel model via the communication system. This enables the use of
+thermomechanical information in the material removal and process models.
+   A more detailed description, how to include geometrical data as well as local
+heat fluxes and process forces into the FE model is given in the next sections.
+4.3. Discretization of material removal in finite element method. The ma-
+terial removal simulation and thus time dependent domain is realized in the FE
+model by using a time dependent subdomain Ωs (t), which was considered first in
+Section 2.1.
+   Another approach to handle a time dependent domain might be a moving mesh
+approach, where the nodes are moved in every timestep in order to represent the cur-
+rent geometry. Due to large deformations by material removal, a frequent remeshing
+would be necessary in order to prevent distorted elements. Thus, the moving mesh
+approach is not used here.
+   We use a discrete approach on a fixed domain Ω = Ωs,h (t) ∪ Ωm,h (t) with an
+admissible triangulation              [
+                                 Ω=       S ⊂ Rd .
+                                        S∈S
+The mesh represents the full initial workpiece from which the finished workpiece
+is made. To implement material removal, appropriate simplizes S are ‘removed’
+respectively blinded out.
+   Determined by the current coordinates of the dexel endpoints from the dexel
+model (Fig. 4.1(a)), an interpolated piecewise bilinear surface G defines the current
+boundary surface of the time dependent domain, see Fig. 4.1(b). For each element
+of the triangulation, it is then easy to decide whether the element is fully outside
+of the current domain or not, Fig. 4.1(c). Such fully outside elements will not be
+considered anymore in the calculation and will thus be ignored during all following
+time steps of the simulation. The algorithm to set the discrete subdomain Ωs,h (t)
+respectively the removed subdomain Ωm,h (t) is as follows:
+4.1. Algorithm (Set subdomain).
+    subroutine set subdomain(S)
+      Ωs,h (t) = Ωm,h (t) = ∅
+8               C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+      for all S ∈ S do
+        get world coordinates of vertices n
+        for all n ∈ S do
+           loop over all dexelfields
+              find supporting points for n in the dexelfield
+              interpolate graph G over supporting points
+                  if n below interpolated graph G
+                     mark n as in subdomain
+                  else
+                     mark n as outside
+                  end if
+           end loop
+        end for
+        if one or more vertices n marked as in subdomain
+           Ωs,h (t) = Ωs,h (t) ∪ S
+        else
+           Ωm,h (t) = Ωm,h (t) ∪ S
+        end if
+      end do
+
+   To get a sufficiently good approximation of the current workpiece, a specific al-
+gorithm for control of the adaptive local mesh refinement is implemented. In order
+to have an accurate approximation of the workpiece surface with simplizes S, ap-
+propriate local refinement and coarsening operations are used. First, we introduce a
+specific refinement marking strategy in the local region near the moving workpiece
+surface ΓN,h (t).
+
+4.2. Algorithm (Marking simplex near the workpiece boundary for refinement).
+    subroutine refine subdomain(S)
+      do for S ∈ S
+         get world coordinates of vertices n
+         for all n ∈ S do
+           loop over all dexelfields
+              find supporting points in the dexelfield
+              interpolate graph G over supporting points
+              if graph G intersects simplex S and refine level < limit
+                 mark S for refinement
+              end if
+           end loop
+         end for
+      end do
+      refine mesh(S)
+
+   Here, we use again the bilinear interpolation of the dexel endpoint coordinates
+over each dexel field to define the surface graph G. Then we check whether G
+intersects the simplex S and whether the refinement level of this simplex is smaller
+than a given limit, which might be chosen before the simulation starts, or computed
+from approximation estimates for ΓN (t).
+   The algorithm of coarsening the mesh is a bit more involved. Here we have to
+check whether the simplex is located in the interior of Ωs,h (t), Ωm,h (t) or in the
+border zone between the two domains. While the simplizes in Ωm,h (t) might be
+coarsened without difficulties, the simplizes in Ωs,h (t) can only be coarsend with
+the standard adaptive strategies for FEM. In order to prevent a too coarse mesh in
+            FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                       9
+
+
+the border zone of the two domains, the coarsening is limited here. The algorithm
+for one simplex is as follows.
+4.3. Algorithm (Marking one simplex for coarsening).
+    subroutine coarse mark fct(S, S)
+      do for S ∈ S
+         if S → in subdomain = 0
+            mark = number of neighbor elements in subdomain
+            if mark = 0
+              mark S for coarsen
+            end if
+         else if S → in subdomain = 1
+            mark = number of neighbor elements in subdomain
+            if mark = number of neighbours
+              use FEM coarsen strategie
+            end if
+         else
+            if (refine level > limit)
+              mark S for coarsen
+            else
+              do nothing
+            end if
+         end if
+      end do
+      coarse mesh(S)
+  In this way, the heat and deformation equations are solved only on a subset
+Ωs,h (t) of the complete domain Ω as described in Section 2. With the given local
+adaptive refinement and coarsening algorithms, the time dependent domain and
+moving boundary can be approximated by the mesh as accurately as desired.
+4.4. Boundary data for the FE model. Boundary conditions are given by the
+process model, which is included in the dexel model. Neumann and / or Robin
+conditions, like heat flux and process forces, have now to be given on the boundary
+of the subdomain Ωs,h (t), which is at least partly composed of interior sides of
+elements of the original triangulation of Ω. We explain here in more detail, how to
+apply the boundary data on the discrete boundary ∂Ωs,h (t) in the FE simulation.
+   As known from Section 4.2, boundary data is given by the process model in-
+cluded in the dexel model. In the FE simulation, such data is included via the
+boundary conditions in heat conduction and deformation equations. During the
+approximation of the current workpiece surface ∂Ωs (t) with the refinement and
+coarsening algorithms described above, we typically get for the discretized ∂Ωs,h (t)
+a larger surface area, than for the relativly smooth surface given by the geometrical
+information from√  the dexel model. Locally, we may get a much larger surface area
+(a factor around 2 in 2D), see Figure 4.2(a).
+   Thus, a simple transfer of the boundary data g1 , g2 for heat flux and process
+force would induce an excessive warming respectively force effect. An adaption
+to the boundary discretization is necessary. A suitable scaling factor is given by
+the scalar product of the two normal vectors of the discretized and the continuous
+boundary which is the cosine of the enclosed angle α. This is given by
+                                                  nΓ · nΓh
+(4.1)                       cos α(nΓ , nΓh ) =
+                                               ||nΓ || · ||nΓh ||
+   In order to prevent that one of the computed normal vectors does not have the
+length 1, we use the above normalized representation.
+10                C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+
+
+        (a) Dexel field and FEM mesh overlay                 (b) Zoomed sketch for one simplex
+
+
+         Figure 4.2. Sketch of boundary attachment at the moving bound-
+         ary part
+
+   Through the different discretizations in FE and dexel models, only information
+on a few dexel points could be assigned on the boundary of a simplex S. To com-
+pensate for that, supporting points over all dexel fields are used for each quadrature
+point x of the suface of simplex S. These supporting points are used again for a
+bilinear interpolation of data. For the ith supporting point, i = 1, .., 4, we use heat
+flux data
+                                q̃i = qi · cos α(nh , ni )
+with heat flux qi given from the process model and normal vectors ni of the continu-
+ous surface ΓN (t) and nh of discrete boundary ΓN,h (t). With bilinear interpolation
+over each dexel field with interpolation operator Ih , we get finally for the discrete
+formulation of the Neumann boundary condition (2.3) the following data at a quad-
+rature point x,
+                                             d
+                                         1X
+                                            Ih x, q̃1k , q̃2k , q̃3k , q̃4k
+                                                                            
+(4.2)                    g1,h (x, t) =
+                                         d
+                                            k=1
+where d is the number of given dexel fields.
+   Analogous to this, we derive data g2,h for the weak formulation of the Neumann
+boundary condition of deformation equation (2.7c). For each supporting point we
+get
+                               f̃i = fi · cos α(nh , ni )
+with force vector fi and normal vectors as above. By interpolation, this gives for
+each quadrature point x on Γf ree,h (t)
+                                            d
+                                         1 X  k k k k
+(4.3)                   g2,h (x, t) =       Ih x, f̃1 , f̃2 , f̃3 , f̃4 .
+                                         d
+                                           k=1
+  Using these modifications of the boundary data from the dexel model, we get a
+good approximation of the total fluxes and forces in the FE model.
+
+                                          5. Results
+   We describe here the algorithm of our coupled dexel – finite element approach
+and present results from the simulation of a milling process.
+   The algorithm for the simulation is based on the interaction between the two
+models. After initialization of both models, communication is performed in each
+time step, see Algorithm (5.1).
+            FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                       11
+
+
+    First, the mapping of the current workpiece surface and the attached boundary
+data is transfered from the dexel model to the FE model. After solving the heat
+conduction and deformation equations based on these boundary data, the tempera-
+ture und deformation values at the dexel endpoints are computed. This information
+is transfered back to the dexel model. In the dexel model, the deformation is used
+in the next material removal simulation, and temperature values enter the process
+model for computation of forces and heat sources generated by the local machin-
+ing process. This is repeated for each time step until the final time tend of the
+simulation is reached.
+
+5.1. Algorithm (Coupling of dexel and finite element simulation).
+   initialization of dexel and FE model
+   do for each timestep
+     · data exchange from dexel to FE model
+     · in FE model
+        · mapping the workpiece surface
+        · attache boundary information
+        · solve heat equation
+        · solve deformation equation
+     · data exchange from FE to dexel model
+     · in dexel model
+        · mapping deformation information in the dexelfields
+        · do material removal simulation
+        · compute process forces
+        · compute heat fluxes
+   end do
+
+
+   We present now results from the thermomechanical simulation of a milling pro-
+cess, which was also done and measured experimentally.
+   The material of this workpiece is C45EN, original size is 40 × 195 × 40mm3 . In
+the process, a cavity is milled out of the cuboid, leaving a bar of 2mm thickness.
+The whole process included 26 rough and 7 fine machining steps.
+   Measurements included temperature as well as supporting and process forces.
+For measuring temperature, five thermoelements of type K (NiCr-Ni) with measure-
+ment amplifier SAK12-461-100-10 were inserted at different positions, see Figure
+5.1(c). For measuring forces, the workpiece was fixed between two dynamometers
+to get the workpiece statically determined. The supporting and process forces were
+measured by eddy current sensors from Kistler type 9257B and amplifier 5070A.
+The production of the component was done on a HELLER MCi16.
+   The Figures 5.1(a)-(d) show the subdomain approximation of material removal
+and temperature distribution on the surface at different times during roughing. A
+snap-shot of temperature distribution during finishing is given by Figure 5.1(e) and
+the final (nearly room) temperature distribution at the workpiece surface after fin-
+ishing is given in Figure 5.1(f). The figures show clearly that the heat enters in the
+current milling zone producing large temperature gradients, while the conduction
+of heat into the workpiece goes slowly.
+   Figure 5.2 depicts the temperature profiles at the five measuring points in ex-
+periment (Fig. 5.2(a)) and simulation (Fig. 5.2(b)). The profiles are quite similar
+to each other, but show some mismatches in the peaks, expecially for the finish-
+ing step. These discrepancies may result from imprecise boundary data and/or
+discretization issues and will be adressed in near future.
+12              C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+
+
+                (a) t = 3s                              (b) t = 123s
+
+
+
+
+               (c) t = 153s                             (d) t = 240s
+
+
+
+
+               (e) t = 345s                             (f) t = 550s
+
+
+        Figure 5.1. Simulation of milling process: workpiece with sur-
+        face temperature at different times
+
+
+
+                                  6. Summary
+   A simulation model for the identification of dimension and shape errors in ma-
+chining processes caused by thermomechanical effects has been derived by linking a
+thermomechanic finite element method with a dexel based material removal simula-
+tion. The coupled model already shows quite good correspondance between results
+from simulation and experiments.
+   Based on this model, we plan to develop a compensation strategy for thermome-
+chanically induced manufacturing imprecisions by adjusting in advance the process
+parameters and machining tool path plan.
+
+
+
+                              Acknowledgement
+   The authors gratefully acknowledge the financial support by the DFG (German
+Research Foundation) for the research project ”Thermomechanical Deformation of
+Complex Workpieces in Drilling and Milling Processes” (DE447/90-2, MA1657/21-
+2) within the DFG Priority Program 1480 ”Modeling, Simulation and Compensa-
+tion of Thermal Effects for Complex Machining Processes”.
+             FEM SIMULATION OF MACROSCOPIC MACHINING PROCESSES                               13
+
+
+
+
+                               (a) Temperature in experiment
+
+
+
+
+                                (b) Temperature in simulation
+
+
+
+
+                                    (c) Measuring points
+
+
+            Figure 5.2. Temperature over time on measuring points
+
+
+
+                                       References
+[1] J. W. Barrett and C. M. Elliott. A finite-element method for solving elliptic equations with
+    Neumann data on a curved boundary using unfitted meshes. IMA Journal of Numerical
+    Analysis, 4(3):309–325, 1984.
+14                 C. NIEBUHR, D. NIEDERWESTBERG, AND A. SCHMIDT
+
+
+ [2] J. W. Barrett and C. M. Elliott. Finite-element approximation of elliptic equations with a
+     Neumann or Robin condition on a curved boundary. IMA journal of numerical analysis,
+     8(3):321–342, 1988.
+ [3] J. W. Barrett, H. Garcke, and R. Nürnberg. Finite-Element Approximation of One-Sided
+     Stefan Problems with Anisotropic, Approximately Crystalline, Gibbs-Thomson Law. arXiv
+     preprint arXiv:1201.1802, 2012.
+ [4] M. O. Benouamer and D. Michelucci. Bridging the gap between CSG and Brep via a triple
+     ray representation. In Proceedings of the fourth ACM symposium on Solid modeling and
+     applications, pages 68–79. ACM, 1997.
+ [5] D. Biermann, S. Grünert, and M. Steiner. A macroscopic approach towards the finite element
+     simulation of tapping and thread milling of continuously reinforced extrusions. Production
+     Engineering, 4(6):607–613, 2010.
+ [6] B Denkena and C Ammermann. Modular Numerical Control Model Including Realistic Mo-
+     tion Planning. In International Conference on Product Lifecycle Management, 2010.
+ [7] B. Denkena, P. Maaß, D. Niederwestberg, and J. Vehmeyer. Identification of the specific
+     cutting force for complex cutting tools under varying cutting conditions. Int. J. of Maschine
+     Tools and Manufacture, 2014. submitted.
+ [8] B. Denkena, A. Schmidt, J. Henjes, D. Niederwestberg, and C. Niebuhr. Modeling a thermo-
+     mechanical NC-simulation. Procedia CIRP, 8:69–74, 2013.
+ [9] H. Muller, T. Surmann, M. Stautner, F. Albersmann, and K. Weinert. Online sculpting and
+     visualization of multi-dexel volumes. In Proceedings of the eighth ACM symposium on solid
+     modeling and applications, pages 258–261. ACM, 2003.
+[10] R Pabst, J Fleischer, and J Michna. Modelling of the heat input for face-milling processes.
+     CIRP Annals-Manufacturing Technology, 59(1):121–124, 2010.
+[11] A. Schmidt and K.G. Siebert. Design of Adaptive Finite Element Software: The Finite
+     Element Toolbox ALBERTA. Springer Heidelberg, 2005.
+[12] E. Ungemach, A. Zabel, T. Surmann, R. Joliet, and A. Schröder. Simulation of the Tem-
+     perature Distribution in NC-Milled Workpieces. Advanced Materials Research, 223:222–230,
+     2011.
+[13] B. Denkena V. Boess, J. Brüning. Concurrent Engineering Approaches for Sustainable Prod-
+     uct Development in multi-Disciplinary Environment. Springer London, 2013.
+[14] D. Niederwestberg B. Denkena V. Böß, C. Ammermann. Contact Zone Analysis Based on
+     Multidexel Workpiece Model and Detailed Tool Geometry. Procedia CIRP 4, 2012. published.
+[15] T. Van Hook. Real-time shaded NC milling display. In ACM SIGGRAPH Computer Graphics,
+     volume 20, pages 15–20. ACM, 1986.
+
+     The Center for Industrial Mathematics, University of Bremen, 28359 Bremen
+     E-mail address: niebuhr@math.uni-bremen.de
+
+  Institute of Production Engineering and Machine-Tools, Leibniz University of Han-
+nover, 30823 Garbsen
+  E-mail address: niederwestberg@ifw.uni-hannover.de
+
+     The Center for Industrial Mathematics, University of Bremen, 28359 Bremen
+     E-mail address: schmidt@math.uni-bremen.de
+

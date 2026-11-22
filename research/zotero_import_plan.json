@@ -1,0 +1,476 @@
+{
+  "destination": {
+    "library": "My Library",
+    "libraryID": 1,
+    "collection": "IWM",
+    "collectionID": 1,
+    "collectionKey": "CBS6V74B"
+  },
+  "paper_count": 50,
+  "document_count": 7,
+  "category_counts": {
+    "01 潜变量与模型式控制": 3,
+    "02 JEPA与特征预测": 4,
+    "03 可交互资产与仿真环境": 8,
+    "04 工业过程、生产与多机协同": 4,
+    "05 高斯表示与动态重建": 7,
+    "06 高斯与物理数字孪生": 5,
+    "07 生成式视频与交互模型": 5,
+    "08 三维动力学与场景图": 5,
+    "09 几何重建": 2,
+    "10 世界模型与物理评测": 3,
+    "11 形变、切削与材料去除": 11,
+    "12 标准与官方技术文档": 7
+  },
+  "items": [
+    {
+      "id": "P01",
+      "title": "World Models",
+      "primary_category": "latent",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P01_World_Models_1803.10122v4.pdf",
+      "sha256": "b0c1e30aab53efd28ddf61d661f680150918d4d03b77bae62bc52d62dbd76cce"
+    },
+    {
+      "id": "P02",
+      "title": "Mastering Diverse Domains through World Models",
+      "primary_category": "latent",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P02_DreamerV3_2301.04104v2.pdf",
+      "sha256": "d0385798e8bada8e81b915c1743be81d9ce8776f12ed937e09351995e099ce37"
+    },
+    {
+      "id": "P03",
+      "title": "TD-MPC2: Scalable, Robust World Models for Continuous Control",
+      "primary_category": "latent",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P03_TD_MPC2_2310.16828v2.pdf",
+      "sha256": "99832c555b66665ad1e26cd48e75ea9dda4f3750175b993e7ed5b8dfe399b9e0"
+    },
+    {
+      "id": "P04",
+      "title": "Revisiting Feature Prediction for Learning Visual Representations from Video",
+      "primary_category": "jepa",
+      "existing_records_preserved": [
+        "M4VIQN88"
+      ],
+      "source_pdf": "papers/P04_V_JEPA_2404.08471v1.pdf",
+      "sha256": "fb84f79be128e7425263e8674fbc3f2ec991575c4b5880556cfb8f5fa9fd91ba"
+    },
+    {
+      "id": "P05",
+      "title": "V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning",
+      "primary_category": "jepa",
+      "existing_records_preserved": [
+        "7BVMEUY3"
+      ],
+      "source_pdf": "papers/P05_V_JEPA_2_2506.09985v1.pdf",
+      "sha256": "9cfcfde5fb0d9730637da5b9e7317825c3f3d09e91f3553e22eeba42c74d2226"
+    },
+    {
+      "id": "P06",
+      "title": "V-JEPA 2.1: Unlocking Dense Features in Video Self-Supervised Learning",
+      "primary_category": "jepa",
+      "existing_records_preserved": [
+        "I364CNA8"
+      ],
+      "source_pdf": "papers/P06_V_JEPA_2_1_2603.14482v3.pdf",
+      "sha256": "b40580916242ade00e2ac177cb01473d511f021d5a25f7552fd17512b3a72bbb"
+    },
+    {
+      "id": "P07",
+      "title": "DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning",
+      "primary_category": "jepa",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P07_DINO_WM_2411.04983v2.pdf",
+      "sha256": "7683c366109c091a47b7ae8a3d6520131edd3db1a5aa594d74c7636d2f9745d6"
+    },
+    {
+      "id": "P08",
+      "title": "SAPIEN: A SimulAted Part-based Interactive ENvironment",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P08_SAPIEN_2003.08515v1.pdf",
+      "sha256": "03aa9317d6e6fe091e724d2b2114143f9da4bc72fa723a7122bcf2cec15057ce"
+    },
+    {
+      "id": "P09",
+      "title": "ManiSkill3: GPU Parallelized Robotics Simulation and Rendering for Generalizable Embodied AI",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P09_ManiSkill3_2410.00425v2.pdf",
+      "sha256": "0482cef460af5ca0dd09d2b1d0f499b996287d9dadec31b13ca60377a49ee80c"
+    },
+    {
+      "id": "P10",
+      "title": "Isaac Lab: A GPU-Accelerated Simulation Framework for Multi-Modal Robot Learning",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P10_Isaac_Lab_2511.04831v1.pdf",
+      "sha256": "f5b454fe245cdb1c485fe48c302494d689d335d375cd730fe0344113772bc8fa"
+    },
+    {
+      "id": "P11",
+      "title": "RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P11_RoboCasa_2406.02523v1.pdf",
+      "sha256": "7aca93ca3f157e32a46e02d675b3b2c24e3073a7807c038f7f566b73db87bde3"
+    },
+    {
+      "id": "P12",
+      "title": "RoboCasa365: A Large-Scale Simulation Framework for Training and Benchmarking Generalist Robots",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P12_RoboCasa365_2603.04356v1.pdf",
+      "sha256": "f3e6877b8de3dd471afb6951c1e067729e2a57c53fcb3d6daaa0f4af5080206b"
+    },
+    {
+      "id": "P13",
+      "title": "RoboFactory: Exploring Embodied Agent Collaboration with Compositional Constraints",
+      "primary_category": "factory",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P13_RoboFactory_2503.16408v1.pdf",
+      "sha256": "802941cb245dba969658f88f08619efc933cad095ddcfd3f30ef1d7da62088d6"
+    },
+    {
+      "id": "P14",
+      "title": "URDFormer: A Pipeline for Constructing Articulated Simulation Environments from Real-World Images",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P14_URDFormer_2405.11656v3.pdf",
+      "sha256": "2add59f2e2691afd9f8b72f135657e50d1a197fea7ebc31a0611ad79970ddc88"
+    },
+    {
+      "id": "P15",
+      "title": "Articulate-Anything: Automatic Modeling of Articulated Objects via a Vision-Language Foundation Model",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P15_Articulate_Anything_2410.13882v4.pdf",
+      "sha256": "ac7b28d9747634f700a503764f449ae7468c3cfded3c5f54064c130b9f02d473"
+    },
+    {
+      "id": "P16",
+      "title": "3D Gaussian Splatting for Real-Time Radiance Field Rendering",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P16_3D_Gaussian_Splatting_2308.04079v1.pdf",
+      "sha256": "f4c0c9f27e2d02b0265017f66049d471eb66cb50203bc918f51ba07d20cbbe11"
+    },
+    {
+      "id": "P17",
+      "title": "4D Gaussian Splatting for Real-Time Dynamic Scene Rendering",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P17_4D_Gaussian_Splatting_2310.08528v3.pdf",
+      "sha256": "3ed48987c72be26fe59778e382c145599a55f97456ea9a1e2711035a673264d6"
+    },
+    {
+      "id": "P18",
+      "title": "Dynamic 3D Gaussians: Tracking by Persistent Dynamic View Synthesis",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P18_Dynamic_3D_Gaussians_2308.09713v1.pdf",
+      "sha256": "54eb0093cf68b92812d038a17c57e38b002a23f680d43aa15419c2520c251571"
+    },
+    {
+      "id": "P19",
+      "title": "PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics",
+      "primary_category": "physics",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P19_PhysGaussian_2311.12198v3.pdf",
+      "sha256": "95b0b94d80e3161396235dbc67d0e0b0877f62b41a90c9921652dca05671eb47"
+    },
+    {
+      "id": "P20",
+      "title": "Reconstruction and Simulation of Elastic Objects with Spring-Mass 3D Gaussians",
+      "primary_category": "physics",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P20_Spring_Gaus_2403.09434v3.pdf",
+      "sha256": "03d88ab0f14a191f371d98b53c43ad45cafd392cb653722b672fd582853eab4e"
+    },
+    {
+      "id": "P21",
+      "title": "PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos",
+      "primary_category": "physics",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P21_PhysTwin_2503.17973v1.pdf",
+      "sha256": "79389c194d83177ac4d1ef076b5d358af823361dd75423cce5087e89f836e01f"
+    },
+    {
+      "id": "P22",
+      "title": "Robo-GS: A Physics Consistent Spatial-Temporal Model for Robotic Arm with Hybrid Representation",
+      "primary_category": "physics",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P22_Robo_GS_2408.14873v2.pdf",
+      "sha256": "06c3db194f9715c6eaa64726d03915704b49057c211aad0ae436d8bef98b1a26"
+    },
+    {
+      "id": "P23",
+      "title": "Dream to Manipulate: Compositional World Models Empowering Robot Imitation Learning with Imagination",
+      "primary_category": "physics",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P23_DreMa_2412.14957v2.pdf",
+      "sha256": "9ff51f7742dbbcf1e7f1647ae0f925c4da76628af015c95cba8c4b925322b1b3"
+    },
+    {
+      "id": "P24",
+      "title": "ManiGaussian: Dynamic Gaussian Splatting for Multi-task Robotic Manipulation",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P24_ManiGaussian_2403.08321v2.pdf",
+      "sha256": "b38311f0229d7589fbebd08629ab0ae6d37e652283476a0f506ef729fb290f5d"
+    },
+    {
+      "id": "P25",
+      "title": "ManiGaussian++: General Robotic Bimanual Manipulation with Hierarchical Gaussian World Model",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P25_ManiGaussian_PlusPlus_2506.19842v1.pdf",
+      "sha256": "fa3e3c8d42fec18ad0c4aede2ea8d2d86d7bf7c6d831aef79091207377078a3d"
+    },
+    {
+      "id": "P26",
+      "title": "ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects using 3D Gaussian Splatting",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P26_ArticulatedGS_2503.08135v2.pdf",
+      "sha256": "f47ea347e72e8f4ea5c25fe6ee259f399470df487a20e46f6c447d8cc5212e1d"
+    },
+    {
+      "id": "P27",
+      "title": "ArtiTwinSplat: Interactable Digital Twin Reconstruction via Gaussian Splatting from RGB-D videos",
+      "primary_category": "gaussian",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P27_ArtiTwinSplat_2606.24628v1.pdf",
+      "sha256": "8454590816561c12925ec38c34aa59b304ce6180e4c2e395a5279900ddad4efa"
+    },
+    {
+      "id": "P28",
+      "title": "Cosmos World Foundation Model Platform for Physical AI",
+      "primary_category": "video",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P28_Cosmos_2501.03575v3.pdf",
+      "sha256": "c3c61f0a6f9a32700fc47d9898db573628d72bdea07562ca319ceba046e95c84"
+    },
+    {
+      "id": "P29",
+      "title": "Cosmos 3: Omnimodal World Models for Physical AI",
+      "primary_category": "video",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P29_Cosmos_3_2606.02800v4.pdf",
+      "sha256": "df058bd2447fbdd83d13fd63be60a8b0aceb00ef6e50ba428b0a6bdbbed64b8d"
+    },
+    {
+      "id": "P30",
+      "title": "Genie: Generative Interactive Environments",
+      "primary_category": "video",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P30_Genie_2402.15391v1.pdf",
+      "sha256": "94c63a5ced89355326706c88236591c2972ced12f3dece4f8982f020110c81f3"
+    },
+    {
+      "id": "P31",
+      "title": "Learning to Simulate Complex Physics with Graph Networks",
+      "primary_category": "structured",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P31_Graph_Network_Simulator_2002.09405v2.pdf",
+      "sha256": "4eee6d40f0015c7f14d468460836389a60af636a3917c284c8124b0704a57aaf"
+    },
+    {
+      "id": "P32",
+      "title": "Learning Mesh-Based Simulation with Graph Networks",
+      "primary_category": "structured",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P32_MeshGraphNets_2010.03409v4.pdf",
+      "sha256": "d5a9e09b4b8d559121bc67cbaa020fe61326cc8296637cb4dab4dc86d495f625"
+    },
+    {
+      "id": "P33",
+      "title": "ConceptGraphs: Open-Vocabulary 3D Scene Graphs for Perception and Planning",
+      "primary_category": "structured",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P33_ConceptGraphs_2309.16650v1.pdf",
+      "sha256": "1435b96cea1e15a8e1c07ea75a5805c8520925a176817aa78a5a5a178a4b2002"
+    },
+    {
+      "id": "P34",
+      "title": "Hydra: A Real-time Spatial Perception System for 3D Scene Graph Construction and Optimization",
+      "primary_category": "structured",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P34_Hydra_2201.13360v2.pdf",
+      "sha256": "f8a6c42e10987fa59a1928a8cc528536585c24288655a4e6547ac63aed169853"
+    },
+    {
+      "id": "P35",
+      "title": "DUSt3R: Geometric 3D Vision Made Easy",
+      "primary_category": "reconstruction",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P35_DUSt3R_2312.14132v3.pdf",
+      "sha256": "400fea3f874aed6a9570a0651a701c2a3c635dcfbc2159348e04e83013a0099a"
+    },
+    {
+      "id": "P36",
+      "title": "VGGT: Visual Geometry Grounded Transformer",
+      "primary_category": "reconstruction",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P36_VGGT_2503.11651v1.pdf",
+      "sha256": "5d7ab44d129172f39ef5918feb0014c4d041fd0e92f995d4dbbd7327a6e91d52"
+    },
+    {
+      "id": "P37",
+      "title": "Learning Actionable World Models for Industrial Process Control",
+      "primary_category": "factory",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P37_Industrial_Process_JEPA_2503.01411v3.pdf",
+      "sha256": "322e6efaab384e60faf6797ee3da5e2309d85ef2118fdd13e08589f072a022b1"
+    },
+    {
+      "id": "P38",
+      "title": "LLM-Based Exogenous World Modeling for Dynamic Scheduling",
+      "primary_category": "factory",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P38_AWMP_Dynamic_Scheduling_2610.29308v1.pdf",
+      "sha256": "592a7499fcab05099c9e84915d337876e25ee5e72377ec2d69cf3e1f6c781b8f"
+    },
+    {
+      "id": "P39",
+      "title": "Learning Multi-Agent Task Assignment and Navigation in the Factory: from Simulation to Real Robots",
+      "primary_category": "factory",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P39_FMAPPO_Machine_Tending_2609.14567v1.pdf",
+      "sha256": "683049592d71528c7beda19f3ced8a455417870c38dd87f6938896090a13de38"
+    },
+    {
+      "id": "P40",
+      "title": "GRUtopia: Dream General Robots in a City at Scale",
+      "primary_category": "asset",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P40_GRUtopia_2407.10943v1.pdf",
+      "sha256": "a9313365280d8b7f0e96880ee058af119c8ed5953a05753bda6c38ed161190db"
+    },
+    {
+      "id": "P41",
+      "title": "WorldModelBench: Judging Video Generation Models As World Models",
+      "primary_category": "evaluation",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P41_WorldModelBench_2502.20694v1.pdf",
+      "sha256": "06d9fc1ba30f12e751b2e38f17ce591118575c7d10bf19720b70c2f73ccf7e4d"
+    },
+    {
+      "id": "P42",
+      "title": "PhysBench: Benchmarking and Enhancing Vision-Language Models for Physical World Understanding",
+      "primary_category": "evaluation",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P42_PhysBench_2501.16411v2.pdf",
+      "sha256": "0ad58867a2880bfa94883f482895b5bb4ddf4979fb0f22361047060a7d39a6cb"
+    },
+    {
+      "id": "P43",
+      "title": "Learning Interactive Real-World Simulators",
+      "primary_category": "video",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P43_UniSim_2310.06114v3.pdf",
+      "sha256": "956d21809f36cc107c82b3a32177ea555cacf032b3bde014fed1b958bc09c295"
+    },
+    {
+      "id": "P44",
+      "title": "PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation",
+      "primary_category": "structured",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P44_PointWorld_2601.03782v1.pdf",
+      "sha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08"
+    },
+    {
+      "id": "P45",
+      "title": "iVideoGPT: Interactive VideoGPTs are Scalable World Models",
+      "primary_category": "video",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P45_iVideoGPT_2405.15223v3.pdf",
+      "sha256": "e79681befb89de01b4ecbb1abe0f4fa15b60420fe195371f95dcc8b607251984"
+    },
+    {
+      "id": "P46",
+      "title": "DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting",
+      "primary_category": "cutting",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P46_DiSECt_2203.10263v1.pdf",
+      "sha256": "6cd48d43a0a0209b73ab5434290f48fc4dd22de1485136a66b04e4c9cef54cb8"
+    },
+    {
+      "id": "P47",
+      "title": "GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials",
+      "primary_category": "cutting",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P47_GaussianFluent_2601.09265v1.pdf",
+      "sha256": "246a4f8c95e0b469e35d12f06ce6d80e084382c29e900b56d17ebb1eecc9749b"
+    },
+    {
+      "id": "P48",
+      "title": "Coupled Dynamic Simulator With Tri-Dexel Milling Module For Robotic Machining Operations",
+      "primary_category": "cutting",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P48_Tri_Dexel_Robotic_Machining_author-manuscript.pdf",
+      "sha256": "afd59d36884eabd3c0ab52b872da41efe7df5942e59a133dd0ea95de1cd99390"
+    },
+    {
+      "id": "P49",
+      "title": "GaussianBench: Physics-Fidelity Evaluation for Gaussian Scene Representations",
+      "primary_category": "evaluation",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P49_GaussianBench_2610.10554v1.pdf",
+      "sha256": "1aeab3233236f3a68f7a1fce25f5b61e361d7e2333adfaf3423c18656d541868"
+    },
+    {
+      "id": "P50",
+      "title": "Finite Element Simulation of macroscopic Machining Processes - Implementation of time dependent Domain and Boundary Conditions",
+      "primary_category": "cutting",
+      "existing_records_preserved": [],
+      "source_pdf": "papers/P50_Thermomechanical_Machining_FEM_Report-14-01.pdf",
+      "sha256": "53d03d57dd38603e53b0f0685bacc43aa2c4c19908e57e49bbe37ea96c38abff"
+    },
+    {
+      "id": "S1",
+      "title": "OpenUSD official documentation",
+      "primary_category": "standards",
+      "source_url": "https://openusd.org/release/index.html"
+    },
+    {
+      "id": "S2",
+      "title": "OPC UA for Machine Tools, Part 1 — Information Model Overview",
+      "primary_category": "standards",
+      "source_url": "https://reference.opcfoundation.org/specs/OPC-40501-1/6"
+    },
+    {
+      "id": "S3",
+      "title": "MTConnect Part 2 — Device Information Model, 2.1.0",
+      "primary_category": "standards",
+      "source_url": "https://docs.mtconnect.org/MBSD_MTConnect_Part_2_2-1-0.pdf"
+    },
+    {
+      "id": "S4",
+      "title": "Functional Mock-up Interface Specification, 3.0.2",
+      "primary_category": "standards",
+      "source_url": "https://fmi-standard.org/docs/3.0.2/"
+    },
+    {
+      "id": "S5",
+      "title": "OpenUSD — UsdGeomMesh Class Reference",
+      "primary_category": "standards",
+      "source_url": "https://openusd.org/release/api/class_usd_geom_mesh.html"
+    },
+    {
+      "id": "S6",
+      "title": "PhysX SDK 5.8.0 — Deformable Volume",
+      "primary_category": "standards",
+      "source_url": "https://nvidia-omniverse.github.io/PhysX/physx/5.8.0/docs/DeformableVolume.html"
+    },
+    {
+      "id": "S7",
+      "title": "ovphysx SDK — Deformable Bodies",
+      "primary_category": "standards",
+      "source_url": "https://nvidia-omniverse.github.io/PhysX/ovphysx/latest/simulation_setup/deformables.html"
+    }
+  ],
+  "rdf_file": "/home/dlts/工业世界模型/papers/IWM_zotero_import.rdf"
+}

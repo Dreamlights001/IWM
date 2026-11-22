@@ -1,0 +1,26 @@
+{
+  "id": "P03",
+  "slug": "TD_MPC2",
+  "arxiv_id": "2310.16828",
+  "family": "latent",
+  "source_url": "https://arxiv.org/abs/2310.16828",
+  "accessed": "2026-11-09",
+  "title": "TD-MPC2: Scalable, Robust World Models for Continuous Control",
+  "authors": [
+    "Hansen, Nicklas",
+    "Su, Hao",
+    "Wang, Xiaolong"
+  ],
+  "publication_date": "2023/10/25",
+  "submitted_date": "2024/03/21",
+  "abstract": " TD-MPC is a model-based reinforcement learning (RL) algorithm that performs local trajectory optimization in the latent space of a learned implicit (decoder-free) world model. In this work, we present TD-MPC2: a series of improvements upon the TD-MPC algorithm. We demonstrate that TD-MPC2 improves significantly over baselines across 104 online RL tasks spanning 4 diverse task domains, achieving consistently strong results with a single set of hyperparameters. We further show that agent capabilities increase with model and data size, and successfully train a single 317M parameter agent to perform 80 tasks across multiple task domains, embodiments, and action spaces. We conclude with an account of lessons, opportunities, and risks associated with large TD-MPC2 agents. Explore videos, models, data, code, and more at this https URL",
+  "submission_history": "Submission history From: Nicklas Hansen [ view email ] [v1] Wed, 25 Oct 2023 17:57:07 UTC (6,789 KB) [v2] Thu, 21 Mar 2024 17:56:19 UTC (6,855 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2310.16828v2",
+  "local_pdf": "papers/P03_TD_MPC2_2310.16828v2.pdf",
+  "sha256": "99832c555b66665ad1e26cd48e75ea9dda4f3750175b993e7ed5b8dfe399b9e0",
+  "bytes": 7858004,
+  "pages": 31,
+  "text_file": "research/P03_TD_MPC2.txt",
+  "status": "downloaded_and_text_extracted"
+}

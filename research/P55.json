@@ -1,0 +1,28 @@
+{
+  "id": "P55",
+  "slug": "LeWorldModel",
+  "arxiv_id": "2603.19312",
+  "family": "jepa",
+  "source_url": "https://arxiv.org/abs/2603.19312",
+  "accessed": "2026-11-11",
+  "title": "LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels",
+  "authors": [
+    "Maes, Lucas",
+    "Lidec, Quentin Le",
+    "Scieur, Damien",
+    "LeCun, Yann",
+    "Balestriero, Randall"
+  ],
+  "publication_date": "2026/03/13",
+  "submitted_date": "2026/06/03",
+  "abstract": " Joint Embedding Predictive Architectures (JEPAs) offer a compelling framework for learning world models in compact latent spaces, yet existing methods remain fragile, relying on complex multi-term losses, exponential moving averages, pre-trained encoders, or auxiliary supervision to avoid representation collapse. In this work, we introduce LeWorldModel (LeWM), the first JEPA that trains stably end-to-end from raw pixels using only two loss terms: a next-embedding prediction loss and a regularizer enforcing Gaussian-distributed latent embeddings. This reduces tunable loss hyperparameters from six to one compared to the only existing end-to-end alternative. With ~15M parameters trainable on a single GPU in a few hours, LeWM plans up to 48x faster than foundation-model-based world models while remaining competitive across diverse 2D and 3D control tasks. Beyond control, we show that LeWM's latent space encodes meaningful physical structure through probing of physical quantities. Surprise evaluation confirms that the model reliably detects physically implausible events.",
+  "submission_history": "Submission history From: Lucas Maes [ view email ] [v1] Fri, 13 Mar 2026 19:48:14 UTC (4,454 KB) [v2] Tue, 24 Mar 2026 20:31:23 UTC (4,454 KB) [v3] Wed, 3 Jun 2026 18:50:40 UTC (4,478 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2603.19312v3",
+  "local_pdf": "papers/P55_LeWorldModel_2603.19312v3.pdf",
+  "sha256": "553a01501ac74ec56721cfdb936d3825ac941734133a1fd761f614c01b6887e9",
+  "bytes": 5661568,
+  "pages": 28,
+  "text_file": "research/P55_LeWorldModel.txt",
+  "status": "downloaded_and_text_extracted"
+}

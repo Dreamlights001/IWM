@@ -1,0 +1,30 @@
+{
+  "id": "P45",
+  "slug": "iVideoGPT",
+  "arxiv_id": "2405.15223",
+  "family": "video",
+  "source_url": "https://arxiv.org/abs/2405.15223",
+  "accessed": "2026-11-09",
+  "title": "iVideoGPT: Interactive VideoGPTs are Scalable World Models",
+  "authors": [
+    "Wu, Jialong",
+    "Yin, Shaofeng",
+    "Feng, Ningya",
+    "He, Xu",
+    "Li, Dong",
+    "Hao, Jianye",
+    "Long, Mingsheng"
+  ],
+  "publication_date": "2024/05/24",
+  "submitted_date": "2024/10/31",
+  "abstract": " World models empower model-based agents to interactively explore, reason, and plan within imagined environments for real-world decision-making. However, the high demand for interactivity poses challenges in harnessing recent advancements in video generative models for developing world models at scale. This work introduces Interactive VideoGPT (iVideoGPT), a scalable autoregressive transformer framework that integrates multimodal signals--visual observations, actions, and rewards--into a sequence of tokens, facilitating an interactive experience of agents via next-token prediction. iVideoGPT features a novel compressive tokenization technique that efficiently discretizes high-dimensional visual observations. Leveraging its scalable architecture, we are able to pre-train iVideoGPT on millions of human and robotic manipulation trajectories, establishing a versatile foundation that is adaptable to serve as interactive world models for a wide range of downstream tasks. These include action-conditioned video prediction, visual planning, and model-based reinforcement learning, where iVideoGPT achieves competitive performance compared with state-of-the-art methods. Our work advances the development of interactive general world models, bridging the gap between generative video models and practical model-based reinforcement learning applications. Code and pre-trained models are available at this https URL .",
+  "submission_history": "Submission history From: Jialong Wu [ view email ] [v1] Fri, 24 May 2024 05:29:12 UTC (17,601 KB) [v2] Sun, 2 Jun 2024 09:44:20 UTC (17,601 KB) [v3] Thu, 31 Oct 2024 08:58:08 UTC (20,524 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2405.15223v3",
+  "local_pdf": "papers/P45_iVideoGPT_2405.15223v3.pdf",
+  "sha256": "e79681befb89de01b4ecbb1abe0f4fa15b60420fe195371f95dcc8b607251984",
+  "bytes": 21791591,
+  "pages": 31,
+  "text_file": "research/P45_iVideoGPT.txt",
+  "status": "downloaded_and_text_extracted"
+}

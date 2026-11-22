@@ -1,0 +1,31 @@
+{
+  "id": "P13",
+  "slug": "RoboFactory",
+  "arxiv_id": "2503.16408",
+  "family": "factory",
+  "source_url": "https://arxiv.org/abs/2503.16408",
+  "accessed": "2026-11-09",
+  "title": "RoboFactory: Exploring Embodied Agent Collaboration with Compositional Constraints",
+  "authors": [
+    "Qin, Yiran",
+    "Kang, Li",
+    "Song, Xiufeng",
+    "Yin, Zhenfei",
+    "Liu, Xiaohong",
+    "Liu, Xihui",
+    "Zhang, Ruimao",
+    "Bai, Lei"
+  ],
+  "publication_date": "2025/03/20",
+  "submitted_date": "2025/03/20",
+  "abstract": " Designing effective embodied multi-agent systems is critical for solving complex real-world tasks across domains. Due to the complexity of multi-agent embodied systems, existing methods fail to automatically generate safe and efficient training data for such systems. To this end, we propose the concept of compositional constraints for embodied multi-agent systems, addressing the challenges arising from collaboration among embodied agents. We design various interfaces tailored to different types of constraints, enabling seamless interaction with the physical world. Leveraging compositional constraints and specifically designed interfaces, we develop an automated data collection framework for embodied multi-agent systems and introduce the first benchmark for embodied multi-agent manipulation, RoboFactory. Based on RoboFactory benchmark, we adapt and evaluate the method of imitation learning and analyzed its performance in different difficulty agent tasks. Furthermore, we explore the architectures and training strategies for multi-agent imitation learning, aiming to build safe and efficient embodied multi-agent systems.",
+  "submission_history": "Submission history From: Yiran Qin [ view email ] [v1] Thu, 20 Mar 2025 17:58:38 UTC (14,449 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2503.16408v1",
+  "local_pdf": "papers/P13_RoboFactory_2503.16408v1.pdf",
+  "sha256": "802941cb245dba969658f88f08619efc933cad095ddcfd3f30ef1d7da62088d6",
+  "bytes": 9985478,
+  "pages": 18,
+  "text_file": "research/P13_RoboFactory.txt",
+  "status": "downloaded_and_text_extracted"
+}

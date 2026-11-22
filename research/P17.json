@@ -1,0 +1,32 @@
+{
+  "id": "P17",
+  "slug": "4D_Gaussian_Splatting",
+  "arxiv_id": "2310.08528",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2310.08528",
+  "accessed": "2026-11-09",
+  "title": "4D Gaussian Splatting for Real-Time Dynamic Scene Rendering",
+  "authors": [
+    "Wu, Guanjun",
+    "Yi, Taoran",
+    "Fang, Jiemin",
+    "Xie, Lingxi",
+    "Zhang, Xiaopeng",
+    "Wei, Wei",
+    "Liu, Wenyu",
+    "Tian, Qi",
+    "Wang, Xinggang"
+  ],
+  "publication_date": "2023/10/12",
+  "submitted_date": "2024/07/15",
+  "abstract": " Representing and rendering dynamic scenes has been an important but challenging task. Especially, to accurately model complex motions, high efficiency is usually hard to guarantee. To achieve real-time dynamic scene rendering while also enjoying high training and storage efficiency, we propose 4D Gaussian Splatting (4D-GS) as a holistic representation for dynamic scenes rather than applying 3D-GS for each individual frame. In 4D-GS, a novel explicit representation containing both 3D Gaussians and 4D neural voxels is proposed. A decomposed neural voxel encoding algorithm inspired by HexPlane is proposed to efficiently build Gaussian features from 4D neural voxels and then a lightweight MLP is applied to predict Gaussian deformations at novel timestamps. Our 4D-GS method achieves real-time rendering under high resolutions, 82 FPS at an 800$\\times$800 resolution on an RTX 3090 GPU while maintaining comparable or better quality than previous state-of-the-art methods. More demos and code are available at this https URL .",
+  "submission_history": "Submission history From: Taoran Yi [ view email ] [v1] Thu, 12 Oct 2023 17:21:41 UTC (10,799 KB) [v2] Thu, 7 Dec 2023 12:03:20 UTC (8,489 KB) [v3] Mon, 15 Jul 2024 12:34:51 UTC (10,113 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2310.08528v3",
+  "local_pdf": "papers/P17_4D_Gaussian_Splatting_2310.08528v3.pdf",
+  "sha256": "3ed48987c72be26fe59778e382c145599a55f97456ea9a1e2711035a673264d6",
+  "bytes": 4431798,
+  "pages": 15,
+  "text_file": "research/P17_4D_Gaussian_Splatting.txt",
+  "status": "downloaded_and_text_extracted"
+}

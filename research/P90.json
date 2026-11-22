@@ -1,0 +1,30 @@
+{
+  "id": "P90",
+  "slug": "SAGA",
+  "arxiv_id": "2312.00860",
+  "family": "segmentation",
+  "source_url": "https://arxiv.org/abs/2312.00860",
+  "accessed": "2026-11-11",
+  "title": "Segment Any 3D Gaussians",
+  "authors": [
+    "Cen, Jiazhong",
+    "Fang, Jiemin",
+    "Yang, Chen",
+    "Xie, Lingxi",
+    "Zhang, Xiaopeng",
+    "Shen, Wei",
+    "Tian, Qi"
+  ],
+  "publication_date": "2023/12/01",
+  "submitted_date": "2025/02/05",
+  "abstract": " This paper presents SAGA (Segment Any 3D GAussians), a highly efficient 3D promptable segmentation method based on 3D Gaussian Splatting (3D-GS). Given 2D visual prompts as input, SAGA can segment the corresponding 3D target represented by 3D Gaussians within 4 ms. This is achieved by attaching an scale-gated affinity feature to each 3D Gaussian to endow it a new property towards multi-granularity segmentation. Specifically, a scale-aware contrastive training strategy is proposed for the scale-gated affinity feature learning. It 1) distills the segmentation capability of the Segment Anything Model (SAM) from 2D masks into the affinity features and 2) employs a soft scale gate mechanism to deal with multi-granularity ambiguity in 3D segmentation through adjusting the magnitude of each feature channel according to a specified 3D physical scale. Evaluations demonstrate that SAGA achieves real-time multi-granularity segmentation with quality comparable to state-of-the-art methods. As one of the first methods addressing promptable segmentation in 3D-GS, the simplicity and effectiveness of SAGA pave the way for future advancements in this field. Our code will be released.",
+  "submission_history": "Submission history From: Jiazhong Cen [ view email ] [v1] Fri, 1 Dec 2023 17:15:24 UTC (36,661 KB) [v2] Mon, 27 May 2024 10:24:31 UTC (29,011 KB) [v3] Wed, 5 Feb 2025 11:25:47 UTC (25,629 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2312.00860v3",
+  "local_pdf": "papers/P90_SAGA_2312.00860v3.pdf",
+  "sha256": "3f6e9f2e0b191db3fd4ee64cc9124fd86eb51cfd9a3c72ab15f778ebc9d9bd7c",
+  "bytes": 36030379,
+  "pages": 15,
+  "text_file": "research/P90_SAGA.txt",
+  "status": "downloaded_and_text_extracted"
+}

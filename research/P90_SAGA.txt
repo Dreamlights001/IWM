@@ -1,0 +1,702 @@
+                                                                                        Segment Any 3D Gaussians
+                                          Jiazhong Cen1 , Jiemin Fang2 , Chen Yang1 , Lingxi Xie2 , Xiaopeng Zhang2 , Wei Shen1 * , Qi Tian2
+                                                               1
+                                                                   MoE Key Lab of Artificial Intelligence, AI Institute, Shanghai Jiao Tong University
+                                                                                          2
+                                                                                            Huawei Technologies Co., Ltd.
+                                                                                {jiazhongcen, ycyangchen, wei.shen}@sjtu.edu.cn,
+                                                                       {jaminfong, 198808xc, zxphistory}@gmail.com, tian.qi1@huawei.com
+arXiv:2312.00860v3 [cs.CV] 5 Feb 2025
+
+
+
+
+                                                                      Abstract                                 radiance fields, the explicit 3D Gaussian structure is an ideal
+                                                                                                               carrier for 3D segmentation, as segmentation capabilities
+                                          This paper presents SAGA (Segment Any 3D GAussians), a
+                                                                                                               can be integrated into 3D-GS as an intrinsic attribute, with-
+                                          highly efficient 3D promptable segmentation method based
+                                          on 3D Gaussian Splatting (3D-GS). Given 2D visual prompts            out necessitating an additional bulky segmentation module.
+                                          as input, SAGA can segment the corresponding 3D target rep-
+                                          resented by 3D Gaussians within 4 ms. This is achieved by at-           Accordingly, we propose SAGA (Segment Any 3D
+                                          taching an scale-gated affinity feature to each 3D Gaussian to       GAussians), a 3D promptable segmentation method that in-
+                                          endow it a new property towards multi-granularity segmenta-          tegrates the segmentation capabilities of SAM into 3D-GS
+                                          tion. Specifically, a scale-aware contrastive training strategy      seamlessly. SAGA takes 2D visual prompts as input and out-
+                                          is proposed for the scale-gated affinity feature learning. It 1)     puts the corresponding 3D target represented by 3D Gaus-
+                                          distills the segmentation capability of the Segment Anything
+                                          Model (SAM) from 2D masks into the affinity features and
+                                                                                                               sians. To achieve this purpose, two primary challenges are
+                                          2) employs a soft scale-gate mechanism to deal with multi-           faced. First, SAGA should figure out an efficient way to en-
+                                          granularity ambiguity in 3D segmentation through adjusting           dow each 3D Gaussian with the ability of 3D segmentation,
+                                          the magnitude of each feature channel according to a speci-          so that the high efficiency of 3D-GS can be preserved. Sec-
+                                          fied 3D physical scale. Evaluations demonstrate that SAGA            ond, as a robust promptable segmentation method, SAGA
+                                          achieves real-time multi-granularity segmentation with qual-         must effectively address multi-granularity ambiguity, where
+                                          ity comparable to state-of-the-art methods. As one of the first      a single 3D Gaussian may belong to different parts or objects
+                                          methods addressing promptable segmentation in 3D-GS, the             at varying levels of granularity.
+                                          simplicity and effectiveness of SAGA pave the way for future
+                                          advancements in this field.
+                                                                                                                  To address the two challenges, SAGA respectively intro-
+                                        Code — https://github.com/Jumpat/SegAnyGAussians                       duces two solutions. First, SAGA attaches an affinity fea-
+                                                                                                               ture to each 3D Gaussian in a scene to endow it with a
+                                                                                                               new property towards segmentation. The similarity between
+                                                             1       Introduction                              two affinity features indicates whether the corresponding 3D
+                                                                                                               Gaussians belong to the same 3D target. Second, inspired by
+                                        Promptable segmentation has attracted increasing attention             GARField (Kim et al. 2024), SAGA employs a soft scale-
+                                        and has seen significant advancements, particularly with the           gate mechanism to handle multi-granularity ambiguity. De-
+                                        development of 2D segmentation foundation models such as               pending on a specified 3D physical scale, the scale gate ad-
+                                        the Segment Anything Model (SAM) (Kirillov et al. 2023).               justs the magnitude of each feature channel. This mechanism
+                                        However, 3D promptable segmentation remains relatively                 maps the Gaussian affinity features into different sub-spaces
+                                        unexplored due to the scarcity of 3D data and the high cost of         for various scales, thereby preserving the multi-granularity
+                                        annotation. To address these challenges, many studies (Cen             information and meanwhile mitigating the distraction in fea-
+                                        et al. 2023; Chen et al. 2023; Ying et al. 2024; Kim et al.            ture learning brought by multi-granularity ambiguity. To re-
+                                        2024; Fan et al. 2023; Liu et al. 2024b) have proposed to              alize the two solutions, SAGA proposes a scale-aware con-
+                                        extend SAM’s 2D segmentation capabilities to 3D using ra-              trastive training strategy, which distills the segmentation ca-
+                                        diance fields, achieving notable success.                              pability of SAM from 2D masks into scale-gated affinity
+                                           In this paper, we focus on promptable segmentation in 3D            features. This strategy determines the correlations between
+                                        Gaussian Splatting (3D-GS) (Kerbl et al. 2023), which rep-             a pair of pixels within an image based on 3D scales. These
+                                        resents a significant milestone in radiance fields research due        correlations are then used to supervise the rendered affinity
+                                        to its superior rendering quality and efficiency compared to           features through a correspondence distillation loss. The cor-
+                                        its predecessors. We highlight that, in contrast to previous           relation information is transmitted to the Gaussian affinity
+                                            * Corresponding author                                             features via backpropagation facilitated by the differentiable
+                                        Copyright © 2025, Association for the Advancement of Artificial        rasterization algorithm. After training, SAGA achieves real-
+                                        Intelligence (www.aaai.org). All rights reserved.                      time multi-granularity segmentation precisely.
+  Figure 1: SAGA performs promptable multi-granularity segmentation within milliseconds. Prompts are marked by points.
+
+
+                   2    Related Work                             visual features to 3D by training additional feature fields
+                                                                 that can output 2D feature maps, imitating the original
+2D Promptable Segmentation The task of 2D prompt-
+                                                                 2D features from different views. NeRF-SOS (Fan et al.
+able segmentation is proposed by Kirillov et al. (2023),
+                                                                 2023) and ContrastiveLift (Bhalgat et al. 2023) distill the
+which aims to return segmentation masks given input
+                                                                 2D feature similarities into 3D features. There are also some
+prompts that specify the segmentation target in an image.
+                                                                 other instance segmentation and semantic segmentation ap-
+To address this problem, they introduce the Segment Any-
+                                                                 proaches (Stelzner, Kersting, and Kosiorek 2021; Niemeyer
+thing Model (SAM), a groundbreaking segmentation foun-
+                                                                 and Geiger 2021; Yu, Guibas, and Wu 2022; Liu et al. 2022,
+dation model. A similar model to SAM is SEEM (Zou et al.
+                                                                 2023c; Bing, Chen, and Yang 2023; Fu et al. 2022; Vora et al.
+2023), which also achieves competitive performance. Prior
+                                                                 2022; Siddiqui et al. 2023) for radiance fields. Combined
+to these models, the most closely related task to promptable
+                                                                 with CLIP (Radford et al. 2021), some approaches (Kerr
+2D segmentation is interactive image segmentation (Boykov
+                                                                 et al. 2023; Liu et al. 2023a; Bhalgat et al. 2024; Qin et al.
+and Jolly 2001; Grady 2006; Gulshan et al. 2010; Rother,
+                                                                 2024) proposed to conduct open-vocabulary 3D segmenta-
+Kolmogorov, and Blake 2004; Chen et al. 2022b; Sofiiuk,
+                                                                 tion in radiance fields. With the popularity of SAM, a stream
+Petrov, and Konushin 2022; Liu et al. 2023b). Inspired by
+                                                                 of studies (Kim et al. 2024; Ying et al. 2024; Ye et al.
+the success of SAM, many studies (Yang et al. 2023; Xu
+                                                                 2024; Cen et al. 2023; Lyu et al. 2024) proposed lifting
+et al. 2023; Guo et al. 2024; Yin et al. 2024) proposed to use
+                                                                 the segmentation ability of SAM to 3D with radiance fields.
+SAM for 3D segmentation. Different from them, we focus
+                                                                 SA3D (Cen et al. 2023) adopts an iterative pipeline to refine
+on lifting the ability of SAM to 3D via 3D-GS.
+                                                                 the 3D mask grids with SAM. GaussianGrouping (Ye et al.
+3D Segmentation in Radiance Fields With the success              2024) uses video tracking technology to align the inconsis-
+of radiance fields (Mildenhall et al. 2020; Sun, Sun, and        tent 2D masks extracted by SAM across different views and
+Chen 2022; Chen et al. 2022a; Barron et al. 2022; Müller        assigns labels to 3D Gaussians in a 3D-GS model with the
+et al. 2022; Hedman et al. 2024; Fridovich-Keil et al. 2022;     aligned masks. OmniSeg3D (Ying et al. 2024) employs a hi-
+Wizadwongsa et al. 2021; Lindell, Martel, and Wetzstein          erarchical contrastive learning method to automatically learn
+2021; Fang et al. 2022), numerous studies have explored          segmentation from multi-view 2D masks extracted by SAM.
+3D segmentation within them. Zhi et al. (2021) proposed             The approach most closely related to SAGA is
+Semantic-NeRF, demonstrating the potential of Neural Ra-         GARField (Kim et al. 2024), which addresses multi-
+diance Field (NeRF) in semantic propagation and refine-          granularity ambiguity in 3D segmentation using 3D physi-
+ment. NVOS (Ren et al. 2022) introduced an interactive           cal scale, inspiring SAGA’s scale gate mechanism. However,
+approach to select 3D objects from NeRF by training a            GARField’s reliance on implicit feature fields for outputting
+lightweight MLP using custom-designed 3D features. By us-        3D features requires repeated queries for segmentation at
+ing 2D self-supervised models, approaches like N3F (Tsch-        different scales, reducing efficiency. In contrast, the scale-
+ernezki et al. 2022), DFF (Kobayashi, Matsumoto, and Sitz-       gate mechanism of SAGA enhances efficiency by integrat-
+mann 2022), and ISRF (Goel et al. 2023) aim to elevate 2D        ing directly with 3D-GS without additional computation.
+                        3       Method                                  To train the affinity features, SAGA extracts a set of multi-
+In this section, we first give a brief review of 3D Gaus-            granularity masks MI = {MiI ∈ {0, 1}HW |i = 1, ..., NI }
+sian Splatting (3D-GS) (Kerbl et al. 2023) and the scale-            for each image I in the training set I with SAM. H, W de-
+conditioned 3D features (Kerr et al. 2023; Kim et al. 2024).         notes the height and width of I respectively. NI is the num-
+Then we introduce the overall pipeline of SAGA, followed             ber of extracted masks. For each mask MiI , its 3D physical
+by explanation of the scale-gated Gaussian affinity features         scale sMiI is calculated using the depth predicted by G with
+and the scale-aware contrastive learning.                            the camera pose, as shown in Equation (2). Subsequently,
+                                                                     SAGA employs a scale-aware contrastive learning strategy
+3.1   Preliminary                                                    (Section 3.4) to distill the multi-granularity segmentation
+                                                                     ability embedded in multi-view 2D masks into the scale-
+3D Gaussian Splatting (3D-GS) Given a training dataset
+                                                                     gated affinity features. After training, at given scales, the
+I of multi-view 2D images with camera poses, 3D-GS
+                                                                     affinity feature similarities between two Gaussians indicate
+learns a set of 3D colored Gaussians G = {g1 , g2 , ..., gN },
+                                                                     whether they belong to the same 3D target.
+where N denotes the number of 3D Gaussians in the scene.
+                                                                        During inference (Section 3.5), given a specific view-
+The mean of a Gaussian represents its position and the co-
+                                                                     point, SAGA converts 2D visual prompts (points with
+variance indicates its scale. Accordingly, 3D-GS proposes
+                                                                     scales) into corresponding 3D scale-gated query features to
+a novel differentiable rasterization technology for efficient
+                                                                     segment the 3D target by evaluating feature similarities with
+training and rendering. Given a specific camera pose, 3D-
+                                                                     3D affinity features. Additionally, with well-trained affinity
+GS projects the 3D Gaussians to 2D and computes the color
+                                                                     features, 3D scene decomposition is achievable through sim-
+C(p) of a pixel p by blending a set of ordered Gaussians
+                                                                     ple clustering. Moreover, by integrating with CLIP, SAGA
+Gp overlapping the pixel. Let gip denote the i-th Gaussian in
+                                                                     can perform open-vocabulary segmentation (see Section A.3
+Gp , this process is formulated as:
+                                                                     of the supplement) without requiring language fields.
+                      |Gp |               i−1
+            C(p) =
+                      X
+                              cgip αgip
+                                          Y
+                                                (1 − αgjp ),   (1)
+                                                                     3.3   Gaussian Affinity Feature
+                      i=1                 j=1                        At the core of SAGA is the Gaussian affinity features F =
+                                                                     {fg | g ∈ G}, which are learned from the multi-view
+where cgip is the color of gip and αgip is given by evaluat-         2D masks extracted by SAM. To tackle the inherent multi-
+ing the corresponding 2D Gaussian with covariance Σ mul-             granularity ambiguity in promptable segmentation, inspired
+tiplied with a learned per-Gaussian opacity.                         by GARfield (Kim et al. 2024), we introduce a scale-gate
+                                                                     mechanism to split the feature space into different sub-
+Scale-Conditioned 3D Feature LERF (Kerr et al. 2023)                 spaces for various 3D physical scales. Then, a 3D Gaus-
+first proposes the concept of a scale-conditioned feature field      sian can belong to different segmentation targets at different
+for learning from global image embeddings obtained from              granularities without conflict.
+CLIP. GARField (Kim et al. 2024) then introduces it into
+the area of radiance field segmentation to tackle the multi-         Scale-Gated Affinity Features Given a Gaussian affinity
+granularity ambiguity. To compute the 3D mask scale sM of            feature fg and a specific scale s, SAGA adopts a scale gate
+a 2D mask M, GARField projects M into 3D space with                  to adapt the magnitude of different feature channels accord-
+the camera intrinsic parameters and depth information pre-           ingly. The scale gate is defined as a mapping S : [0, 1] →
+dicted by a pre-trained radiance field. Let P denote the ob-         [0, 1]D , which projects a scale scalar s ∈ [0, 1] to its corre-
+tained point cloud, X (P), Y(P), Z(P) denote the set of 3D           sponding soft gate vector S(s). To maximize segmentation
+coordinate components of P, the mask scale sM is:                    efficiency, the scale gate adopts a extremely streamlined de-
+          p                                                          sign, which is a single linear layer followed by a sigmoid
+  sM = 2 std(X (P))2 + std(Y(P))2 + std(Z(P))2 ,                     function. At the scale of s the scale-gated affinity feature is:
+                                                            (2)                             fgs = S(s) ⊙ fg ,                       (3)
+where std(·) denotes the standard variation of a set of
+scalars. Since these scales are computed in 3D space, they           where ⊙ denotes the Hadamard product. Thanks to the
+are generally consistent across different views. SAGA uses           simplicity of the scale-gate mechanism, the time overhead
+the 3D scales for multi-granularity segmentation but realizes        caused by scale changing is negligible.
+it in a more efficient way.                                             Since all Gaussian affinity features share a common scale
+                                                                     gate at scale s, during training, we can first render the affin-
+3.2   Overall Pipeline                                               ity features to 2D and then apply the scale gate to the 2D
+The main components of SAGA are shown in Figure 2.                   rendered features, i.e.,
+Given a pre-trained 3D-GS model G, SAGA attaches a Gaus-                                   |Gp |               i−1
+sian affinity feature fg ∈ RD for each 3D Gaussian g
+                                                                                           X                   Y
+                                                                                  F(p) =           fgip αgip         (1 − αgjp ),   (4)
+in G. D denotes the feature dimension. To handle the in-                                   i=1                 j=1
+herent multi-granularity ambiguity of 3D promptable seg-
+mentation, SAGA employs a soft scale gate mechanism to                                  Fs (p) = S(s) ⊙ F(p).                    (5)
+project these features into different scale-gated feature sub-       During inference, the scale gate is directly applied to the 3D
+spaces for various scales s.                                         Gaussian affinity features for conducting 3D segmentation.
+Figure 2: The architecture of SAGA. Left: SAGA attaches a Gaussian affinity feature to each 3D Gaussian. The magnitude
+of different affinity feature channels are adjusted by a soft scale gate to handle multi-granularity ambiguity. Right: SAGA
+distills segmentation ability of SAM into affinity features attached to 3D Gaussians in the 3D-GS model through scale-aware
+contrastive learning.
+
+                                                                                                                  (i)
+Local Feature Smoothing In practice, we find that there            entry of V(s, p) equals to 1 only if MI (p) = 1 and all
+are many noisy Gaussians in the 3D space that exhibit un-                                (j)
+                                                                   smaller masks in {MI | s ≤ sM(j) < sM(i) } equals to 0
+expectedly high feature similarities with the segmentation                                           I      I
+
+target. This may occur for various reasons, such as insuf-         at pixel p. Formally, we have:
+ficient training due to small weights in rasterization or in-
+correct geometry structure learned by 3D-GS. To tackle this
+                                                                                 (       (i)
+                                                                                     MI (p) if sM(i) < s or C(p)
+problem, we adopt the spatial locality prior of 3D Gaus-           Vi (s, p) =                         I
+
+sians. During training, SAGA uses the smoothed affinity fea-                         0          otherwise
+ture of a PGaussian g to replace its original feature fg , i.e.,             
+                                                                                           (j)
+                                                                                                                                  
+        1                                                          C(p) ≜ ∀M ∈ {MI | s ≤ sM(j) < sM(i) }, M(p) = 0
+fg ← K       g′ ∈KNN(g) fg . KNN(g) denotes K-nearest neigh-
+                          ′                                                                             I        I
+
+bors of g. After training, the affinity feature for each 3D                                                                      (6)
+Gaussian is saved as its smoothed feature.                            This assignment of pixel identity vectors is based on the
+                                                                   fact that if a pixel belongs to a specific mask at a given scale,
+3.4   Scale-Aware Contrastive Learning                             it will continue to belong to that mask at larger scales.
+As introduced in Section 3.3, each 3D Gaussian g is as-            Loss Function We adapt the correspondence distillation
+signed with an affinity feature fg . To train these features, we   loss (Hamilton et al. 2022) for training the scale-gated Gaus-
+employ a scale-aware contrastive learning strategy to distill      sian affinity features. Concretely, for two pixels p1 , p2 at a
+the pixel-wise correlation information from 2D masks into          given scale s, their mask correspondence is given by:
+3D Gaussians via the differentiable rasterization.
+                                                                          Corrm (s, p1 , p2 ) = 1(V(s, p1 ) · V(s, p2 )),            (7)
+Scale-Aware Pixel Identity Vector To conduct scale-
+aware contrastive learning, for an image I, we first convert       where 1(·) is the indicator function, which is equal to 1
+the automatically extracted 2D masks MI to scale-aware su-         when the input greater than or equal to 0. The feature corre-
+pervision signal. For this purpose, we assign a scale-aware        spondence between two pixels is defined as the cosine simi-
+pixel identity vector V(s, p) ∈ {0, 1}NI to each pixel p in        larity between their scale-gated features:
+I. The identity vectors reflect the 2D masks that a pixel be-                 Corrf (s, p1 , p2 ) = ⟨Fs (p1 ), Fs (p2 )⟩.            (8)
+long to at specific scales. If two pixels p1 , p2 share at least
+a same mask at a given scale (i.e., V(s, p1 ) · V(s, p2 ) > 0),    The correspondence distillation loss Lcorr (p1 , p2 ) between
+they should have similar features at scale s.                      two pixels is given by1 :
+   To obtain V(s, p), we first sort the mask set MI in de-
+scending order according to their mask scales and get an or-
+                              (1)      (N )                             Lcorr (s, p1 , p2 ) = (1 − 2 · Corrm (s, p1 , p2 ))
+dered mask list OI = (MI , ..., MI I ), where sM(1) >                                                                                (9)
+                                                          I                                   · max(Corrf (s, p1 , p2 ), 0)
+... > sM(NI ) . Then, for a pixel p, when sM(i) < s, the i-th
+         I                                     I                      1
+                             (i)                                        The feature correspondence is clipped at 0 to stabilize training.
+entry of V(s, p) is set to MI (p). When sM(i) ≥ s, the i-th        Please refer to Hamilton et al. (2022) for more details.
+                                               I
+Feature Norm Regularization During training, the 2D                          Method                            mIoU (%)     mAcc (%)
+features are obtained by rendering with 3D affinity features.
+This indicates a misalignment between 2D and 3D features.                    NVOS (Ren et al. 2022)               70.1         92.0
+As revealed in Equation (4), a 2D feature is a linear combi-                 ISRF (Goel et al. 2023)              83.8         96.4
+nation of multiple 3D features, each with distinct directions.               SA3D (Cen et al. 2023)               90.3         98.2
+In such situations, SAGA may show good segmentation abil-                    OmniSeg3D (Ying et al. 2024)         91.7         98.4
+ity on the rendered feature map but perform poorly in 3D                     GauGroup (Ye et al. 2024)            85.6         97.3
+space. This motivates us to introduce a feature norm regu-                   SA3D-GS (Cen et al. 2024)            92.2         98.5
+larization. Concretely, during rendering the 2D feature map,                 SAGA (ours)                          92.6         98.6
+the 3D features are first normalized as unit vectors, i.e.,
+                    |Gp |                       i−1                                     Table 1: Results on NVOS dataset.
+                    X         fgip              Y
+          F(p) =                         αgip         (1 − αgjp ).   (10)
+                     i=1
+                            ||fgip ||2          j=1
+                                                                            4.1   Datasets
+Accordingly, ||F(p)||2 ranges in [0, 1]. When 3D features                   For promptable segmentation experiments, we utilize two
+along a ray are perfectly aligned, ||F(p)||2 = 1. Thus, we                  datasets: NVOS (Ren et al. 2022) and SPIn-NeRF(Mirzaei
+impose a regularization on the rendered feature norm:                       et al. 2023). The former is derived from the LLFF
+                  Lnorm (p) = 1 − ||F(p)||2                          (11)   dataset (Mildenhall et al. 2019) and the latter is a com-
+                                                                            bination of subsets of data from established NeRF-related
+   With the feature norm regularization term, for an iteration
+                                                                            datasets (Mildenhall et al. 2019, 2020; Lin et al. 2022;
+of training, the loss of SAGA is defined as:
+               X                             X                              Knapitsch et al. 2017; Fridovich-Keil et al. 2022). For
+  L=                      Lcorr (p1 , p2 ) +     Lnorm (p),                 open-vocabulary segmentation experiments, we adopt the
+       (p1 ,p2 )∈δ(I)×δ(I)                              p∈δ(I)
+                                                                            3D-OVS dataset (Liu et al. 2023a). For qualitative anal-
+                                                                     (12)   ysis (Figure 3 and 4), we employ various datasets in-
+where δ(I) denotes the set of pixels within the image I.                    cluding LLFF (Mildenhall et al. 2019), MIP-360 (Barron
+                                                                            et al. 2022), Tanks&Temple (Knapitsch et al. 2017), and
+Additional Training Strategy During the training, an un-                    Replica (Straub et al. 2019). These datasets encompass in-
+avoidable issue is the data imbalance, reflected by: 1) Most                door and outdoor scenes, forward-facing and 360-degree
+pixel pairs keep to be positive or negative regardless of scale             scenes, as well as synthetic and real scenes.
+variations, making the learned feature insensitive to scales;
+2) The majority of pixel pairs shows negative correspon-                    4.2   Quantitative Results
+dence, resulting in feature collapse; 3) Large targets that oc-             NVOS Dataset As shown in Table 1, SAGA outperforms
+cupy more pixels in images have more effect on the opti-                    previous segmentation approaches for both 3D-GS and other
+mization, leading to bad performance of segmenting small                    radiance fields, i.e., +0.4 mIoU over the previous SOTA
+targets. We tackle this problem by resampling the pixel-                    SA3D-GS and +0.9 mIoU over the OmniSeg3D.
+pairs and re-weighting the loss function for different sam-
+ples. Please refer to Section A.1 of the appendix.                          SPIn-NeRF Dataset Results on the SPIn-NeRF dataset
+                                                                            can be found in Table 2. SA3D performs on par with the pre-
+3.5   Inference                                                             vious SOTA OmniSeg3D. The minor performance degrada-
+With well-trained Gaussian affinity features, SAGA can                      tion is attributed to sub-optimal geometry learned by 3D-GS.
+conduct various segmentation tasks in the 3D space. For                     For example, 3D-GS models the reflection effects with nu-
+promptable segmentation, SAGA takes 2D point prompts                        merous outlier Gaussians that are not aligned with the exact
+at specific view and the scale as input. Then, SAGA seg-                    geometry of the object. Excluding these Gaussians results
+ments the 3D target by matching scale-gated 3D Gaussian                     in empty holes in the segmentation mask for certain views,
+affinity features with the 2D query features selected from                  while including them introduces noise in other views. Nev-
+the rendered feature map according to prompt points. For                    ertheless, we believe the segmentation accuracy of SAGA
+automatic scene decomposing, SAGA employs HDBSCAN                           can meet most requirements.
+to cluster the affinity features directly in the 3D space2 . Ad-            Open-Vocabulary Semantic Segmentation As shown in
+ditionally, we design a vote-based segmentation mechanism                   Table 3, SAGA demonstrates superior results across all
+to integrate SAGA with CLIP for conducting open vocabu-                     scenes in the 3D-OVS dataset. For more details about open-
+lary segmentation (see Section A.3 of the supplement).                      vocabulary segmentation, please refer to Section A.3.
+                     4       Experiments                                    Time Consumption Analysis In Table 4, we reveal the
+In this section, we demonstrate the effectiveness of SAGA                   time consumption of SAGA and compare it with existing
+both quantitatively and qualitatively. For implementation de-               promptable segmentation methods in radiance fields. ISRF
+tails and experiment settings, please refer to Section A.2.                 trains a feature field by mimicking the 2D multi-view visual
+                                                                            features extracted by DINO (Caron et al. 2021), thus enjoys
+   2                                                                        faster convergence speed. However, this leads to less accu-
+     For efficiency, SAGA uniformly selects 1% of the Gaussians
+from the 3D-GS model for clustering.                                        rate segmentation, necessitating extensive post-processing.
+Figure 3: Qualitative results of SAGA across different scenes. We provide both the targets segmented via 2D point prompts and
+the “segment everything” results.
+
+
+
+
+ Method                           mIoU (%)     mAcc (%)
+ MVSeg (Mirzaei et al. 2023)         90.9          98.9            Method       bed    bench   room    sofa   lawn    mean
+ SA3D (Cen et al. 2023)              92.4          98.9            LERF         73.5   53.2     46.6   27.0    73.7   54.8
+ OmniSeg3D (Ying et al. 2024)        94.3          99.3            3D-OVS       89.5   89.3     92.8   74.0    88.2   86.8
+ GauGroup (Ye et al. 2024)           86.5          98.9            LangSplat    92.5   94.2     94.1   90.0    96.1   93.4
+ SA-GS (Hu et al. 2024)              89.9          98.7            N2F2         93.8   92.6     93.5   92.1    96.3   93.9
+ SA3D-GS (Cen et al. 2024)           93.2          99.1            SAGA         97.4   95.4     96.8   93.5    96.6   96.0
+ SAGA (ours)                         93.4          99.2
+                                                                         Table 3: Results on 3D-OVS dataset (mIoU).
+          Table 2: Results on SPIn-NeRF dataset.
+ Method                             Training      Inference
+ SA3D (Cen et al. 2023)                 -           45 s
+ SA-GS (Hu et al. 2024)                 -           15 s
+ ISRF (Goel et al. 2023)       2.5 mins     3.3 s
+ OmniSeg3D (Ying et al. 2024) 15˜40 mins 50˜100 ms               Figure 5: Ablation study on effects of local feature smooth-
+ GARField (Kim et al. 2024)   20˜60 mins 30˜70 ms                ing (Smooth) and feature norm regularization (Feature
+ SAGA (ours)                  10˜40 mins  2˜5 ms                 Norm). Outliers are primarily eliminated through local fea-
+                                                                 ture smoothing. Feature norm regularization helps features
+                                                                 of inner Gaussians align better with those of the surface.
+          Table 4: Time consumption comparison.
+
+
+
+
+                                                                 Figure 6: Failure cases of SAGA. The targets of interest are
+                                                                 labeled by red border.
+
+
+                                                                 eration. Unlike local feature smoothing, feature norm reg-
+Figure 4: SAGA can maintain the high frequency texture de-
+                                                                 ularization primarily impacts the Gaussians within objects.
+tails captured by 3D-GS. We reveal the inherent structure of
+                                                                 When raising the similarity score threshold to 0.95, the ap-
+these details by shrinking the Gaussians by 60%.
+                                                                 ple segmented by SAGA with feature norm regularization
+                                                                 remains intact, while the one without it quickly becomes
+                                                                 translucent. This phenomenon supports our assumption that
+SA3D and SA-GS employ an iterative mask refinement
+                                                                 3D features are not perfectly aligned with 2D features, as
+pipeline, which eliminates the need for training but incurs
+                                                                 introduced in Section 3.4. Imposing feature norm regular-
+significant inference time consumption. Compared to meth-
+                                                                 ization helps align the affinity features of 3D Gaussians by
+ods that distill segmentation capabilities from SAM masks,
+                                                                 pulling the features along a ray in the same direction.
+such as OmniSeg3D and GARField, SAGA demonstrates
+much faster inference speed and comparable training speed.
+                                                                                      5    Limitation
+4.3   Qualitative Results
+Figure 3 shows that SAGA achieves fine-grained segmen-           SAGA learns the affinity features from multi-view 2D masks
+tation at various scales across different scenes. The com-       extracted by SAM. This makes SAGA hardly segment ob-
+pact Gaussian affinity features enable scene decomposi-          jects that are not appeared in these masks. As shown in Fig-
+tion through simple clustering in the 3D-GS model. The           ure 6, this limitation is particularly evident when the target
+needle-like artifacts on the edges of segmented targets are      of interest is small. Enhancing the generalization ability of
+due to 3D-GS overfitting multi-view RGB without object           SAGA to unrecognized targets during the automatic extrac-
+awareness. Building upon 3D-GS, which can capture high-          tion stage is a promising direction.
+frequency texture details, SAGA can effectively segment
+thin, fine-grained structures, as shown in Figure 4. By                               6   Conclusion
+shrinking the 3D Gaussians, we reveal the underlying struc-
+tural modeling capabilities of 3D-GS and demonstrate the         In this paper, we propose SAGA, a 3D promptable segmen-
+completeness of the segmentation results. Since GARField         tation method for 3D Gaussian Splatting (3D-GS). SAGA
+lacks quantitative results on the NVOS and SPIn-NeRF             injects the segmentation capability of SAM into Gaussian
+datasets, we provide qualitative comparisons in Section A.6      affinity features for all 3D Gaussians in a 3D-GS model, en-
+to highlight the effectiveness of SAGA’s learned features.       dowing them with a new property towards segmentation. To
+                                                                 preserve the multi-granularity segmentation ability of SAM
+4.4   Ablation Study                                             and the efficiency of 3D-GS, SAGA introduces a lightweight
+Local Feature Smoothing (LFS) & Feature Norm Regu-               scale-gate mechanism, which adapts the affinity features ac-
+larization (FNR) Both LFS and FNR impose constraints             cording to different 3D physical scales with minimal compu-
+on the Gaussian affinity features. We present visualization      tation overhead. After training, SAGA can achieve real-time
+results to illustrate their roles.                               fine-grained 3D segmentation. Comprehensive experiments
+   In Figure 5, when segmenting a 3D object with a cosine        are conducted to demonstrate the effectiveness of SAGA. As
+similarity threshold of 0.75, without the feature smoothing,     one of the first methods addressing promptable segmentation
+the result shows many false positives, which reveals that out-   in 3D-GS, the simplicity and effectiveness of SAGA pave
+liers are primarily eliminated by the feature smoothing op-      the way for future advancements in this field.
+                  Acknowledgments                                Grady, L. 2006. Random walks for image segmentation.
+This work was supported by NSFC 62322604, NSFC                   IEEE Trans. Pattern Anal. Mach. Intell.
+62176159, Shanghai Municipal Science and Technology              Gulshan, V.; Rother, C.; Criminisi, A.; Blake, A.; and Zisser-
+Major Project 2021SHZDZX0102.                                    man, A. 2010. Geodesic star convexity for interactive image
+                                                                 segmentation. In CVPR.
+                       References                                Guo, H.; Zhu, H.; Peng, S.; Wang, Y.; Shen, Y.; Hu, R.; and
+                                                                 Zhou, X. 2024. SAM-guided Graph Cut for 3D Instance
+Barron, J. T.; Mildenhall, B.; Verbin, D.; Srinivasan, P. P.;
+                                                                 Segmentation. arXiv:2312.08372.
+and Hedman, P. 2022. Mip-NeRF 360: Unbounded Anti-
+Aliased Neural Radiance Fields. In CVPR.                         Hamilton, M.; Zhang, Z.; Hariharan, B.; Snavely, N.; and
+                                                                 Freeman, W. T. 2022. Unsupervised Semantic Segmentation
+Bhalgat, Y.; Laina, I.; Henriques, J. a. F.; Vedaldi, A.; and    by Distilling Feature Correspondences. In ICLR.
+Zisserman, A. 2023. Contrastive Lift: 3D Object Instance
+Segmentation by Slow-Fast Contrastive Fusion. In NeurIPS.        Hedman, P.; Srinivasan, P. P.; Mildenhall, B.; Reiser, C.;
+                                                                 Barron, J. T.; and Debevec, P. 2024. Baking Neural Radi-
+Bhalgat, Y.; Laina, I.; Henriques, J. F.; Zisserman, A.; and     ance Fields for Real-Time View Synthesis. IEEE TPAMI.
+Vedaldi, A. 2024. N2F2: Hierarchical Scene Understanding
+                                                                 Hu, X.; Wang, Y.; Fan, L.; Fan, J.; Peng, J.; Lei, Z.; Li,
+with Nested Neural Feature Fields. arXiv:2403.10997.
+                                                                 Q.; and Zhang, Z. 2024. SAGD: Boundary-Enhanced Seg-
+Bing, W.; Chen, L.; and Yang, B. 2023. DM-NeRF: 3D               ment Anything in 3D Gaussian via Gaussian Decomposi-
+Scene Geometry Decomposition and Manipulation from 2D            tion. arXiv:2401.17857.
+Images. In ICLR.                                                 Kerbl, B.; Kopanas, G.; Leimkühler, T.; and Drettakis, G.
+Boykov, Y. Y.; and Jolly, M.-P. 2001. Interactive graph cuts     2023. 3D Gaussian Splatting for Real-Time Radiance Field
+for optimal boundary & region segmentation of objects in         Rendering. ACM TOG.
+ND images. In ICCV.                                              Kerr, J.; Kim, C. M.; Goldberg, K.; Kanazawa, A.; and Tan-
+Caron, M.; Touvron, H.; Misra, I.; Jégou, H.; Mairal, J.; Bo-   cik, M. 2023. Lerf: Language embedded radiance fields. In
+janowski, P.; and Joulin, A. 2021. Emerging Properties in        ICCV.
+Self-Supervised Vision Transformers. In ICCV.                    Kim, C. M.; Wu, M.; Kerr, J.; Tancik, M.; Goldberg, K.;
+Cen, J.; Fang, J.; Zhou, Z.; Yang, C.; Xie, L.; Zhang, X.;       and Kanazawa, A. 2024. GARField: Group Anything with
+Shen, W.; and Tian, Q. 2024. Segment Anything in 3D with         Radiance Fields. In CVPR.
+Radiance Fields. arXiv:2304.12308.                               Kirillov, A.; Mintun, E.; Ravi, N.; Mao, H.; Rolland, C.;
+Cen, J.; Zhou, Z.; Fang, J.; Yang, C.; Shen, W.; Xie, L.;        Gustafson, L.; Xiao, T.; Whitehead, S.; Berg, A. C.; Lo, W.-
+Jiang, D.; Zhang, X.; and Tian, Q. 2023. Segment Anything        Y.; et al. 2023. Segment anything. In ICCV.
+in 3D with NeRFs. In NeurIPS.                                    Knapitsch, A.; Park, J.; Zhou, Q.-Y.; and Koltun, V. 2017.
+Chen, A.; Xu, Z.; Geiger, A.; Yu, J.; and Su, H. 2022a. Ten-     Tanks and Temples: Benchmarking Large-Scale Scene Re-
+soRF: Tensorial Radiance Fields. In ECCV.                        construction. ACM TOG.
+Chen, X.; Tang, J.; Wan, D.; Wang, J.; and Zeng, G. 2023.        Kobayashi, S.; Matsumoto, E.; and Sitzmann, V. 2022. De-
+Interactive Segment Anything NeRF with Feature Imitation.        composing NeRF for Editing via Feature Field Distillation.
+arXiv:2305.16233.                                                In NeurIPS.
+                                                                 Liao, G.; Li, J.; Bao, Z.; Ye, X.; Wang, J.; Li, Q.; and Liu,
+Chen, X.; Zhao, Z.; Zhang, Y.; Duan, M.; Qi, D.; and Zhao,
+                                                                 K. 2024. CLIP-GS: CLIP-Informed Gaussian Splatting for
+H. 2022b. Focalclick: Towards practical interactive image
+                                                                 Real-time and View-consistent 3D Semantic Understanding.
+segmentation. In CVPR.
+                                                                 arXiv:2404.14249.
+Fan, Z.; Wang, P.; Jiang, Y.; Gong, X.; Xu, D.; and Wang, Z.     Lin, Y.; Florence, P.; Barron, J. T.; Lin, T.; Rodriguez, A.;
+2023. NeRF-SOS: Any-View Self-supervised Object Seg-             and Isola, P. 2022. NeRF-Supervision: Learning Dense Ob-
+mentation on Complex Scenes. In ICLR.                            ject Descriptors from Neural Radiance Fields. In ICRA.
+Fang, J.; Yi, T.; Wang, X.; Xie, L.; Zhang, X.; Liu, W.;         Lindell, D. B.; Martel, J. N. P.; and Wetzstein, G. 2021. Au-
+Nießner, M.; and Tian, Q. 2022. Fast Dynamic Radiance            toInt: Automatic Integration for Fast Neural Volume Ren-
+Fields with Time-Aware Neural Voxels. In SIGGRAPH Asia           dering. In CVPR.
+2022 Conference Papers.
+                                                                 Liu, K.; Zhan, F.; Zhang, J.; XU, M.; Yu, Y.; Saddik, A. E.;
+Fridovich-Keil, S.; Yu, A.; Tancik, M.; Chen, Q.; Recht, B.;     Theobalt, C.; Xing, E.; and Lu, S. 2023a. Weakly Supervised
+and Kanazawa, A. 2022. Plenoxels: Radiance Fields without        3D Open-vocabulary Segmentation. In NeurIPS.
+Neural Networks. In CVPR.                                        Liu, Q.; Xu, Z.; Bertasius, G.; and Niethammer, M. 2023b.
+Fu, X.; Zhang, S.; Chen, T.; Lu, Y.; Zhu, L.; Zhou, X.;          Simpleclick: Interactive image segmentation with simple vi-
+Geiger, A.; and Liao, Y. 2022. Panoptic NeRF: 3D-to-2D           sion transformers. In ICCV.
+Label Transfer for Panoptic Urban Scene Segmentation. In         Liu, S.; Zeng, Z.; Ren, T.; Li, F.; Zhang, H.; Yang, J.; Jiang,
+3DV.                                                             Q.; Li, C.; Yang, J.; Su, H.; Zhu, J.; and Zhang, L. 2024a.
+Goel, R.; Sirikonda, D.; Saini, S.; and Narayanan, P. 2023.      Grounding DINO: Marrying DINO with Grounded Pre-
+Interactive segmentation of radiance fields. In CVPR.            Training for Open-Set Object Detection. arXiv:2303.05499.
+Liu, X.; Chen, J.; Yu, H.; Tai, Y.; and Tang, C. 2022. Unsu-       Mueggler, E.; Pesqueira, L.; Savva, M.; Batra, D.; Strasdat,
+pervised Multi-View Object Segmentation Using Radiance             H. M.; Nardi, R. D.; Goesele, M.; Lovegrove, S.; and New-
+Field Propagation. In NeurIPS.                                     combe, R. 2019. The Replica Dataset: A Digital Replica of
+Liu, Y.; Hu, B.; Huang, J.; Tai, Y.-W.; and Tang, C.-K.            Indoor Spaces. arXiv:1906.05797.
+2023c. Instance neural radiance field. In ICCV.                    Sun, C.; Sun, M.; and Chen, H. 2022. Direct Voxel Grid
+Liu, Y.; Hu, B.; Tang, C.-K.; and Tai, Y.-W. 2024b.                Optimization: Super-fast Convergence for Radiance Fields
+SANeRF-HQ: Segment Anything for NeRF in High Qual-                 Reconstruction. In CVPR.
+ity. In CVPR.                                                      Tschernezki, V.; Laina, I.; Larlus, D.; and Vedaldi, A.
+Lyu, W.; Li, X.; Kundu, A.; Tsai, Y.-H.; and Yang, M.-H.           2022. Neural Feature Fusion Fields: 3D Distillation of Self-
+2024. Gaga: Group Any Gaussians via 3D-aware Memory                Supervised 2D Image Representations. In 3DV.
+Bank. arXiv:2404.07977.                                            Vora, S.; Radwan, N.; Greff, K.; Meyer, H.; Genova, K.; Saj-
+Mildenhall, B.; Srinivasan, P. P.; Cayon, R. O.; Kalantari,        jadi, M. S.; Pot, E.; Tagliasacchi, A.; and Duckworth, D.
+N. K.; Ramamoorthi, R.; Ng, R.; and Kar, A. 2019. Local            2022. Nesf: Neural semantic fields for generalizable seman-
+light field fusion: practical view synthesis with prescriptive     tic segmentation of 3d scenes. TMLR.
+sampling guidelines. ACM TOG.                                      Wizadwongsa, S.; Phongthawee, P.; Yenphraphai, J.; and
+Mildenhall, B.; Srinivasan, P. P.; Tancik, M.; Barron, J. T.;      Suwajanakorn, S. 2021. NeX: Real-Time View Synthesis
+Ramamoorthi, R.; and Ng, R. 2020. NeRF: Representing               With Neural Basis Expansion. In CVPR.
+Scenes as Neural Radiance Fields for View Synthesis. In            Xu, M.; Yin, X.; Qiu, L.; Liu, Y.; Tong, X.; and Han, X.
+ECCV.                                                              2023. SAMPro3D: Locating SAM Prompts in 3D for Zero-
+Mirzaei, A.; Aumentado-Armstrong, T.; Derpanis, K. G.;             Shot Scene Segmentation. arXiv:2311.17707.
+Kelly, J.; Brubaker, M. A.; Gilitschenski, I.; and Levinshtein,    Yang, Y.; Wu, X.; He, T.; Zhao, H.; and Liu, X.
+A. 2023. SPIn-NeRF: Multiview Segmentation and Percep-             2023.      SAM3D: Segment Anything in 3D Scenes.
+tual Inpainting with Neural Radiance Fields. In CVPR.              arXiv:2306.03908.
+Müller, T.; Evans, A.; Schied, C.; and Keller, A. 2022. In-       Ye, M.; Danelljan, M.; Yu, F.; and Ke, L. 2024. Gaus-
+stant neural graphics primitives with a multiresolution hash       sian Grouping: Segment and Edit Anything in 3D Scenes.
+encoding. ACM TOG.                                                 arXiv:2312.00732.
+Niemeyer, M.; and Geiger, A. 2021. GIRAFFE: Repre-                 Yin, Y.; Liu, Y.; Xiao, Y.; Cohen-Or, D.; Huang, J.; and
+senting Scenes As Compositional Generative Neural Feature          Chen, B. 2024. Sai3d: Segment any instance in 3d scenes.
+Fields. In CVPR.                                                   In CVPR.
+Qin, M.; Li, W.; Zhou, J.; Wang, H.; and Pfister, H. 2024.         Ying, H.; Yin, Y.; Zhang, J.; Wang, F.; Yu, T.; Huang, R.; and
+LangSplat: 3D Language Gaussian Splatting. In CVPR.                Fang, L. 2024. OmniSeg3D: Omniversal 3D Segmentation
+                                                                   via Hierarchical Contrastive Learning. In CVPR.
+Radford, A.; Kim, J. W.; Hallacy, C.; Ramesh, A.; Goh, G.;
+Agarwal, S.; Sastry, G.; Askell, A.; Mishkin, P.; Clark, J.;       Yu, H.; Guibas, L. J.; and Wu, J. 2022. Unsupervised Dis-
+Krueger, G.; and Sutskever, I. 2021. Learning Transfer-            covery of Object Radiance Fields. In ICLR.
+able Visual Models From Natural Language Supervision. In           Zhi, S.; Laidlow, T.; Leutenegger, S.; and Davison, A. J.
+ICML.                                                              2021. In-Place Scene Labelling and Understanding with Im-
+Ren, Z.; Agarwala, A.; Russell, B. C.; Schwing, A. G.; and         plicit Scene Representation. In ICCV.
+Wang, O. 2022. Neural Volumetric Object Selection. In              Zou, X.; Yang, J.; Zhang, H.; Li, F.; Li, L.; Wang, J.; Wang,
+CVPR.                                                              L.; Gao, J.; and Lee, Y. J. 2023. Segment everything every-
+Rother, C.; Kolmogorov, V.; and Blake, A. 2004. ”GrabCut”:         where all at once. In NeurIPS.
+interactive foreground extraction using iterated graph cuts.
+ACM TOG.
+Siddiqui, Y.; Porzi, L.; Buló, S. R.; Müller, N.; Nießner, M.;
+Dai, A.; and Kontschieder, P. 2023. Panoptic lifting for 3d
+scene understanding with neural fields. In CVPR.
+Sofiiuk, K.; Petrov, I. A.; and Konushin, A. 2022. Reviving
+iterative training with mask guidance for interactive segmen-
+tation. In ICIP.
+Stelzner, K.; Kersting, K.; and Kosiorek, A. R. 2021. De-
+composing 3D Scenes into Objects via Unsupervised Vol-
+ume Segmentation. arXiv:2104.01148.
+Straub, J.; Whelan, T.; Ma, L.; Chen, Y.; Wijmans, E.;
+Green, S.; Engel, J. J.; Mur-Artal, R.; Ren, C.; Verma, S.;
+Clarkson, A.; Yan, M.; Budge, B.; Yan, Y.; Pan, X.; Yon,
+J.; Zou, Y.; Leon, K.; Carter, N.; Briales, J.; Gillingham, T.;
+                      A     Appendix                               masks. To re-weight the loss, we first calculate the mean
+                                                                                                        PH,W
+                                                                   mask size mp = |K1p | M∈Kp i=1,j=1 M(i, j) for each
+                                                                                              P
+In this appendix we provide the concrete training strat-
+egy (Section A.1) of SAGA and implementation details               pixel, where Kp = {M | M ∈ MI , M(p) = 1}.
+(Section A.2). Then, we provide details about the open-            For a pixel pair (p1 , p2 ), the loss weight is defined as
+vocabulary segmentation ability of SAGA and analyze its            ω(p1 , p2 ) = mp 1mp . All weights in a training iteration
+                                                                                        1   2
+limitation (Section A.3). We also provide an interpretabil-        are then min-max normalized to the range [1, 10] to ensure
+ity analysis about the scale gate mechanism (Section A.4) to       stable training.
+reveal the underlying principle of SAGA. Section A.5 eval-            With the resampling, re-weighting strategies, the overall
+uates the robustness and generalizability of SAGA by ap-           loss function of SAGA is:
+plying it to more kinds of radiance fields, and Section A.6                P
+presents additional visualization results to demonstrate its                  (p1 ,p2 )∈Qin ∪ϕ(Qpos ) ω(p1 , p2 )Lcorr (p1 , p2 )
+effectiveness.                                                        L=                                                          +
+                                                                                             |Qin ∪ ϕ(Qpos )|
+                                                                           P
+A.1    Detailed Additional Training Stategy                                   (p1 ,p2 )∈Qin ∪ϕ(Qneg ) ω(p1 , p2 )Lcorr (p1 , p2 )
+                                                                                                                                  +
+During the contrastive-based learning, an unavoidable prob-                                  |Qin ∪ ϕ(Qneg )|
+lem is the data imbalance. In SAGA, the data imbalance is                    1      X
+                                                                                          Lnorm (p),
+reflected in the following three aspects: 1) Scale-sensitivity             HW
+                                                                                 p∈δ(I)
+imbalance. The majority of pixel pairs exhibit insensitivity
+                                                                                                                              (13)
+to changes in scale. In other words, during a training itera-
+                                                                   where δ(I) denotes the set of pixels within the image I.
+tion, most pixel pairs maintain their positive or negative clas-
+sification regardless of scale variations. This makes the scale    A.2    Implementation Details
+gate collapse to constant output; 2) Positive-negative sam-
+ples imbalance. The majority of pixel pairs shows negative         Across different scenes, SAGA maintains consistent hyper-
+correspondence, resulting in segmentation features degra-          parameters. The feature dimension D is set to 32. The K
+dation; 3) Target-size imbalance. Large targets that occupy        of KNN used in local feature smoothing is set to 16. Train-
+more pixels in images have more effect on the optimization,        ing of Gaussian affinity features lasts for 10,000 iterations.
+which leads to bad performance of segmenting small targets.        In each iteration, we randomly sample eight different scales
+   We use a resampling strategy to tackle the scale-               and 1,000 pixels (10002 pixel pairs) from the view for train-
+sensitivity imbalance and positive-negative samples imbal-         ing. For different loss terms, we do not adjust any loss bal-
+ance. Then, we adopt a pixel-wise re-weighting strategy to         ance coefficients in experiments.
+tackle the target-size imbalance.                                     We extract the multi-view 2D masks with the SAM ViT-H
+                                                                   model. For open-vocabulary segmentation, we use the Open-
+Resampling In each iteration of training, we randomly se-          CLIP ViT-B/16 model. All training and inference is con-
+lect Ns scales and Np pixels within an image and form              ducted on a single Nvidia RTX 3090 GPU.
+Np × Np pixel pairs. Calculating the mask correspon-
+dence for these pixel pairs at every sampled scale re-             Experiment Setting For the NVOS dataset, we randomly
+sults in a scale-conditioned correspondence matrix R ∈             select positive and negative points from the scribbles on the
+{0, 1}Ns Np Np . We split the pixel pairs into three sets ac-      reference view (provided by the NVOS dataset) to conduct
+cording to R: 1) Inconsistent set: Qin = {(p1 , p2 ) |             promptable 3D segmentation. We then render the 3D seg-
+∃s1 , s2 , R(s1 , p1 , p2 ) ̸= R(s2 , p1 , p2 )}; 2) Consistent    mentation result on the target view and evaluate the Inter-
+positive set: Qpos = {(p1 , p2 ) | ∀s, R(s, p1 , p2 ) =            section over Union (IoU) and pixel-wise accuracy against
+1}; 3) Consistent negative set: Qneg = {(p1 , p2 ) |               the provided ground truth. For each scene in the SPIn-NeRF
+∀s, R(s, p1 , p2 ) = 0}. During the loss calculation, all          dataset, we randomly select a subset of points within and
+pixel pairs in Qin are involved. Then, we randomly select          outside the mask of the reference view as positive and nega-
+|Qin |                                                             tive prompts.
+  2    pixel pairs in both Qpos and Qneg respectively. To
+tackle the hard samples in training, we also add pixel pairs       A.3    Vote-based Open-vocabulary Segmentation
+in Qneg which have feature correspondences larger than 0.5
+and pixel pairs in Qpos which have feature correspondence          To enable open-vocabulary 3D segmentation in radiance
+smaller than 0.75 into loss calculation. This design not only      fields, previous studies (Kerr et al. 2023; Liu et al. 2023a;
+ensures the sensitivity of the loss to scale changing but also     Qin et al. 2024; Bhalgat et al. 2024; Liao et al. 2024) fo-
+keeps the balance of positive pairs and negative pairs. Let        cus on aligning 3D language feature fields with the visual
+ϕ(·) denote the sampling operation, after the resampling, we       features extracted by CLIP (Radford et al. 2021) image en-
+get three sets of pixel pairs, i.e., Qin , ϕ(Qpos ), ϕ(Qneg ).     coder. Then 3D segmentation can be achieved by querying
+                                                                   the language fields with the textual features. The process of
+Re-weighting Considering two masks M1I , M2I in MI ,               training language feature field can be regarded as multi-view
+when uniformly sampling a pair of pixels, the probability          feature fusing, which, in essence, is a kind of vote mech-
+that the pair is from M1I , M2I is proportional to the product     anism. This motivate us to see whether SAGA can handle
+of the number of positive pixels of the two mask. This in-         open-vocabulary segmentation with well-trained Gaussian
+dicates that the optimization process is dominated by large        affinity features at minimum modification.
+Figure A1: Adapting the scale gate mechanism with GARField achieves competitive results, demonstrating the potential of
+SAGA across different radiance fields.
+
+
+   Readers may wonder why we do not use grounding meth-                   visual encoder. During inference, given any text prompt, a
+ods like Grounding-DINO (Liu et al. 2024a) to locate the ob-              relevancy score rM is assigned to each mask M by compar-
+ject and convert the location into point prompts, which can               ing the textual feature with the visual feature of the mask4 .
+then be fed to SAGA. To answer this question, we empha-                   For a cluster centroid T in V, the relevancy scores of its
+size the setting of open-vocabulary segmentation. We follow               corresponding 2D masks are aggregated to form its final rel-
+a stricter approach than previous studies, such as SA3D (Cen              evancy score, i.e.,
+et al. 2023) and GaussianGrouping (Ye et al. 2024), which
+rely on Grounded-SAM to convert language prompts to vi-                                                1 X
+                                                                                              rT =         rM ,                       (15)
+sual prompts in a specific view. Specifying this view intro-                                         |VT |
+                                                                                                           M∈VT
+duces additional prior knowledge. In SAGA, users do not
+need to query a specific view; all that is required for open-                where VT is the set containing all 2D masks correspond-
+vocabulary segmentation is a text prompt. With this idea in               ing to the cluster centroid T. For semantic segmentation in
+mind, we introduce a vote-based open-vocabulary segmen-                   the 3D-OVS dataset, which provides a category list for each
+tation strategy.                                                          scene, the label of each cluster is assigned as the category
+                                                                          with the highest relevancy score.
+Constructing Vote Graph by Clustering To cluster the
+multi-view masks, an intuitive way is to cluster their cor-               Limitation of SAGA in Open-vocabulary Segmentation
+responding segmentation features. However, this is infea-                 The vote-based open-vocabulary segmentation strategy en-
+sible since the segmentation features in SAGA are scale-                  counters difficulties in certain scenarios. For instance, when
+conditioned. Segmentation features for different masks are                considering a bowl of noodles with an egg in it, SAGA ide-
+probably in different feature subspace. This drives us to find            ally should distinguish between categories such as the egg,
+a kind of global features that is consistent across different             the egg with noodles (contents of the bowl), and the bowl
+scales for multi-view masks to enable global clustering.                  with noodles and egg. However, because ”egg” is included
+   We propose to use the segmented Gaussians as the global                in masks at larger scales, CLIP often misclassifies larger ob-
+feature. First, we uniformly sample a set of anchor Gaus-                 jects as ”egg.” This issue is inherently rooted in the multi-
+sians A from G. Then, for a 2D mask M ∈ MI with scale                     granularity ambiguity in semantics. Addressing this problem
+sM , we calculate its scale-conditioned feature as3 :                     is a promising research direction.
+                                                                             Another limitation is common among current CLIP-SAM
+                           1       X                                      based methods, such as LangSplat (Qin et al. 2024) and
+                 fM =                     FsM (p).                (14)    N2F2 (Bhalgat et al. 2024). Both SAGA and these methods
+                         δ(M)
+                                 p∈δ(M)                                   first use SAM to segment the images and then use CLIP to
+   Then we compute the similarities between fM and all an-                attach semantics to these segments by segmenting the cor-
+chor Gaussians in A to get a segmentation result AM = {g |                responding regions of the image and feeding them to CLIP.
+⟨fgsM , fM ⟩ > τ, g ∈ A}. The distance between two masks                  However, the effectiveness of the CLIP visual encoder also
+M1 , M2 is defined as their intersection over union of this               depends on context. For example, SAM sometimes segments
+3D segmentation result, i.e., D(M1 , M2 ) = |AM
+                                                |AM1 ∩AM2 |               the texture on a wall. Without seeing the entire wall, CLIP
+                                                   1
+                                                     ∪AM2 | .             struggles to recognize it. This lack of context hinders the
+Then we perform HDBSCAN based on this distance map to                     ability to ground the segments accurately. This is an impor-
+cluster the 2D masks.                                                     tant yet currently unexplored issue.
+Vote-based Segmentation After clustering, we obtain a
+vote graph V, where masks of the same 3D target (instance                 A.4    Interpretability Analysis
+or part) are grouped together. In other words, each cluster               To better understand the scale gate mechanism, we analyze
+centroid in V represents a potential segmentation target in               the weights of the learned scale gates through a statistical
+the 3D space.                                                             analysis across 47 scenes, each containing 32 scale gates,
+   For each 2D mask MI of image I, we extract its visual                  resulting in a total of 47 × 32 entries. Within these entries,
+feature by feeding the masked image I ⊙ MI to the CLIP                    36.1% (543) of the gates are positive, while 63.9% (961) are
+   3                                                                         4
+     For brevity, we continue to use δ(·) to denote the set of positive        We adopt the relevancy score introduced in LERF (Kerr et al.
+pixels in 2D masks.                                                       2023), which has been proven robust.
+negative, meaning that a typical scene has about 12 positive
+gates and 20 negative gates. In other words, when larger-
+scale features are used as input, more gates tend to close,
+and fewer gates remain open, which aligns with the intuitive
+understanding that finer-grained segmentation requires more
+features to effectively capture detailed information.
+
+A.5    SAGA with Hybrid Radiance Fields
+Although SAGA is designed for segmentation in 3D-GS, its
+scale gate mechanism is not confined to a particular type of
+radiance field. We demonstrate this versatility by adapting
+SAGA to GARField, replacing the scale-conditioned affin-
+ity field with a scale-gated affinity field. As illustrated in Fig-
+ure A1, the performance remains competitive.
+   Furthermore, we apply SAGA to InstantNGP (Müller
+et al. 2022), which can be viewed as an explicit version of
+GARField without the MLP. As shown in Figure A2, SAGA
+continues to produce competitive results. It is worth noting
+that direct clustering on the hash grid of InstantNGP is in-
+feasible. To address this, we follow GARField’s approach,
+using 3D-GS to query the hash grids and extract 3D features
+for clustering.
+
+A.6    More Qualitative Results
+We present additional qualitative results in Figures A5 and
+A4. In Figure A3, it is evident that the affinity features in
+SAGA exhibit better stability compared to GARField. We
+perform clustering on the affinity features across the entire
+scene. At a smaller scale (0.01), both SAGA and GARField
+achieve fine-grained segmentation. However, when conduct-
+ing coarse segmentation at a larger scale, GARField tends to
+merge smaller objects into larger ones (e.g., the table). This
+behavior can be attributed to two factors: first, GARField
+assumes that the entire scene belongs to the same “object”
+when the scale exceeds that of any existing objects within
+the scene. Second, GARField employs an implicit feature
+field to fit the scale-conditioned affinity features. As noted
+by Mildenhall et al. (2020), radiance fields often produce
+over-smoothed predictions, which can result in the loss of
+small objects at larger scales. In contrast, SAGA assigns an
+explicit affinity feature to each 3D Gaussian in the 3D-GS
+model and uses a simple one-layer linear layer (i.e., the scale
+gate) to model the scale-conditioned effect. This approach
+allows SAGA to better preserve smaller objects. This is also
+evidenced by Figure A1: by replacing the multi-layer per-
+ceptron of GARField with our proposed scale-gate mecha-
+nism, GARField can preserve the small objects on the table.
+Figure A2: Applying SAGA to Instant-NGP achieves competitive segmentation performance, further demonstrating the gener-
+alizability and robustness of SAGA across different radiance field representations.
+
+
+
+
+Figure A3: Qualitative comparison with GARField. We conduct feature clustering across the whole scene (LERF-figurines).
+Compared to GARField, which employs an additional feature field to model affinity features, SAGA demonstrates greater
+stability by utilizing explicit affinity features. At larger scales, SAGA effectively preserves the perception of small objects
+without merging them with other targets.
+Figure A4: More qualitative results of SAGA.
+Figure A5: More qualitative results of SAGA.
+

@@ -1,0 +1,28 @@
+{
+  "id": "P54",
+  "slug": "JEPA_WM_Physical_Planning",
+  "arxiv_id": "2512.24497",
+  "family": "jepa",
+  "source_url": "https://arxiv.org/abs/2512.24497",
+  "accessed": "2026-11-11",
+  "title": "What Drives Success in Physical Planning with Joint-Embedding Predictive World Models?",
+  "authors": [
+    "Terver, Basile",
+    "Yang, Tsung-Yen",
+    "Ponce, Jean",
+    "Bardes, Adrien",
+    "LeCun, Yann"
+  ],
+  "publication_date": "2025/12/30",
+  "submitted_date": "2026/09/02",
+  "abstract": " A long-standing challenge in AI is to develop agents capable of solving a wide range of physical tasks and generalizing to new, unseen tasks and environments. A popular recent approach involves training a world model from state-action trajectories and subsequently use it with a planning algorithm to solve new tasks. Planning is commonly performed in the input space, but a recent family of methods has introduced planning algorithms that optimize in the learned representation space of the world model, with the promise that abstracting irrelevant details yields more efficient planning. In this work, we characterize models from this family as JEPA-WMs and investigate the technical choices that make algorithms from this class work. We propose a comprehensive study of several key components with the objective of finding the optimal approach within the family. We conducted experiments using both simulated environments and real-world robotic data, and studied how the model architecture, the training objective, and the planning algorithm affect planning success. We combine our findings to propose a model that outperforms two established baselines, DINO-WM and V-JEPA-2-AC, in both navigation and manipulation tasks. Code, data and checkpoints are available at this https URL .",
+  "submission_history": "Submission history From: Basile Terver [ view email ] [v1] Tue, 30 Dec 2025 22:50:03 UTC (8,658 KB) [v2] Thu, 8 Jan 2026 23:57:08 UTC (8,654 KB) [v3] Mon, 18 May 2026 09:26:59 UTC (8,664 KB) [v4] Wed, 2 Sep 2026 10:28:05 UTC (8,665 KB)",
+  "version": "v4",
+  "pdf_url": "https://arxiv.org/pdf/2512.24497v4",
+  "local_pdf": "papers/P54_JEPA_WM_Physical_Planning_2512.24497v4.pdf",
+  "sha256": "d2dd4364de28d0b41f7001d26fd8d43487c31a9df5a5759ef319f89adad39a18",
+  "bytes": 10201512,
+  "pages": 55,
+  "text_file": "research/P54_JEPA_WM_Physical_Planning.txt",
+  "status": "downloaded_and_text_extracted"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "P49",
+  "slug": "GaussianBench",
+  "arxiv_id": "2610.10554",
+  "family": "evaluation",
+  "source_url": "https://arxiv.org/abs/2610.10554",
+  "accessed": "2026-11-09",
+  "title": "GaussianBench: Physics-Fidelity Evaluation for Gaussian Scene Representations",
+  "authors": [
+    "Dumebi-Kachikwu, Chukwudalu"
+  ],
+  "publication_date": "2026/09/27",
+  "submitted_date": "2026/09/27",
+  "abstract": " 3D Gaussian Splatting has evolved from static reconstruction toward physics-integrated representations meant to predict how scenes change under interaction. This creates an evaluation problem: a rollout can look plausible while relying on incorrect internal mechanics, and visual agreement with observed motion does not establish a correct response to a new force, material edit, contact, or thermal intervention. We introduce GaussianBench, a physics-fidelity evaluation suite for physics-integrated Gaussian scene representations. It uses frozen file-based scenes, simulator-independent scorers, and analytical or measured references. The benchmark tests conservation, continuum response, heterogeneous-material coupling, Gaussian covariance transport and rendering, thermal phase change, and counterfactual response. Each reference declares its regime of validity, and outcomes distinguish PASS, FAIL, NA, and INVALID, separating physical failures from unsupported capabilities and invalid comparisons. We also provide GaussianFlesh, a thermomechanical reference entrant in which persistent 3D Gaussians act as both rendering primitives and continuum material points, advanced by a shared-grid MPM solver with per-particle constitutive dispatch and persistent thermal and phase state. We evaluate six released external systems: PhysGaussian, GaussianFluent, OmniPhysGS, PhysDreamer, Physics3D, and GASP. Testing every system the same way reveals failures that their original evaluations missed: a system can simulate a single material correctly but fail where two materials meet, or update its Gaussians correctly for a deformation it never produced. Matched faults and tolerance audits confirm these distinctions arise from the intended tests. Physics-integrated Gaussian systems must therefore be tested on their internal physical state, not just on whether their rollouts look plausible.",
+  "submission_history": "Submission history From: Chukwudalu Dumebi-Kachikwu [ view email ] [v1] Sun, 27 Sep 2026 04:38:17 UTC (1,505 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2610.10554v1",
+  "local_pdf": "papers/P49_GaussianBench_2610.10554v1.pdf",
+  "sha256": "1aeab3233236f3a68f7a1fce25f5b61e361d7e2333adfaf3423c18656d541868",
+  "bytes": 1863254,
+  "pages": 17,
+  "text_file": "research/P49_GaussianBench.txt",
+  "status": "downloaded_and_text_extracted"
+}

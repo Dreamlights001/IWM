@@ -1,0 +1,29 @@
+{
+  "id": "P36",
+  "slug": "VGGT",
+  "arxiv_id": "2503.11651",
+  "family": "reconstruction",
+  "source_url": "https://arxiv.org/abs/2503.11651",
+  "accessed": "2026-11-09",
+  "title": "VGGT: Visual Geometry Grounded Transformer",
+  "authors": [
+    "Wang, Jianyuan",
+    "Chen, Minghao",
+    "Karaev, Nikita",
+    "Vedaldi, Andrea",
+    "Rupprecht, Christian",
+    "Novotny, David"
+  ],
+  "publication_date": "2025/03/14",
+  "submitted_date": "2025/03/14",
+  "abstract": " We present VGGT, a feed-forward neural network that directly infers all key 3D attributes of a scene, including camera parameters, point maps, depth maps, and 3D point tracks, from one, a few, or hundreds of its views. This approach is a step forward in 3D computer vision, where models have typically been constrained to and specialized for single tasks. It is also simple and efficient, reconstructing images in under one second, and still outperforming alternatives that require post-processing with visual geometry optimization techniques. The network achieves state-of-the-art results in multiple 3D tasks, including camera parameter estimation, multi-view depth estimation, dense point cloud reconstruction, and 3D point tracking. We also show that using pretrained VGGT as a feature backbone significantly enhances downstream tasks, such as non-rigid point tracking and feed-forward novel view synthesis. Code and models are publicly available at this https URL .",
+  "submission_history": "Submission history From: Jianyuan Wang [ view email ] [v1] Fri, 14 Mar 2025 17:59:47 UTC (19,958 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2503.11651v1",
+  "local_pdf": "papers/P36_VGGT_2503.11651v1.pdf",
+  "sha256": "5d7ab44d129172f39ef5918feb0014c4d041fd0e92f995d4dbbd7327a6e91d52",
+  "bytes": 3161073,
+  "pages": 20,
+  "text_file": "research/P36_VGGT.txt",
+  "status": "downloaded_and_text_extracted"
+}

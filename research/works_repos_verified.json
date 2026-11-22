@@ -1,0 +1,1042 @@
+{
+ "AutodeskAILab/Fusion360GalleryDataset": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Data, tools, and documentation of the Fusion 360 Gallery Dataset",
+  "full_name": "AutodeskAILab/Fusion360GalleryDataset",
+  "ok": true,
+  "pushed_at": "2022-04-23T18:47:41Z",
+  "stars": 763,
+  "url": "https://github.com/AutodeskAILab/Fusion360GalleryDataset"
+ },
+ "Autonomy-Logic/openplc-runtime": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "OpenPLC Runtime v4 designed to run programs built on OpenPLC Editor v4",
+  "full_name": "Autonomy-Logic/openplc-runtime",
+  "ok": true,
+  "pushed_at": "2026-11-22T04:44:57Z",
+  "stars": 450,
+  "url": "https://github.com/Autonomy-Logic/openplc-runtime"
+ },
+ "CATIA-Systems/FMPy": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Simulate Functional Mock-up Units (FMUs) in Python",
+  "full_name": "CATIA-Systems/FMPy",
+  "ok": true,
+  "pushed_at": "2026-11-02T11:04:03Z",
+  "stars": 601,
+  "url": "https://github.com/CATIA-Systems/FMPy"
+ },
+ "CadQuery/cadquery": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A python parametric CAD scripting framework based on OCCT",
+  "full_name": "CadQuery/cadquery",
+  "ok": true,
+  "pushed_at": "2026-11-21T13:18:17Z",
+  "stars": 6148,
+  "url": "https://github.com/CadQuery/cadquery"
+ },
+ "Fanqi-Lin/Data-Scaling-Laws": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official implementation of \"Data Scaling Laws in Imitation Learning for Robotic Manipulation\"",
+  "full_name": "Fanqi-Lin/Data-Scaling-Laws",
+  "ok": true,
+  "pushed_at": "2024-11-13T08:22:26Z",
+  "stars": 216,
+  "url": "https://github.com/Fanqi-Lin/Data-Scaling-Laws"
+ },
+ "Farama-Foundation/PettingZoo": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A standard API for multi-agent reinforcement learning environments, with popular reference environments and related utilities",
+  "full_name": "Farama-Foundation/PettingZoo",
+  "ok": true,
+  "pushed_at": "2026-11-21T23:28:46Z",
+  "stars": 3556,
+  "url": "https://github.com/Farama-Foundation/PettingZoo"
+ },
+ "FlagOpen/RoboOS": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "🤖 RoboOS: A Universal Embodied Operating System for Cross-Embodied and Multi-Robot Collaboration",
+  "full_name": "FlagOpen/RoboOS",
+  "ok": true,
+  "pushed_at": "2025-12-18T10:43:26Z",
+  "stars": 635,
+  "url": "https://github.com/FlagOpen/RoboOS"
+ },
+ "FreeOpcUa/opcua-asyncio": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "OPC UA library for python >= 3.10",
+  "full_name": "FreeOpcUa/opcua-asyncio",
+  "ok": true,
+  "pushed_at": "2026-11-18T13:53:57Z",
+  "stars": 1517,
+  "url": "https://github.com/FreeOpcUa/opcua-asyncio"
+ },
+ "Genesis-Embodied-AI/RoboGen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A generative and self-guided robotic agent that endlessly propose and master new skills.",
+  "full_name": "Genesis-Embodied-AI/RoboGen",
+  "ok": true,
+  "pushed_at": "2024-05-31T01:32:29Z",
+  "stars": 1231,
+  "url": "https://github.com/Genesis-Embodied-AI/RoboGen"
+ },
+ "HaoranZhangumich/Awesome-Robotic-Benchmarks": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A curated, domain-organized list of robotics benchmarks—manipulation, locomotion, navigation, HRI, safety, simulation—summarized in concise, comparable tables.",
+  "full_name": "HaoranZhangumich/Awesome-Robotic-Benchmarks",
+  "ok": true,
+  "pushed_at": "2026-11-21T11:40:05Z",
+  "stars": 19,
+  "url": "https://github.com/HaoranZhangumich/Awesome-Robotic-Benchmarks"
+ },
+ "HorizonRobotics/EmbodiedGen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Towards a Generative 3D World Engine for Embodied Intelligence",
+  "full_name": "HorizonRobotics/EmbodiedGen",
+  "ok": true,
+  "pushed_at": "2026-08-24T07:06:47Z",
+  "stars": 726,
+  "url": "https://github.com/HorizonRobotics/EmbodiedGen"
+ },
+ "INTO-CPS-Association/maestro": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Maestro a Co-Simulation Orchestration Engine",
+  "full_name": "INTO-CPS-Association/maestro",
+  "ok": true,
+  "pushed_at": "2026-11-19T14:30:19Z",
+  "stars": 23,
+  "url": "https://github.com/INTO-CPS-Association/maestro"
+ },
+ "IranQin/robofactory": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "IranQin/robofactory",
+  "ok": true,
+  "pushed_at": "2025-07-18T06:27:36Z",
+  "stars": 0,
+  "url": "https://github.com/IranQin/robofactory"
+ },
+ "Jiaoyang-Li/RHCR": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "An efficient solver for lifelong Multi-Agent Path Finding",
+  "full_name": "Jiaoyang-Li/RHCR",
+  "ok": true,
+  "pushed_at": "2024-12-17T15:30:32Z",
+  "stars": 224,
+  "url": "https://github.com/Jiaoyang-Li/RHCR"
+ },
+ "Kei18/lacam": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "LaCAM: Search-Based Algorithm for Quick Multi-Agent Pathfinding (AAAI-23)",
+  "full_name": "Kei18/lacam",
+  "ok": true,
+  "pushed_at": "2025-08-22T15:17:40Z",
+  "stars": 83,
+  "url": "https://github.com/Kei18/lacam"
+ },
+ "LeCAR-Lab/ASAP": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[RSS 2025] \"ASAP: Aligning Simulation and Real-World Physics for Learning Agile Humanoid Whole-Body Skills\"",
+  "full_name": "LeCAR-Lab/ASAP",
+  "ok": true,
+  "pushed_at": "2026-01-06T04:58:36Z",
+  "stars": 2144,
+  "url": "https://github.com/LeCAR-Lab/ASAP"
+ },
+ "LeCAR-Lab/human2humanoid": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[IROS 2024] Learning Human-to-Humanoid Real-Time Whole-Body Teleoperation.                    [CoRL 2024] OmniH2O: Universal and Dexterous Human-to-Humanoid Whole-Body Teleoperation and Learning",
+  "full_name": "LeCAR-Lab/human2humanoid",
+  "ok": true,
+  "pushed_at": "2025-02-21T06:58:48Z",
+  "stars": 1083,
+  "url": "https://github.com/LeCAR-Lab/human2humanoid"
+ },
+ "Lifelong-Robot-Learning/LIBERO": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Benchmarking Knowledge Transfer in Lifelong Robot Learning",
+  "full_name": "Lifelong-Robot-Learning/LIBERO",
+  "ok": true,
+  "pushed_at": "2025-03-15T12:14:04Z",
+  "stars": 2563,
+  "url": "https://github.com/Lifelong-Robot-Learning/LIBERO"
+ },
+ "LinuxCNC/linuxcnc": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "LinuxCNC controls CNC machines. It can drive milling machines, lathes, 3d printers, laser cutters, plasma cutters, robot arms, hexapods, and more.",
+  "full_name": "LinuxCNC/linuxcnc",
+  "ok": true,
+  "pushed_at": "2026-11-21T23:44:06Z",
+  "stars": 2544,
+  "url": "https://github.com/LinuxCNC/linuxcnc"
+ },
+ "MAPF-Competition/Start-Kit": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "MAPF-Competition/Start-Kit",
+  "ok": true,
+  "pushed_at": "2026-07-15T02:07:31Z",
+  "stars": 39,
+  "url": "https://github.com/MAPF-Competition/Start-Kit"
+ },
+ "MandiZhao/real2code": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "MandiZhao/real2code",
+  "ok": true,
+  "pushed_at": "2025-03-05T07:26:00Z",
+  "stars": 118,
+  "url": "https://github.com/MandiZhao/real2code"
+ },
+ "MarkFzp/humanplus": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[CoRL 2024] HumanPlus: Humanoid Shadowing and Imitation from Humans",
+  "full_name": "MarkFzp/humanplus",
+  "ok": true,
+  "pushed_at": "2024-07-01T22:28:54Z",
+  "stars": 852,
+  "url": "https://github.com/MarkFzp/humanplus"
+ },
+ "MarkFzp/mobile-aloha": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Mobile ALOHA: Learning Bimanual Mobile Manipulation with Low-Cost Whole-Body Teleoperation",
+  "full_name": "MarkFzp/mobile-aloha",
+  "ok": true,
+  "pushed_at": "2024-06-22T18:27:51Z",
+  "stars": 4481,
+  "url": "https://github.com/MarkFzp/mobile-aloha"
+ },
+ "NVIDIA/Isaac-GR00T": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "NVIDIA Isaac GR00T N1.7 -  A Foundation Model for Generalist Robots.",
+  "full_name": "NVIDIA/Isaac-GR00T",
+  "ok": true,
+  "pushed_at": "2026-11-17T22:53:19Z",
+  "stars": 8402,
+  "url": "https://github.com/NVIDIA/Isaac-GR00T"
+ },
+ "NVlabs/HOVER": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "HOVER",
+  "full_name": "NVlabs/HOVER",
+  "ok": true,
+  "pushed_at": "2025-07-30T01:21:51Z",
+  "stars": 769,
+  "url": "https://github.com/NVlabs/HOVER"
+ },
+ "NVlabs/PointWorld": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation",
+  "full_name": "NVlabs/PointWorld",
+  "ok": true,
+  "pushed_at": "2026-05-17T21:45:41Z",
+  "stars": 578,
+  "url": "https://github.com/NVlabs/PointWorld"
+ },
+ "NVlabs/curobo": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "CUDA Accelerated Robot Library",
+  "full_name": "NVlabs/curobo",
+  "ok": true,
+  "pushed_at": "2026-11-21T00:19:20Z",
+  "stars": 2036,
+  "url": "https://github.com/NVlabs/curobo"
+ },
+ "NVlabs/dexmimicgen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "This code corresponds to simulation environments used as part of the DexMimicGen project.",
+  "full_name": "NVlabs/dexmimicgen",
+  "ok": true,
+  "pushed_at": "2025-12-06T07:51:20Z",
+  "stars": 301,
+  "url": "https://github.com/NVlabs/dexmimicgen"
+ },
+ "NVlabs/industreallib": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "NVlabs/industreallib",
+  "ok": true,
+  "pushed_at": "2024-01-05T00:19:46Z",
+  "stars": 85,
+  "url": "https://github.com/NVlabs/industreallib"
+ },
+ "NVlabs/mimicgen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "This code corresponds to simulation environments used as part of the MimicGen project.",
+  "full_name": "NVlabs/mimicgen",
+  "ok": true,
+  "pushed_at": "2026-10-21T17:53:51Z",
+  "stars": 673,
+  "url": "https://github.com/NVlabs/mimicgen"
+ },
+ "OpenDriveLab/AgiBot-World": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[IROS 2025 Best Paper Award Finalist & IEEE TRO 2026] The Large-scale Manipulation Platform for Scalable and Intelligent Embodied Systems",
+  "full_name": "OpenDriveLab/AgiBot-World",
+  "ok": true,
+  "pushed_at": "2026-05-29T12:31:22Z",
+  "stars": 3235,
+  "url": "https://github.com/OpenDriveLab/AgiBot-World"
+ },
+ "OpenMOSS/Awesome-WAM": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A curated collection of papers, explainers, and resources on World Action Models for embodied AI",
+  "full_name": "OpenMOSS/Awesome-WAM",
+  "ok": true,
+  "pushed_at": "2026-09-07T06:00:57Z",
+  "stars": 1537,
+  "url": "https://github.com/OpenMOSS/Awesome-WAM"
+ },
+ "OpenModelica/OpenModelica": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "OpenModelica is an open-source Modelica-based modeling and simulation environment intended for industrial and academic usage.",
+  "full_name": "OpenModelica/OpenModelica",
+  "ok": true,
+  "pushed_at": "2026-11-21T22:08:09Z",
+  "stars": 1495,
+  "url": "https://github.com/OpenModelica/OpenModelica"
+ },
+ "OpenTeleVision/TeleVision": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[CoRL 2024] Open-TeleVision: Teleoperation with Immersive Active Visual Feedback",
+  "full_name": "OpenTeleVision/TeleVision",
+  "ok": true,
+  "pushed_at": "2024-09-27T02:38:47Z",
+  "stars": 1319,
+  "url": "https://github.com/OpenTeleVision/TeleVision"
+ },
+ "PKU-Alignment/omnisafe": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "JMLR: OmniSafe is an infrastructural framework for accelerating SafeRL research.",
+  "full_name": "PKU-Alignment/omnisafe",
+  "ok": true,
+  "pushed_at": "2025-03-17T11:45:44Z",
+  "stars": 1170,
+  "url": "https://github.com/PKU-Alignment/omnisafe"
+ },
+ "PKU-Alignment/safety-gymnasium": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "NeurIPS 2023: Safety-Gymnasium: A Unified Safe Reinforcement Learning Benchmark",
+  "full_name": "PKU-Alignment/safety-gymnasium",
+  "ok": true,
+  "pushed_at": "2026-07-21T04:04:21Z",
+  "stars": 602,
+  "url": "https://github.com/PKU-Alignment/safety-gymnasium"
+ },
+ "PKU-MARL/HARL": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official implementation of HARL algorithms based on PyTorch.",
+  "full_name": "PKU-MARL/HARL",
+  "ok": true,
+  "pushed_at": "2026-11-14T02:48:13Z",
+  "stars": 966,
+  "url": "https://github.com/PKU-MARL/HARL"
+ },
+ "PhyScene/PhyScene": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Code implementation of CVPR 2024 highlight paper \"PhyScene: Physically Interactable 3D Scene Synthesis for Embodied AI\"",
+  "full_name": "PhyScene/PhyScene",
+  "ok": true,
+  "pushed_at": "2025-06-09T05:45:26Z",
+  "stars": 216,
+  "url": "https://github.com/PhyScene/PhyScene"
+ },
+ "Physical-Intelligence/openpi": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "Physical-Intelligence/openpi",
+  "ok": true,
+  "pushed_at": "2026-08-24T16:27:13Z",
+  "stars": 14728,
+  "url": "https://github.com/Physical-Intelligence/openpi"
+ },
+ "Rhoban/onshape-to-robot": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Converting Onshape assembly to robot definition (URDF, SDF, MuJoCo) through Onshape API",
+  "full_name": "Rhoban/onshape-to-robot",
+  "ok": true,
+  "pushed_at": "2026-11-19T16:22:45Z",
+  "stars": 650,
+  "url": "https://github.com/Rhoban/onshape-to-robot"
+ },
+ "RoboTwin-Platform/RoboTwin": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[ICML 2026] RoboTwin 2.0 Offical Code Repo",
+  "full_name": "RoboTwin-Platform/RoboTwin",
+  "ok": true,
+  "pushed_at": "2026-09-24T03:44:58Z",
+  "stars": 3073,
+  "url": "https://github.com/RoboTwin-Platform/RoboTwin"
+ },
+ "RoboVerseOrg/RoboVerse": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "RoboVerse: Towards a Unified Platform, Dataset and Benchmark for Scalable and Generalizable Robot Learning",
+  "full_name": "RoboVerseOrg/RoboVerse",
+  "ok": true,
+  "pushed_at": "2026-11-16T17:17:57Z",
+  "stars": 1881,
+  "url": "https://github.com/RoboVerseOrg/RoboVerse"
+ },
+ "SarahWeiii/CoACD": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[SIGGRAPH2022] Approximate Convex Decomposition for 3D Meshes with Collision-Aware Concavity and Tree Search",
+  "full_name": "SarahWeiii/CoACD",
+  "ok": true,
+  "pushed_at": "2026-09-23T20:05:14Z",
+  "stars": 1221,
+  "url": "https://github.com/SarahWeiii/CoACD"
+ },
+ "ShuangLI59/unified_video_action": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official PyTorch Implementation of Unified Video Action Model (RSS 2025)",
+  "full_name": "ShuangLI59/unified_video_action",
+  "ok": true,
+  "pushed_at": "2026-08-21T00:31:55Z",
+  "stars": 419,
+  "url": "https://github.com/ShuangLI59/unified_video_action"
+ },
+ "StanfordVL/BEHAVIOR-1K": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "BEHAVIOR-1K: a platform for accelerating Embodied AI research. Join our Discord for support: https://discord.gg/bccR5vGFEx",
+  "full_name": "StanfordVL/BEHAVIOR-1K",
+  "ok": true,
+  "pushed_at": "2026-11-21T08:04:11Z",
+  "stars": 1804,
+  "url": "https://github.com/StanfordVL/BEHAVIOR-1K"
+ },
+ "TEA-Lab/DemoGen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[RSS25] Official implementation of DemoGen: Synthetic Demonstration Generation for Data-Efficient Visuomotor Policy Learning",
+  "full_name": "TEA-Lab/DemoGen",
+  "ok": true,
+  "pushed_at": "2025-07-18T09:52:33Z",
+  "stars": 259,
+  "url": "https://github.com/TEA-Lab/DemoGen"
+ },
+ "UCSB-AI/LayoutGPT": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official repo for NeurIPS 2023 paper \"LayoutGPT: Compositional Visual Planning and Generation with Large Language Models\"",
+  "full_name": "UCSB-AI/LayoutGPT",
+  "ok": true,
+  "pushed_at": "2024-04-10T05:17:09Z",
+  "stars": 411,
+  "url": "https://github.com/UCSB-AI/LayoutGPT"
+ },
+ "WEIRDLabUW/unified-world-model": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Unfied World Models: Coupling Video and Action Diffusion for Pretraining on Large Robotic Datasets",
+  "full_name": "WEIRDLabUW/unified-world-model",
+  "ok": true,
+  "pushed_at": "2025-10-08T19:39:50Z",
+  "stars": 260,
+  "url": "https://github.com/WEIRDLabUW/unified-world-model"
+ },
+ "WEIRDLabUW/urdformer": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "code release for URDFormer",
+  "full_name": "WEIRDLabUW/urdformer",
+  "ok": true,
+  "pushed_at": "2024-08-08T16:12:38Z",
+  "stars": 207,
+  "url": "https://github.com/WEIRDLabUW/urdformer"
+ },
+ "YanjieZe/GMR": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[ICRA 2026] GMR: General Motion Retargeting. Retarget human motions into diverse humanoid robots in real time on CPU. Retargeter for TWIST.",
+  "full_name": "YanjieZe/GMR",
+  "ok": true,
+  "pushed_at": "2026-10-22T17:08:44Z",
+  "stars": 2841,
+  "url": "https://github.com/YanjieZe/GMR"
+ },
+ "ZhengyiLuo/PHC": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official Implementation of the ICCV 2023 paper:  Perpetual Humanoid Control for Real-time Simulated Avatars",
+  "full_name": "ZhengyiLuo/PHC",
+  "ok": true,
+  "pushed_at": "2025-08-21T18:34:47Z",
+  "stars": 1310,
+  "url": "https://github.com/ZhengyiLuo/PHC"
+ },
+ "ai4co/rl4co": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A PyTorch library for all things Reinforcement Learning (RL) for Combinatorial Optimization (CO)",
+  "full_name": "ai4co/rl4co",
+  "ok": true,
+  "pushed_at": "2026-09-14T09:59:12Z",
+  "stars": 924,
+  "url": "https://github.com/ai4co/rl4co"
+ },
+ "allenai/Holodeck": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "CVPR 2024: Language Guided Generation of 3D Embodied AI Environments.",
+  "full_name": "allenai/Holodeck",
+  "ok": true,
+  "pushed_at": "2025-04-02T15:01:15Z",
+  "stars": 584,
+  "url": "https://github.com/allenai/Holodeck"
+ },
+ "allenai/procthor": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "🏘️ Scaling Embodied AI by Procedurally Generating Interactive 3D Houses",
+  "full_name": "allenai/procthor",
+  "ok": true,
+  "pushed_at": "2023-04-07T11:02:38Z",
+  "stars": 488,
+  "url": "https://github.com/allenai/procthor"
+ },
+ "ant-research/EasyTemporalPointProcess": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "EasyTPP: Towards Open Benchmarking Temporal Point Processes",
+  "full_name": "ant-research/EasyTemporalPointProcess",
+  "ok": true,
+  "pushed_at": "2026-09-29T05:00:36Z",
+  "stars": 362,
+  "url": "https://github.com/ant-research/EasyTemporalPointProcess"
+ },
+ "bold-lab-ai/JaxMARL": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Multi-Agent Reinforcement Learning with JAX",
+  "full_name": "bold-lab-ai/JaxMARL",
+  "ok": true,
+  "pushed_at": "2026-11-21T17:09:43Z",
+  "stars": 879,
+  "url": "https://github.com/bold-lab-ai/JaxMARL"
+ },
+ "danijar/director": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Deep Hierarchical Planning from Pixels",
+  "full_name": "danijar/director",
+  "ok": true,
+  "pushed_at": "2022-12-21T15:32:46Z",
+  "stars": 126,
+  "url": "https://github.com/danijar/director"
+ },
+ "danijar/dreamerv3": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Mastering Diverse Domains through World Models",
+  "full_name": "danijar/dreamerv3",
+  "ok": true,
+  "pushed_at": "2026-10-04T05:02:53Z",
+  "stars": 4003,
+  "url": "https://github.com/danijar/dreamerv3"
+ },
+ "dexsuite/dex-retargeting": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Various retargeting optimizers to translate human hand motion to robot hand motion. ",
+  "full_name": "dexsuite/dex-retargeting",
+  "ok": true,
+  "pushed_at": "2025-08-21T17:51:55Z",
+  "stars": 1321,
+  "url": "https://github.com/dexsuite/dex-retargeting"
+ },
+ "droid-dataset/droid": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Distributed Robot Interaction Dataset.",
+  "full_name": "droid-dataset/droid",
+  "ok": true,
+  "pushed_at": "2025-09-15T23:51:11Z",
+  "stars": 474,
+  "url": "https://github.com/droid-dataset/droid"
+ },
+ "eureka-research/Eureka": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official Repository for \"Eureka: Human-Level Reward Design via Coding Large Language Models\" (ICLR 2024)",
+  "full_name": "eureka-research/Eureka",
+  "ok": true,
+  "pushed_at": "2024-05-03T07:31:13Z",
+  "stars": 3218,
+  "url": "https://github.com/eureka-research/Eureka"
+ },
+ "facebookresearch/habitat-lab": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A modular high-level library to train embodied AI agents across a variety of tasks and environments.",
+  "full_name": "facebookresearch/habitat-lab",
+  "ok": true,
+  "pushed_at": "2026-05-07T22:03:51Z",
+  "stars": 3189,
+  "url": "https://github.com/facebookresearch/habitat-lab"
+ },
+ "facebookresearch/partnr-planner": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A repository accompanying the PARTNR benchmark for using Large Planning Models (LPMs) to solve Human-Robot Collaboration or Robot Instruction Following tasks in the Habitat simulator.",
+  "full_name": "facebookresearch/partnr-planner",
+  "ok": true,
+  "pushed_at": "2026-04-08T07:36:41Z",
+  "stars": 409,
+  "url": "https://github.com/facebookresearch/partnr-planner"
+ },
+ "facebookresearch/vjepa2": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "PyTorch code and models for VJEPA2 self-supervised learning from video.",
+  "full_name": "facebookresearch/vjepa2",
+  "ok": true,
+  "pushed_at": "2026-10-29T05:39:42Z",
+  "stars": 4912,
+  "url": "https://github.com/facebookresearch/vjepa2"
+ },
+ "galou/freecad.cross": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "CROSS  CAD and ROS, an Open-Source Synergy; ROS workbench for FreeCAD",
+  "full_name": "galou/freecad.cross",
+  "ok": true,
+  "pushed_at": "2026-11-11T13:03:14Z",
+  "stars": 164,
+  "url": "https://github.com/galou/freecad.cross"
+ },
+ "google-deepmind/mujoco_menagerie": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A collection of high-quality models for the MuJoCo physics engine, curated by Google DeepMind.",
+  "full_name": "google-deepmind/mujoco_menagerie",
+  "ok": true,
+  "pushed_at": "2026-11-10T20:21:12Z",
+  "stars": 4398,
+  "url": "https://github.com/google-deepmind/mujoco_menagerie"
+ },
+ "google-deepmind/mujoco_playground": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "An open-source library for sim and real robot demos on top of MuJoCo.",
+  "full_name": "google-deepmind/mujoco_playground",
+  "ok": true,
+  "pushed_at": "2026-11-21T09:27:38Z",
+  "stars": 2328,
+  "url": "https://github.com/google-deepmind/mujoco_playground"
+ },
+ "google-deepmind/open_x_embodiment": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "google-deepmind/open_x_embodiment",
+  "ok": true,
+  "pushed_at": "2025-11-05T23:45:27Z",
+  "stars": 2101,
+  "url": "https://github.com/google-deepmind/open_x_embodiment"
+ },
+ "google/or-tools": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Google's Operations Research tools:",
+  "full_name": "google/or-tools",
+  "ok": true,
+  "pushed_at": "2026-11-20T16:08:02Z",
+  "stars": 14427,
+  "url": "https://github.com/google/or-tools"
+ },
+ "gsartoretti/PRIMAL": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "PRIMAL: Pathfinding via Reinforcement and Imitation Multi-Agent Learning  --  Distributed RL/IL code for Multi-Agent Path Finding (MAPF)",
+  "full_name": "gsartoretti/PRIMAL",
+  "ok": true,
+  "pushed_at": "2024-04-09T18:45:32Z",
+  "stars": 448,
+  "url": "https://github.com/gsartoretti/PRIMAL"
+ },
+ "huggingface/lerobot": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "🤗 LeRobot: Making AI for Robotics more accessible with end-to-end learning",
+  "full_name": "huggingface/lerobot",
+  "ok": true,
+  "pushed_at": "2026-11-22T03:32:21Z",
+  "stars": 29018,
+  "url": "https://github.com/huggingface/lerobot"
+ },
+ "leggedrobotics/rsl_rl": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A fast and simple implementation of learning algorithms for robotics.",
+  "full_name": "leggedrobotics/rsl_rl",
+  "ok": true,
+  "pushed_at": "2026-11-20T17:06:26Z",
+  "stars": 3151,
+  "url": "https://github.com/leggedrobotics/rsl_rl"
+ },
+ "liruiw/GenSim": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Generating Robotic Simulation Tasks via Large Language Models",
+  "full_name": "liruiw/GenSim",
+  "ok": true,
+  "pushed_at": "2026-08-18T05:02:29Z",
+  "stars": 363,
+  "url": "https://github.com/liruiw/GenSim"
+ },
+ "lucas-maes/le-wm": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official code base for LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels",
+  "full_name": "lucas-maes/le-wm",
+  "ok": true,
+  "pushed_at": "2026-05-26T17:22:05Z",
+  "stars": 4656,
+  "url": "https://github.com/lucas-maes/le-wm"
+ },
+ "lululxvi/deepxde": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "A library for scientific machine learning and physics-informed learning",
+  "full_name": "lululxvi/deepxde",
+  "ok": true,
+  "pushed_at": "2026-11-16T03:45:11Z",
+  "stars": 4510,
+  "url": "https://github.com/lululxvi/deepxde"
+ },
+ "marlbenchmark/on-policy": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "This is the official implementation of Multi-Agent PPO (MAPPO).",
+  "full_name": "marlbenchmark/on-policy",
+  "ok": true,
+  "pushed_at": "2024-07-18T10:00:36Z",
+  "stars": 2139,
+  "url": "https://github.com/marlbenchmark/on-policy"
+ },
+ "maziarraissi/PINNs": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Physics Informed Deep Learning: Data-driven Solutions and Discovery of Nonlinear Partial Differential Equations",
+  "full_name": "maziarraissi/PINNs",
+  "ok": true,
+  "pushed_at": "2026-02-11T23:24:47Z",
+  "stars": 6256,
+  "url": "https://github.com/maziarraissi/PINNs"
+ },
+ "mees/calvin": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "CALVIN - A benchmark for Language-Conditioned Policy Learning for Long-Horizon Robot Manipulation Tasks",
+  "full_name": "mees/calvin",
+  "ok": true,
+  "pushed_at": "2025-09-08T08:52:01Z",
+  "stars": 1005,
+  "url": "https://github.com/mees/calvin"
+ },
+ "neuraloperator/neuraloperator": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Learning in infinite dimension with neural operators.",
+  "full_name": "neuraloperator/neuraloperator",
+  "ok": true,
+  "pushed_at": "2026-10-17T17:03:02Z",
+  "stars": 3997,
+  "url": "https://github.com/neuraloperator/neuraloperator"
+ },
+ "nicklashansen/tdmpc2": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Code for \"TD-MPC2: Scalable, Robust World Models for Continuous Control\"",
+  "full_name": "nicklashansen/tdmpc2",
+  "ok": true,
+  "pushed_at": "2026-10-20T23:34:54Z",
+  "stars": 1004,
+  "url": "https://github.com/nicklashansen/tdmpc2"
+ },
+ "open62541/open62541": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Open source implementation of OPC UA (OPC Unified Architecture) aka IEC 62541 licensed under Mozilla Public License v2.0",
+  "full_name": "open62541/open62541",
+  "ok": true,
+  "pushed_at": "2026-11-21T17:46:39Z",
+  "stars": 3283,
+  "url": "https://github.com/open62541/open62541"
+ },
+ "openvla/openvla": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "OpenVLA: An open-source vision-language-action model for robotic manipulation.",
+  "full_name": "openvla/openvla",
+  "ok": true,
+  "pushed_at": "2025-03-23T23:41:01Z",
+  "stars": 7329,
+  "url": "https://github.com/openvla/openvla"
+ },
+ "oxwhirl/pymarl": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Python Multi-Agent Reinforcement Learning framework",
+  "full_name": "oxwhirl/pymarl",
+  "ok": true,
+  "pushed_at": "2022-12-08T02:58:39Z",
+  "stars": 2228,
+  "url": "https://github.com/oxwhirl/pymarl"
+ },
+ "princeton-vl/infinigen": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Infinite Photorealistic Worlds using Procedural Generation",
+  "full_name": "princeton-vl/infinigen",
+  "ok": true,
+  "pushed_at": "2026-11-11T13:49:30Z",
+  "stars": 7466,
+  "url": "https://github.com/princeton-vl/infinigen"
+ },
+ "process-intelligence-solutions/pm4py": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official public repository for PM4Py (Process Mining for Python) — an open-source library for exploring, analyzing, and optimizing business processes with Python.",
+  "full_name": "process-intelligence-solutions/pm4py",
+  "ok": true,
+  "pushed_at": "2026-11-20T07:16:12Z",
+  "stars": 1082,
+  "url": "https://github.com/process-intelligence-solutions/pm4py"
+ },
+ "pyg-team/pytorch_geometric": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Graph Neural Network Library for PyTorch",
+  "full_name": "pyg-team/pytorch_geometric",
+  "ok": true,
+  "pushed_at": "2026-11-06T06:58:35Z",
+  "stars": 24150,
+  "url": "https://github.com/pyg-team/pytorch_geometric"
+ },
+ "rai-opensource/embodied_gaussians": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "rai-opensource/embodied_gaussians",
+  "ok": true,
+  "pushed_at": "2025-11-07T22:21:15Z",
+  "stars": 235,
+  "url": "https://github.com/rai-opensource/embodied_gaussians"
+ },
+ "rail-berkeley/hil-serl": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "rail-berkeley/hil-serl",
+  "ok": true,
+  "pushed_at": "2025-10-27T16:39:08Z",
+  "stars": 1599,
+  "url": "https://github.com/rail-berkeley/hil-serl"
+ },
+ "rail-berkeley/serl": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "SERL: A Software Suite for Sample-Efficient Robotic Reinforcement Learning",
+  "full_name": "rail-berkeley/serl",
+  "ok": true,
+  "pushed_at": "2025-10-27T17:35:49Z",
+  "stars": 872,
+  "url": "https://github.com/rail-berkeley/serl"
+ },
+ "real-stanford/diffusion_policy": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[RSS 2023] Diffusion Policy Visuomotor Policy Learning via Action Diffusion",
+  "full_name": "real-stanford/diffusion_policy",
+  "ok": true,
+  "pushed_at": "2024-12-24T19:48:03Z",
+  "stars": 4737,
+  "url": "https://github.com/real-stanford/diffusion_policy"
+ },
+ "real-stanford/universal_manipulation_interface": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Universal Manipulation Interface: In-The-Wild Robot Teaching Without In-The-Wild Robots",
+  "full_name": "real-stanford/universal_manipulation_interface",
+  "ok": true,
+  "pushed_at": "2026-05-26T17:22:25Z",
+  "stars": 1647,
+  "url": "https://github.com/real-stanford/universal_manipulation_interface"
+ },
+ "real-to-sim-to-real/RialToGUI": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "GUI for intuitively creating 3D reconstructions of the real world",
+  "full_name": "real-to-sim-to-real/RialToGUI",
+  "ok": true,
+  "pushed_at": "2024-04-09T15:20:08Z",
+  "stars": 42,
+  "url": "https://github.com/real-to-sim-to-real/RialToGUI"
+ },
+ "robocasa/robocasa": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots",
+  "full_name": "robocasa/robocasa",
+  "ok": true,
+  "pushed_at": "2026-11-18T19:49:21Z",
+  "stars": 1881,
+  "url": "https://github.com/robocasa/robocasa"
+ },
+ "rtqichen/torchdiffeq": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Differentiable ODE solvers with full GPU support and O(1)-memory backpropagation.",
+  "full_name": "rtqichen/torchdiffeq",
+  "ok": true,
+  "pushed_at": "2025-04-04T01:06:00Z",
+  "stars": 6499,
+  "url": "https://github.com/rtqichen/torchdiffeq"
+ },
+ "semitable/robotic-warehouse": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Multi-Robot Warehouse (RWARE): A multi-agent reinforcement learning environment",
+  "full_name": "semitable/robotic-warehouse",
+  "ok": true,
+  "pushed_at": "2024-09-15T17:05:19Z",
+  "stars": 447,
+  "url": "https://github.com/semitable/robotic-warehouse"
+ },
+ "simpler-env/SimplerEnv": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Evaluating and reproducing real-world robot manipulation policies (e.g., RT-1, RT-1-X, Octo) in simulation under common setups (e.g., Google Robot, WidowX+Bridge) (CoRL 2024)",
+  "full_name": "simpler-env/SimplerEnv",
+  "ok": true,
+  "pushed_at": "2026-09-30T13:55:27Z",
+  "stars": 1187,
+  "url": "https://github.com/simpler-env/SimplerEnv"
+ },
+ "tonyzhaozh/act": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "tonyzhaozh/act",
+  "ok": true,
+  "pushed_at": "2024-07-23T19:26:12Z",
+  "stars": 2352,
+  "url": "https://github.com/tonyzhaozh/act"
+ },
+ "tonyzhaozh/aloha": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "tonyzhaozh/aloha",
+  "ok": true,
+  "pushed_at": "2024-04-19T22:20:33Z",
+  "stars": 2371,
+  "url": "https://github.com/tonyzhaozh/aloha"
+ },
+ "tudelft-cda-lab/FlexFringe": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "The FlexFringe tool for flexible learning of state machines (deterministic automata) from traces. See the paper at https://arxiv.org/abs/2203.16331",
+  "full_name": "tudelft-cda-lab/FlexFringe",
+  "ok": true,
+  "pushed_at": "2026-11-11T13:51:36Z",
+  "stars": 28,
+  "url": "https://github.com/tudelft-cda-lab/FlexFringe"
+ },
+ "uoe-agents/epymarl": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "An extension of the PyMARL codebase that includes additional algorithms and environment support",
+  "full_name": "uoe-agents/epymarl",
+  "ok": true,
+  "pushed_at": "2024-09-24T08:38:39Z",
+  "stars": 740,
+  "url": "https://github.com/uoe-agents/epymarl"
+ },
+ "vlongle/articulate-anything": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "[ICLR 2025] Official implementation of Articulate-Anything",
+  "full_name": "vlongle/articulate-anything",
+  "ok": true,
+  "pushed_at": "2025-07-08T16:40:13Z",
+  "stars": 233,
+  "url": "https://github.com/vlongle/articulate-anything"
+ },
+ "wuphilipp/gello_software": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "",
+  "full_name": "wuphilipp/gello_software",
+  "ok": true,
+  "pushed_at": "2026-11-10T07:02:34Z",
+  "stars": 566,
+  "url": "https://github.com/wuphilipp/gello_software"
+ },
+ "zcaicaros/L2D": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "Official implementation of paper \"Learning to Dispatch for Job Shop Scheduling via Deep Reinforcement Learning\"",
+  "full_name": "zcaicaros/L2D",
+  "ok": true,
+  "pushed_at": "2022-08-31T06:18:26Z",
+  "stars": 397,
+  "url": "https://github.com/zcaicaros/L2D"
+ },
+ "zixuan417/humanoid-general-motion-tracking": {
+  "archived": false,
+  "checked": "2026-11-22",
+  "description": "The official codebase of paper \"GMT: General Motion Tracking for Humanoid Whole-Body Control\"",
+  "full_name": "zixuan417/humanoid-general-motion-tracking",
+  "ok": true,
+  "pushed_at": "2025-08-08T08:38:01Z",
+  "stars": 454,
+  "url": "https://github.com/zixuan417/humanoid-general-motion-tracking"
+ }
+}

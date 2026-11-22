@@ -1,0 +1,728 @@
+                                                       InstaScene: Towards Complete 3D Instance Decomposition and
+                                                                   Reconstruction from Cluttered Scenes
+                                                        Zesong Yang1,2 *               Bangbang Yang2          Wenqi Dong1,2                Chenxuan Cao1
+                                                            Liyuan Cui1                  Yuewen Ma2           Zhaopeng Cui1                Hujun Bao1†
+                                                                 1                                                                     2
+                                                                     State Key Lab of CAD & CG, Zhejiang University                        ByteDance
+                                                                              Project Page: https://zju3dv.github.io/instascene/
+
+                                                                                                                                             Incomplete         Scene-Aligned
+                                                                     Gaussian Points              Scene Decomposition                      Reconstruction!   Instance Completion
+arXiv:2507.08416v2 [cs.CV] 21 Jul 2025
+
+
+
+
+                                                                                                                                                                     Physical Align!
+
+
+
+
+                                                                                                              Instance Segmentation
+                                         Figure 1. InstaScene allows users to pick up and decompose arbitrary instances from cluttered environments, while automatically recon-
+                                         structing them into complete objects with intact geometry and appearance that align with the physical world.
+
+                                                                      Abstract                                 1. Introduction
+                                                                                                               As humans, we possess an innate ability to understand clut-
+                                         Humans can naturally identify and mentally complete oc-               tered 3D scenes and interact with diverse objects without
+                                         cluded objects in cluttered environments. However, impart-            deliberate observation. Imagine walking into a crowded
+                                         ing similar cognitive ability to robotics remains challenging         kitchen: we can immediately recognize each piece of fur-
+                                         even with advanced reconstruction techniques, which mod-              niture and every dish, and without a second thought you
+                                         els scenes as undifferentiated wholes and fails to recognize          might reach out to pick up a specific utensil from a busy
+                                         complete object from partial observations. In this paper, we          countertop. Over the years, numerous efforts have been
+                                         propose InstaScene, a new paradigm towards holistic 3D                made in computer vision and robotics to achieve similar
+                                         perception of complex scenes with a primary goal: decom-              skills [18], developing series of capabilities like efficient
+                                         posing arbitrary instances while ensuring complete recon-             reconstruction and rendering [14], 3D scene understand-
+                                         struction. To achieve precise decomposition, we develop a             ing [33], and 3D object generation [9, 34, 61]. However,
+                                         novel spatial contrastive learning by tracing rasterization           the gap for downstream scene editing and simulation appli-
+                                         of each instance across views, significantly enhancing se-            cations [13, 43, 55, 63] still remains.
+                                         mantic supervision in cluttered scenes. To overcome incom-
+                                                                                                                  Several key limitations in existing approaches hinder
+                                         pleteness from limited observations, we introduce in-situ
+                                                                                                               this goal. First, most generic 3D reconstruction meth-
+                                         generation that harnesses valuable observations and geo-
+                                                                                                               ods [14, 28, 39, 47] usually treat the scene as a whole model,
+                                         metric cues, effectively guiding 3D generative models to re-
+                                                                                                               which hinders delicate instance-level tasks such as manip-
+                                         construct complete instances that seamlessly align with the
+                                                                                                               ulation and rearrangement; Second, open-set scene under-
+                                         real world. Experiments on scene decomposition and object
+                                                                                                               standing methods [33, 46] enables object-level query and
+                                         completion across complex real-world and synthetic scenes
+                                                                                                               segmentation but fails to produce complete instances from
+                                         demonstrate that our method achieves superior decompo-
+                                                                                                               cluttered environments; Third, category-specific generative
+                                         sition accuracy while producing geometrically faithful and
+                                                                                                               approaches can predict complete 3D shapes from partial ob-
+                                         visually intact objects.
+                                                                                                               servations, but they often struggle to generalize to diverse
+                                                                                                               objects in cluttered scenes, or ensure physical and visual
+                                           * Work done during an internship at PICO, ByteDance.                alignment with the real world [21], i.e., matching the ob-
+                                           † Corresponding author.                                             ject’s actual size, shape, and texture, leading to physical and
+                                                                                               able information from known observations and partially
+                                                                                               reconstructed geometry as omni-conditions. Specifically,
+                                                                                               for each instance, we employ occlusion-aware viewpoint
+ Dense but Indistinct           Distinct but Sparse
+                                                                                               selection to render optimal views that serve as alternated
+                                                                                               conditions for the diffusion process. We further incorpo-
+                                                                                               rate geometry hints to complement known latent features
+                                                                                               via feature warping, enhancing multi-view consistency be-
+    (a) Noisy 2D Segmentation     (b) Coarse 3D Segmentation   (c) Ours Feat. & Segmentation   tween observations and generations. The generated views,
+Figure 2. Motivation of spatial contrastive learning with mu-                                  together with source observations, are then used to fine-
+tual guidance. In complex scenes, naively supervising feature
+                                                                                               tune the object’s Gaussian model, achieving complete re-
+field with noisy 2D segmentation masks results in indistinct fea-
+                                                                                               construction that can be directly placed back into the scene
+tures (see (a)), and only using 3D masks from spatial trackers
+would result in sparse Gaussian points (see (b)). Observed that                                (referred to as ”in-situ” or ”in place”). Through these com-
+the former provides dense features while the latter offers a robust                            prehensive designs, our method effectively emulates the hu-
+reference, we leverage the interplay to mutually guide each other                              man cognitive ability to identify and mentally complete par-
+and achieve a dense and distinct feature field (see (c)).                                      tially observed objects in complex environments, thereby
+                                                                                               facilitating downstream tasks like robot-object interaction.
+visual inconsistencies.
+                                                                                                   Our main contributions can be summarized as follows:
+    To enable robotic systems with human-like perception
+                                                                                               • We introduce InstaScene, a novel framework, which de-
+for understanding and interacting with surrounding environ-
+                                                                                                  composes arbitrary objects from complex scenes while
+ment, a new paradigm is required to seamlessly integrate 3D
+                                                                                                  ensuring complete geometry and appearance reconstruc-
+understanding, reconstruction, and generation into a unified
+                                                                                                  tion of each instance with limited observation.
+system with two essential capabilities: 1) Precise instance
+                                                                                               • We propose a novel spatial contrastive learning scheme
+decomposition: the system should precisely segment and
+                                                                                                  based on a traced Gaussian clustering technique, achiev-
+isolate arbitrary object instances in a complex scene, irre-
+                                                                                                  ing accurate scene decomposition.
+spective of their categories. 2) Complete instance-aware
+                                                                                               • We design a new in-situ generation pipeline, which ag-
+scene reconstruction: for every object that is extracted, the
+                                                                                                  gregates all available observations and geometric hints as
+system should reconstruct the object’s complete geometry
+                                                                                                  omni-conditions to control the 3D generative prior, yield-
+and appearance while adhering to the physical world, even
+                                                                                                  ing complete instance modeling that seamlessly aligns
+if parts of it were never directly observed due to occlusion
+                                                                                                  with the physical world.
+or limited viewpoints.
+                                                                                               • Extensive validations on various complex datasets
+    In this work, we propose InstaScene, a framework that
+                                                                                                  demonstrate the superior performance of our method in
+realizes the above vision by integrating instance segmenta-
+                                                                                                  fine-grained scene decomposition and faithful complete
+tion and complete reconstruction in a unified pipeline. At
+                                                                                                  object reconstruction, with promising applications for
+a high level, our method takes a captured cluttered scene
+                                                                                                  downstream tasks like scene editing and manipulation.
+(i.e., in the form of Gaussian Splatting [14]), and decom-
+poses it into complete instances that possess faithful geome-
+try and appearance. By addressing segmentation and recon-                                      2. Related Work
+struction together, InstaScene ensures that the object in the                                  Instance-aware Scene Reconstruction. Generic scene re-
+scene can be individually obtained as a complete 3D model                                      construction approaches [14, 28, 40] usually model the en-
+aligned with the scene’s context. To achieve this goal, we                                     tire scene as a single representation. For further scene
+first develop a novel spatial contrastive learning scheme                                      understanding tasks, recent works tend to conduct recon-
+guided by traced Gaussian clustering for fine-grained in-                                      struction at instance-level granularity [19, 21, 49, 50, 56].
+stance decomposition. Specifically, we construct spatial                                       However, existing methods either require laborious manual
+trackers that identify and cluster the Gaussian points primar-                                 mask annotation [19, 49, 50, 56] for instance decomposi-
+ily contributing to each mask’s rasterization, enabling con-                                   tion and usually encode instances through multiple MLPs,
+sistent instance identification across multiple views. These                                   which struggle with the scene containing numerous objects
+trackers provide reliable supervision for the instance-level                                   due to the limited scalability. Another line of work learns
+feature field through spatial contrastive learning, yielding                                   a generative shape prior from predefined CAD models or
+highly distinguishable features as shown in Fig. 2 (c). This                                   large-scale synthetic datasets [1, 4, 8, 21]. Nevertheless,
+enables precise scene decomposition even in challenging                                        due to the limitation of 3D data collection, these methods
+environments (e.g., closely spaced bottles in Fig. 6).                                         often face difficulties in generalizing to complex real-world
+    To recover complete objects that align with real-world                                     scenes with numerous categories and diverse shapes, which
+scenes, a primary challenge is that clean object views re-                                     leads to domain gaps and shape misalignment between re-
+quired by typical 3D generative models [9, 34, 61] are                                         constructed results and real-world objects. Besides, most of
+rarely available in complex scenes, where objects are of-                                      these works only focus on geometric modeling while ignor-
+ten partially occluded or captured from suboptimal views.                                      ing realistic appearance rendering, which restricts the appli-
+To tackle this challenge, we propose in-situ generation,                                       cations in vision-based simulation and scene editing.
+which harnesses a 3D generative model to leverage valu-                                        3D Segmentation with Scene Reconstruction. Recent
+                         Cluster with Rasterized Gaussians             3D Global Instance Masks                                                                      Sup. From 3D Masks
+                                                                                                                                                                        3D Global Contras.
+
+
+                                                                                                                                                                     Sup. From 2D Masks
+                                                                                                                                               🔥                       2D Intra-View Contras.
+                                                                                                                                         𝒇𝟑𝒅
+                                                                                                                                          𝟐
+                                                                                                                                                                 🔥     2D Cross-View Contras.
+                                                                                                                                                           𝒇𝟑𝒅
+                                                                                                                                                            𝟏
+                                                                          2D Cross-View Masks
+
+
+                                                                                                               𝑭 𝟐🔥
+                                                                                                                      𝑭 𝟏🔥
+                                                                                                                                                                 p
+                                                                                                                                                   Feature Ma
+   Gaussian
+   Splatting             Mask Clustering and Filtering
+               Segment                                                                                                                                       𝑭 𝟏🔥
+                                                                                                                                                    𝑭 𝟐🔥
+
+
+
+
+                                              RGB & Seg. Sequence
+
+
+
+
+                                                             Genera5ve Comple5on with Omni-Condi5ons                                       Joint Reﬁnement
+                                           Re-rendered Views
+         Incomplete                                                                                                                    Source Observa-on              Complete Object
+     Decomposed Object
+                                                                        Time-Dep. Noise
+
+                                                                                                                                        Known Information❄
+
+                                                                     Init. State
+
+                                                                                                           ❄                           Unseen Supplementary🔥
+
+                                                                                            3D Gen. UNet        ∑               /𝑵
+                                                                       Noisy Target View                       Averaged Pred. Noise
+                                     Alternated Conditioning Views                                                                    Generated Target Views
+
+
+Figure 3. System Overview. Given a reconstructed Gaussian Splatting scene, our method first clusters and filters 2D segmentation masks
+by tracing the rasterization of Gaussian Splatting, which yields 2D and 3D instance masks. Then, we use spatial contrastive learning with
+mask supervision to train a feature field that achieves high-quality scene decomposition. Finally, for each decomposed incomplete object,
+we conduct an in-situ generation pipeline that takes all known observations and geometric cues as omni-conditions to the 3D generative
+model to obtain supplemented views, which will be jointly fine-tuned with source training views to obtain a complete object.
+
+advances in large-scale vision, language, and segmenta-                                                    promising approach is to utilize recent image-to-3D mod-
+tion models [3, 17, 32, 38] have enabled encoding rich vi-                                                 els [6, 10, 23, 24, 42] for generative reconstruction, but
+sual features into volumetric fields or 3D Gaussians, fa-                                                  generic generation pipelines cannot ensure alignment with
+cilitating versatile 3D instance segmentation over existing                                                real-world scenes or properly handle incomplete/occluded
+scene reconstruction. These works either reduce the dimen-                                                 observation (see Sec. 4.2), limiting the applicability for
+sion of pre-trained features with quantization and distilla-                                               precise and faithful reconstruction. A similar concurrent
+tion [36, 37, 41, 62], or conduct video tracking for cross-                                                work, DP-Recon [31], employs generative priors to improve
+view masks association [58]. However, VLM-based seman-                                                     sparse and occluded regions—geometry completion then
+tic features struggle with complex, cluttered scenes contain-                                              texture refinement, while our method jointly completes both
+ing duplicate objects (Fig. 6), while video tracking becomes                                               in a single step with realistic rendering.
+unreliable under heavy occlusion, which inevitably messes
+up the feature learning. Some approaches [5, 16, 20, 51, 60]                                               3. Methods
+adopt contrastive learning scheme, which enables object ex-                                                We present a novel framework for instance-aware recon-
+traction from well-observed data but still struggles under                                                 struction in complex scenes, jointly addressing segmenta-
+cluttered scenes due to inconsistent 2D priors (see Fig. 2 in                                              tion and instance completion in a unified pipeline. Un-
+the experiments). Besides, none of these works consider the                                                like prior approaches that treat segmentation and generation
+completeness of the extracted instance, which limits the ap-                                               as disjoint tasks, our segmentation stage provides essential
+plication in downstream scene editing or simulation tasks.                                                 spatial priors (e.g., geometry, object-centric views, masks)
+3D Inpainting and Amodal Reconstruction. To obtain                                                         that directly guide the subsequent generative module. Our
+complete instances under insufficient observation or severe                                                key components include a spatial contrastive learning for
+occlusion, one line of works is to apply 3D inpainting.                                                    fine-grained scene decomposition (Sec. 3.2), and a new in-
+However, most related works focus on scene-level inpaint-                                                  situ generation for complete instance modeling (Sec. 3.3).
+ing using 2D inpainting tools [25, 27, 29, 44], which ex-
+cels at removing objects from a clean background but can-                                                  3.1. Preliminary
+not recover occluded parts of complex objects. For object-                                                 Given posed RGB image sequences as input, we first re-
+level inpainting tasks, [11, 48] use 2D diffusion-based in-                                                construct the scene with point-based rendering method 2D
+painting tools but require user-provided mask sketches and                                                 Gaussian Splatting [12]. Building upon 3DGS [14], 2DGS
+prompts, and the result is not stable. Apart from that, one                                                collapses the 3D ellipsoid volumes into a set of 2D oriented
+                                                                                     previous works that exploit the re-projected spatial consis-
+                                                                                     tency of 2D segmentations to achieve robust 3D segmenta-
+                                                                                     tion [26, 30, 54, 57, 59], we apply a trustful mask clustering
+                                                                                     strategy with traced Gaussian points, which back-projects
+                                                                                     the segmentation masks into 3D space and utilizes the spa-
+    (a) Origin Rendering   (b) InstantMesh Rendering
+                                                                                     tial relationships among the corresponding Gaussian points
+                                                                                     to achieve cross-view mask matching, which yields a robust
+                                                                                     global semantic prior for scene decomposition.
+                                                                                         Due to the inherently noisy distribution of reconstructed
+                                                                                     3DGS point clouds, naive depth projection discards poten-
+    (c) SpaRP Rendering       (d) Ours Rendering         (e) Instance Manipulation   tially valid points associated with 2D segmentations. Given
+Figure 4. In-Situ Generation vs. Generic Image-to-3D. We per-                        the frame Ii along with its semantic map Mi , we render I¯i
+form different instance-level complete reconstruction approaches                     with its corresponding pose and define the Gaussians that
+on the baby carriage and put it back on the scene. Generic image-                    contribute to the rasterization of each pixel within the j-th
+to-3D methods [52, 53] struggle to maintain consistent reconstruc-                   mask mi,j , with transmittance exceeding 0.5, as individ-
+tion with the original scene (a) and suffer from misalignment (such                  ual spatial tracker Pi,j . To determine whether two masks
+as broken handles or seats in (b) and (c)). Our in-situ generation
+                                                                                     belong to the same instance, we utilize the view consen-
+ensures the appearance and geometric consistency to the original
+scene while faithfully completing the unseen regions (see (d)). We
+                                                                                     sus rate as proposed in [54]. Specifically, a spatial tracker
+also show the application of scene manipulation on the decom-                        Pi,j is considered visible at frame Ii′ if its 30% points con-
+posed complete instance in (e).                                                      tribute to the rasterization of Ii′ , and Pi,j is contained within
+                                                                                     frame Ii′′ if 80% of its points appear within a tracker Pi′′ ,j ′′ .
+planar Gaussian disks, enhancing view-consistent rendering                           Given any two mask trackers Pi,j and Pk,l , the view consen-
+while improving the geometric quality. A 2D Gaussian is                              sus rate C is defined as:
+parameterized as a local tangent plane, which is defined as:                                                        Ncontain (Pi,j , Pk,l )
+              P (u, v) = pk + su tu u + sv tv v,              (1)                                 C(Pi,j , Pk,l ) =                         ,       (5)
+                                                                                                                      Nvis (Pi,j , Pk,l )
+where the center pk , scaling (su , sv ), the rotation (tu , tv ),                   where Nvis and Ncontain represent the number of frames
+opacity α and view-dependent appearance c with spherical                             where both trackers are visible and contained respectively.
+harmonics are learnable parameters. For a point u = (u, v)                           If C exceeds 0.9, the corresponding masks mi,j , mk,l , can
+in uv space, its 2D Gaussian value can be evaluated as:                              be considered to belong to the same instance.
+                                2
+                                   u + v2
+                                            
+                 G(u) = exp −                  .              (2)                        Additionally, we categorize mi,j as under-segmentation
+                                       2                                             if its associated spatial tracker Pi,j simultaneously inter-
+Through rasterization, Gaussians passed through by the rays                          sects with multiple trackers {Pk,j ′ } from the same frame
+x emitted from the uv space are composed into pixel ap-                              Ik and is consistently present in its visible frames. Then
+pearance with depth-sorted alpha blending, as:                                       we discard mi,j . Thus, we achieve cross-view mask clus-
+                                 i−1
+           X                     Y                                                   tering and filter noisy segmentation by tracing rasterization
+    c(x) =       ci αi Gi (u(x))     (1 − αj Gj (u(x))). (3)                         of Gaussians. We denote the clustered cross-view segmen-
+                  i=1                           j=1
+                                                                                     tations for instance In as M2d    n = {mi,j }. In addition to
+   We augment each Gaussian with a D-dimensional ran-
+                                                                                     utilizing these multi-view consistent semantic priors, we
+domly initialized embedding fi3d ∈ RD as the instance-
+                                                                                     merge Gaussian tracker points belonging to the same in-
+aware feature. With the rasterizer akin to Eq. 3, we obtain
+                                                                                     stance and employ DBSCAN[7] to filter out floaters. The
+pixel-level features f , as:
+            X                   i−1
+                                Y                                                    fused Gaussians Pn serve as a robust 3D global instance
+   f (x) =       3d
+                fi αi Gi (u(x))     (1 − αj Gj (u(x))). (4)                          mask M3d   n for instance In .
+                 i=1                               j=1                               Spatial Contrastive Learning. Although DBSCAN is ap-
+   In our setup, we set D = 16 and freeze other attributes.                          plied to remove floaters, it inadvertently discards semanti-
+                                                                                     cally meaningful Gaussian points misclassified as noise (see
+3.2. Scene Decomposition with Spatial Contrastive                                    Fig. 2.b). To address this, we propose a spatial contrastive
+      Learning                                                                       learning framework that jointly leverages intra-view and
+Mask Clustering with Spatial Gaussian Tracker. We                                    cross-view consistent 2D segmentation masks, along with
+first employ the off-the-shelf mask predictor EntitySeg [35]                         robust 3D global instance masks, to effectively guide the
+to generate class-agnostic instance-level 2D segmentation                            learning of a distinctive and semantically coherent feature
+masks. To obtain 3D segmentation of the scene, existing                              field. While the 3D masks are sufficiently distinguishable to
+methods [5, 16, 20, 51, 60] generally lift 2D segmenta-                              guide the learning of 2D features with corresponding labels
+tion priors to a unified 3D space. However, 2D segmenta-                             at a global level, the 2D segmentation masks supplement
+tion priors are usually noisy (e.g., cross-view inconsistency,                       the Gaussians that are filtered out as floaters in 3D masks
+under-segmentation), which introduces ambiguity and sub-                             as shown in Fig. 2. This interplay allows the 2D local mask
+optimal supervision in feature field learning (see Fig. 2).                          supervision and the 3D global mask supervision to mutually
+To extract robust supervision from 2D masks, inspired by                             guide each other in learning a distinctive feature field.
+                                      GSGrouping                         LangSplat                             Ours
+
+figurines
+teatime
+kitchen
+
+
+
+
+               Reference       Features      Pred. Masks      Features          Pred. Masks        Features           Pred. Masks             GT Masks
+Figure 5. Comparison on LERF-Mask Dataset. We compare the segmentation results and visualized features (with PCA) of GSGroup-
+ing [58], LangSplat [36] and ours. Our method learns highly distinguishable features and achieves the most precise instance segmentation.
+
+        Methods      Figurines Teatime Kitchen Average                           Model             Figurines      Teatime           Kitchen     Average
+      Langsplat [36]   58.1     73.0    50.7    60.6                             with m2d
+                                                                                       noisy          80.3            90.1           71.2         80.5
+                                                                                        3d
+     GSGrouping [58]   59.0     72.3    43.1    58.1                             with M               81.5            88.5           67.0         79.0
+          Ours         85.7     93.7    77.3    85.6                             + with m2d
+                                                                                         f ilter      83.9            91.4           75.4         83.6
+                                                                                 + with m2d
+                                                                                         cv           85.7            93.7           77.3         85.6
+Table 1. Quantitative comparison on LERF-Mask Dataset. We
+report mIoU (%) metric across three scenes. Our method demon-                  Table 2. Ablation Study of spatial contrastive learning. We
+strates a substantial improvement over baselines in instance-level             gradually add 2D supervision into the spatial contrastive learning.
+segmentation, especially on complex scenes.                                    m2d
+                                                                                 f ilter represents contrastive learning on the filtered 2D intra-
+                                                                               view masks, and m2d cv denotes contrastive learning on the 2D cross-
+   Given features with instance labels F = {fij }, we use                      view masks.
+contrastive learning to maximize the similarity for features
+with the same semantic labels {fi } while distinguishing                       information of the partial reconstructed instance I (e.g.,
+features from different labels with the following loss as:                     views {y k } and depths {dk } rendered in visible viewpoints
+                  N |{fi }|                                                    {π k }), we aim to control the 3D diffusion model [10] with
+               1 X X                exp(fij · f¯i /ϕi )                        these available omni-conditions to predict the unseen re-
+LCF (F) = −                 log PN            j ¯
+                                                        , (6)
+              N i=1 j=1           k=1 exp(fi · fk /ϕk )                        gions p({xn }|{y k , dk , π̂nk }) with precise alignment to real-
+where N is the number of instances involved in F, f¯i                          world identity, where {xn } is the unseen views in {π n },
+is the mean value for fi , and ϕi is the instance temper-                      and {π̂nk } is the relative pose between input and target view-
+ature. We apply LCF to features with corresponding la-                         point. To complement the generation model with known
+bels sampled from the single view (Fi , Mi ), adjacent views                   visual observations, we first design an alternated view con-
+F̄i = {(Fj , M2d                                                               ditioning strategy, which sequentially feeds optimal views
+                j ) | j ∈ [i − k, i + k]}, and 3D Gaussian
+         3d    3d                                                              re-rendered with instance’s 2DGS as alternated conditions
+points (fi , Mi ), and train the feature field with loss:
+                                                                               through the denoising process, as shown in the Step-3 of
+            LF = λ1 LCF (Fi ) + λ2 LCF (F̄i ) + λ3 LCF (fi3d ),   (7)          Fig. 3. For each timestep, we average the noise predictions
+where fi3d represents the features of visible Gaussians for                    across each target view {ϵθ kn }, as:
+frame Ii , and Fi is the rendered feature with Eq. 4. Upon                                                 1             βt
+completing the training, we perform instance segmenta-                                           xnt−1 = √ xnt − √               ϵ̄n ,
+                                                                                                            αt          1 − ᾱt θ
+tion by calculating cosine similarity between the average of                                                                                 (8)
+                                                                                                        1 PNk n n k k
+coarse 3D instance features fˆi3d and each Gaussian feature,                                    ϵ̄nθ =            ϵ  (x  , y , π̂   ),
+                                                                                                       Nk k=1 θ t                 n
+applying τseg = 0.9 as the segmentation threshold. Please                                                                  n
+                                                                               where ϵθ is the noise predictor and ϵ̄θ represents the aver-
+refer to supp. material for specific implementation details.
+                                                                               aged predicted noise for target view xn .
+3.3. In-Situ Generation                                                        Complement Known Features via Geometry Cues. Even
+We aim for the reconstruction to be not only complete, even                    with complemented views as conditions, the predicted
+with occlusions and partial observations, but also authentic,                  views from the generative model may still deviate from
+featuring realistic appearance and close shapes that align                     the real observation due to the domain gap between train-
+with the real-world (as demonstrated in Fig. 4). To fulfill                    ing data and the real-world scene (see Fig. 9). To mitigate
+all these demands, we propose a novel in-situ generation                       this, we leverage geometric cues from existing Gaussian
+pipeline, which tames the generic 3D generative model with                     scenes and design a geometry-aware feature warping strat-
+all known information to achieve realistic and complete in-                    egy, which further enforces consistency from the known ob-
+stance reconstruction.                                                         servation to the generative prediction. During each diffu-
+3D Generation with Omni-Conditions. We first formu-                            sion iteration, time-dependent noise is added to the input
+late our diffusion process with omni-conditions. As the                        views’ latent features, which are then projected onto vis-
+generative models are already capable of inferring 3D ge-                      ible pixels of target views using rendering depths. Since
+ometric distributions from a single image, given all known                     2DGS yields a fused mesh, we use the surface normal of
+                                          GSGrouping          LangSplat                         Ours
+ alameda
+ berlin
+ nyc
+
+
+
+
+               Reference RGB            Feat. & Pred. Mask Feat. & Pred. Mask   Feat. & Pred. Mask     Semantic Gaussian Points
+Figure 6. Comparison on ZipNeRF Dataset. The baselines yield highly noisy segmentation results in such complex scenes, while our
+method achieves fine-grained instance-level segmentation. We also show the segmented Gaussian points of our method.
+
+the viewing-ray-mesh intersection to discard projections in-          quality and accuracy of recovering decomposed objects.
+dicating back-facing surface. This enforces consistency in
+visible regions, while invisible parts are initialized as ran-
+                                                                      4.1. Fine-Grained Instance Decomposition
+dom noise and are gradually denoised through guidance                 Datasets. To demonstrate our performance in 3D instance
+from both alternated condition views and the warped latent            segmentation, we conduct a quantitative comparison us-
+features from visible pixels. See supp. for more details.             ing LERF-Mask Dataset [15]. We select three instance-
+Occlusion-Aware Viewpoint Selection and Joint Refine-                 rich scenes: figurines, waldo-kitchen, and teatime, and
+ment. Unlike the typical image-to-3D pipeline that takes              manually re-annotate them with instance-level ground truth
+a standard elevated view as input, occlusions in cluttered            masks. Following [5], we extract the instance features from
+scenes make the optimal viewpoints for each instance not              a given reference view, generate the corresponding instance
+straightforwardly available. Hence, we set up the following           masks in the target view using cosine similarity, and cal-
+principles that select the appropriate viewpoints as ideal in-        culate mIoU between the extracted masks and groundtruth
+put conditions for each instance. First, inspired by the target       masks as the evaluation metric. To further demonstrate
+view setup in [24], we select 16 viewpoints centered around           the robustness of our method in complex environments, we
+the segmented object. Among these viewpoints, those with              present qualitative comparison results with three scenes se-
+the least scene occlusion between the viewpoint and the ob-           lected from the ZipNeRF Dataset [2], which feature a vari-
+ject are selected as the ideal input conditions, while the re-        ety of objects. We also conduct a comparison on 3D-OVS
+maining viewpoints, subject to occlusion, are considered              Dataset [22] in supp. material.
+unseen and require supplementation from the 3D genera-                Baselines. We compare our approach with the state-of-the-
+tive prior as explained above. We filter out the background           art Gaussian Splatting-based 3D segmentation methods [36,
+in the selected rendering views with the 2D instance mask             58]. For a fair comparison, all methods optimize the feature
+extracted from the rendered features. Finally, we jointly re-         field based on our pre-trained Gaussian Splatting models
+fine the instance’s 2DGS with both the source observations            and use the same instance segmentation masks [35] as 2D
+and the generated views. The source observation ensures               semantic priors for supervision.
+consistency for the visible parts, while the generated views          Comparison Results. As shown in Fig. 5, the mask gen-
+are responsible for supplementing the unseen parts. Thus,             erated by GSGrouping [58] suffers from issues such as
+we achieve a complete instance reconstruction guided by               floaters and missing segments. This is mainly due to the in-
+the known information. See more details in supp. material.            consistency of its object-tracking, which is inherently sensi-
+                                                                      tive to mask noise and frame discontinuity. LangSplat mis-
+4. Experiments                                                        labels repeated instances of similar objects within a scene,
+We compare InstaScene for instance-aware scene recon-                 such as the bottles in the kitchen in Fig. 5. Both methods
+struction in two folds. The first section focuses on fine-            exhibit poor feature smoothness and the predicted results
+grained instance decomposition from scene reconstruction.             contain significant noise, particularly in complex scenarios
+The second section analyzes the in-situ generation for                as shown in Fig. 6. In contrast, our method enhances the
+instance-level complete reconstruction, which measures the            2D semantic priors with minimal cost and achieves the most
+              Input Scene & Segmentation      Input Cases   Original Rendering       InstantMesh                  SpaRP                Ours
+
+
+
+
+   GT Views              Original Rendering          InstantMesh                          SpaRP                                 Ours
+
+
+
+
+                       (Incomplete Recon.)         (Shape Drifting)              (Scale & Pose Misalign.)         (Complete Recon. & Aligned to GT)
+Figure 7. Comparisons on Replica-CAD Dataset [45]. Instances extracted from the decomposition suffer from incomplete reconstruction,
+our method preserves the quality of the originally visible regions while achieving most plausible recovery of unknown regions.
+
+                                      PSNR↑          SSIM↑          LPIPS↓
+                Methods                                                                                     CD↓     F1-Score↑ Volume IoU↑
+                                 Known Unknown Known Unknown Known Unknown
+  Origin Recon. 2DGS [12]        31.67    27.44 0.976    0.918 0.034     0.093                          0.028          0.734           0.361
+                MVDFusion [10] 17.19      17.46 0.797    0.787 0.232     0.251                          0.081          0.150           0.531
+  Single-View
+                InstantMesh [53] 23.05    22.83 0.853    0.862 0.129     0.139                          0.045          0.382           0.570
+                SparP [52]       25.09    23.03 0.881    0.868 0.112     0.129                          0.037          0.406           0.590
+  Multi-View
+                Ours             32.57    29.02 0.979    0.944 0.028     0.066                          0.016          0.767           0.716
+Table 3. Quantitative comparison of In-situ Generation. Our in-situ generation achieves superior appearance and geometric alignment
+with the original scene while ensuring the highest quality recovery in the unknown region.
+
+distinguishable feature field, enabling fine-grained instance          ods, we compare our approach with MVDFusion [10] and
+segmentation even in challenging scenes with frequent ad-              InstantMesh [53]. We select the rendering view with the
+jacent and occluded objects (such as utensils on the shelf in          least occlusion and the largest object coverage in our filtered
+nyc) as demonstrated in Fig. 6. Please refer to the supple-            viewpoints as input. For multi-view conditioned reconstruc-
+mentary material for more results.                                     tion methods, we compare our approach with SpaRP [52],
+Ablation Study. To demonstrate the effectiveness of spa-               which implicitly infers the 3D spatial relationships among
+tial contrastive learning with mutual guidance, we conduct             the given sparse views and uses it to accomplish 3D recon-
+experiments by applying contrastive learning on raw noisy              struction. For a fair comparison, we use the same optimal
+2D segmentation masks and the preprocessed coarse 3D in-               views filtered by our method as the multi-view inputs.
+stance priors. The qualitative results are presented in Fig. 2,        Metrics. We focus on two aspects, the completion qual-
+which shows the improvement of segmentation granular-                  ity and the alignment with the original scene, including
+ity and feature distinctiveness with mutual guidance. We               both rendering and scale. Following existing reconstruc-
+also inspect the efficacy of filtered 2D masks and cross-              tion [12, 47] and generative methods [10, 24, 53], we use
+view masks during the spatial contrastive learning in Tab. 2,          Chamfer Distance (CD), F1-Score and Volumetric Intersec-
+which also proves that the design of mutual guidance sig-              tion over Union (Volume IoU) between GT shapes and in-
+nificantly improves the distinctiveness of the feature field,          stance reconstruction to evaluate the completion quality in
+leading to more accurate instance-level segmentation.                  unseen regions and assess the spatial alignment. Addition-
+4.2. Instance-Level Complete Reconstruction                            ally, we compute PSNR, SSIM, and LPIPS for both known
+In this section, we analyze the instance completion qual-              and unknown views (as set up in Viewpoint Selection) to
+ity of in-situ generation. As demonstrated in Fig. 4, differ-          evaluate the appearance alignment and completion quality.
+ent from generic reconstruction or image-to-3D tasks, for              Datasets. We conduct the quantitative comparison on the
+instance-level complete reconstruction in a certain environ-           Replica-CAD Dataset [45], which is a synthetic scene com-
+ment, the reconstructed object should be complete and also             posed of artist-recreated scanned objects. Furthermore,
+align to the real-world scenes with precise geometric shape            we conduct a qualitative comparison on diverse objects
+and close appearance.                                                  across various real-world complex scenes in the ZipNeRF
+Baselines. For single-view conditioned generation meth-                Dataset [2]. We also conduct user studies to measure the
+Input View Original Rendering            InstantMesh         Input Multi-Views            SpaRP                             Ours
+
+
+
+
+             (a) Single-View Conditioned Reconstruction                             (b) Multi-View / Omni-Conditioned Reconstruction
+Figure 8. Comparison with different generation methods. We show the complete reconstruction results for each method on diverse
+instances. Our method not only achieves faithful completion but also maintains consistency with the original scene rendering.
+
+  Single-View Input                   Single-View Gen.
+                                                                        tion for unseen regions. See more results in supp. material.
+                                                                        Ablation Study. We present the qualitative comparison
+                                                                        of our omni-conditioned completion from the in-situ gen-
++ Extra-views Input                 Naïve Multi-View Gen.
+                                                                        eration in Fig. 9. The original single-view conditioned
+                                                                        method [10] suffers from inconsistencies between gener-
+                                                                        ated views and produces unreasonable results. The naive
+                                                                        multi-view conditioned approach, which alternately uses
++ Warp Feat. via Geo.                 Full Method Gen.                  additional input views as conditions, avoids unreasonable
+                                                                        prediction but still results in floaters and inconsistencies. By
+                                                                        further adding warped features via geometric cues, which
+                                                                        enforces feature consistency from the known observation to
+Figure 9. Ablation studies of the omni-conditioned completion           the generation, our method significantly enhances the co-
+from in-situ generation. Naı̈vely alternating the condition views
+                                                                        herence and plausibility of the generated results.
+resolves the unrealistic predictions of single-view input, and the
+geometry-aware feature warping further enhances the consistency
+of the generated views.                                                 5. Conclusion
+                                                                        We have proposed a novel open-set scene decomposition
+completion quality, please refer to the supplementary mate-             and reconstruction framework, InstaScene. InstaScene al-
+rial for details.                                                       lows users to pick up arbitrary objects from cluttered Gaus-
+Comparison Results. As shown in Fig. 8, although most                   sian Splatting scenes, and produces complete geometry and
+methods recover geometry for common objects, such as the                appearance of the instance which aligns with the physical
+leather stool in the first row, only our approach successfully          world. The key insight is to trace Gaussian rasterization
+maintains consistent rendering results such as shiny leather            during mask clustering, which derives spatial contrastive
+texture. When reconstructing a partially observed object                learning that produces highly distinguishable feature fields.
+such as the chair in the second row, the results from In-               To recover complete objects from occluded observation, we
+stantMesh exhibit significant misalignment and contain no-              also proposed a novel in-situ generation which fully lever-
+ticeable floaters. In the case of the teapot from the third row,        ages known information to coordinate the 3D generative
+even with multi-view conditions, SpaRP fails to recover the             prior with faithful instance completion. As a limitation, we
+geometry, which is mainly due to the domain gap between                 cannot decompose dynamic, transparent or highly reflective
+the generative priors and real world. Our method, by em-                objects (see the supplementary material for details). A po-
+ploying the warped features from geometric cues, imposes                tential solution is to incorporate 4D or physically-based rep-
+a geometry-aware constraint and recovers reasonable ge-                 resentation for these cases, which is left as future work.
+ometry even under conditions of poor observations. More-
+over, for unusual and complex objects like the baby car-                6. Acknowledgments
+riage in the last row, our method recovers the unseen re-               We express our gratitude to all the anonymous re-
+gions while preserving the most realistic rendering quality,            viewers for their professional and constructive com-
+whereas other methods suffer from issues such as holes or               ments. This work was partially supported by the NSFC
+misalignment. Fig. 7 and metrics shown in Table. 3 further              (No. 62441222), “Innovation Yongjiang 2035” Key R&D
+demonstrate that our method maintains alignment with the                Programme (No. 2025Z062), Information Technology Cen-
+physical world while achieving the most plausible predic-               ter, and State Key Lab of CAD&CG, Zhejiang University.
+References                                                            [14] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler,
+                                                                           and George Drettakis. 3d gaussian splatting for real-time
+ [1] Armen Avetisyan, Manuel Dahnert, Angela Dai, Manolis                  radiance field rendering. ACM Trans. Graph., 42(4):139–1,
+     Savva, Angel X Chang, and Matthias Nießner. Scan2cad:                 2023. 1, 2, 3
+     Learning cad model alignment in rgb-d scans. In Proceed-
+                                                                      [15] Justin Kerr, Chung Min Kim, Ken Goldberg, Angjoo
+     ings of the IEEE/CVF Conference on computer vision and
+                                                                           Kanazawa, and Matthew Tancik. Lerf: Language embedded
+     pattern recognition, pages 2614–2623, 2019. 2
+                                                                           radiance fields. In Proceedings of the IEEE/CVF Interna-
+ [2] Jonathan T Barron, Ben Mildenhall, Dor Verbin, Pratul P
+                                                                           tional Conference on Computer Vision, pages 19729–19739,
+     Srinivasan, and Peter Hedman. Zip-nerf: Anti-aliased
+                                                                           2023. 6
+     grid-based neural radiance fields. In Proceedings of the
+     IEEE/CVF International Conference on Computer Vision,            [16] Chung Min Kim, Mingxuan Wu, Justin Kerr, Ken Gold-
+     pages 19697–19705, 2023. 6, 7                                         berg, Matthew Tancik, and Angjoo Kanazawa. Garfield:
+ [3] Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou,             Group anything with radiance fields. In Proceedings of
+     Julien Mairal, Piotr Bojanowski, and Armand Joulin. Emerg-            the IEEE/CVF Conference on Computer Vision and Pattern
+     ing properties in self-supervised vision transformers. In Pro-        Recognition, pages 21530–21539, 2024. 3, 4
+     ceedings of the IEEE/CVF international conference on com-        [17] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao,
+     puter vision, pages 9650–9660, 2021. 3                                Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer White-
+ [4] Angel X Chang, Thomas Funkhouser, Leonidas Guibas,                    head, Alexander C Berg, Wan-Yen Lo, et al. Segment any-
+     Pat Hanrahan, Qixing Huang, Zimo Li, Silvio Savarese,                 thing. In Proceedings of the IEEE/CVF International Con-
+     Manolis Savva, Shuran Song, Hao Su, et al. Shapenet:                  ference on Computer Vision, pages 4015–4026, 2023. 3
+     An information-rich 3d model repository. arXiv preprint          [18] Oliver Kroemer, Scott Niekum, and George Konidaris. A
+     arXiv:1512.03012, 2015. 2                                             review of robot learning for manipulation: Challenges, rep-
+ [5] Seokhun Choi, Hyeonseop Song, Jaechul Kim, Taehyeong                  resentations, and algorithms. Journal of machine learning
+     Kim, and Hoseok Do. Click-gaussian: Interactive segmenta-             research, 22(30):1–82, 2021. 1
+     tion to any 3d gaussians. In European Conference on Com-         [19] Zizhang Li, Xiaoyang Lyu, Yuanyuan Ding, Mengmeng
+     puter Vision, pages 289–305. Springer, 2025. 3, 4, 6                  Wang, Yiyi Liao, and Yong Liu. Rico: Regularizing the
+ [6] Wenqi Dong, Bangbang Yang, Lin Ma, Xiao Liu, Liyuan                   unobservable for indoor compositional reconstruction. In
+     Cui, Hujun Bao, Yuewen Ma, and Zhaopeng Cui. Coin3d:                  Proceedings of the IEEE/CVF International Conference on
+     Controllable and interactive 3d assets generation with proxy-         Computer Vision, pages 17761–17771, 2023. 2
+     guided conditioning. In ACM SIGGRAPH 2024 Conference             [20] Anran Liu, Cheng Lin, Yuan Liu, Xiaoxiao Long, Zhiyang
+     Papers, pages 1–10, 2024. 3                                           Dou, Hao-Xiang Guo, Ping Luo, and Wenping Wang.
+ [7] Martin Ester, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu,           Part123: part-aware 3d reconstruction from a single-view
+     et al. A density-based algorithm for discovering clusters in          image. In ACM SIGGRAPH 2024 Conference Papers, pages
+     large spatial databases with noise. In kdd, pages 226–231,            1–12, 2024. 3, 4
+     1996. 4                                                          [21] Haolin Liu, Chongjie Ye, Yinyu Nie, Yingfan He, and Xi-
+ [8] Huan Fu, Bowen Cai, Lin Gao, Ling-Xiao Zhang, Jiaming                 aoguang Han. Lasa: Instance reconstruction from real scans
+     Wang, Cao Li, Qixun Zeng, Chengyue Sun, Rongfei Jia, Bin-             using a large-scale aligned shape annotation dataset. In Pro-
+     qiang Zhao, et al. 3d-front: 3d furnished rooms with layouts          ceedings of the IEEE/CVF Conference on Computer Vision
+     and semantics. In Proceedings of the IEEE/CVF Interna-                and Pattern Recognition, pages 20454–20464, 2024. 1, 2
+     tional Conference on Computer Vision, pages 10933–10942,
+                                                                      [22] Kunhao Liu, Fangneng Zhan, Jiahui Zhang, Muyu Xu,
+     2021. 2
+                                                                           Yingchen Yu, Abdulmotaleb El Saddik, Christian Theobalt,
+ [9] Yicong Hong, Kai Zhang, Jiuxiang Gu, Sai Bi, Yang Zhou,
+                                                                           Eric Xing, and Shijian Lu. Weakly supervised 3d open-
+     Difan Liu, Feng Liu, Kalyan Sunkavalli, Trung Bui, and Hao
+                                                                           vocabulary segmentation. Advances in Neural Information
+     Tan. Lrm: Large reconstruction model for single image to
+                                                                           Processing Systems, 36:53433–53456, 2023. 6
+     3d. arXiv preprint arXiv:2311.04400, 2023. 1, 2
+[10] Hanzhe Hu, Zhizhuo Zhou, Varun Jampani, and Shubham              [23] Ruoshi Liu, Rundi Wu, Basile Van Hoorick, Pavel Tok-
+     Tulsiani. Mvd-fusion: Single-view 3d via depth-consistent             makov, Sergey Zakharov, and Carl Vondrick. Zero-1-to-
+     multi-view generation. In Proceedings of the IEEE/CVF                 3: Zero-shot one image to 3d object. In Proceedings of
+                                                                           the IEEE/CVF international conference on computer vision,
+     Conference on Computer Vision and Pattern Recognition,
+                                                                           pages 9298–9309, 2023. 3
+     pages 9698–9707, 2024. 3, 5, 7, 8
+[11] Yubin Hu, Sheng Ye, Wang Zhao, Matthieu Lin, Yuze He,            [24] Yuan Liu, Cheng Lin, Zijiao Zeng, Xiaoxiao Long, Lingjie
+     Yu-Hui Wen, Ying He, and Yong-Jin Liu. Oˆ 2-recon: Com-               Liu, Taku Komura, and Wenping Wang. Syncdreamer: Gen-
+     pleting 3d reconstruction of occluded objects in the scene            erating multiview-consistent images from a single-view im-
+     with a pre-trained 2d diffusion model. In Proceedings of              age. arXiv preprint arXiv:2309.03453, 2023. 3, 6, 7
+     the AAAI Conference on Artificial Intelligence, pages 2285–      [25] Zhiheng Liu, Hao Ouyang, Qiuyu Wang, Ka Leong Cheng,
+     2293, 2024. 3                                                         Jie Xiao, Kai Zhu, Nan Xue, Yu Liu, Yujun Shen, and
+[12] Binbin Huang, Zehao Yu, Anpei Chen, Andreas Geiger, and               Yang Cao. Infusion: Inpainting 3d gaussians via learn-
+     Shenghua Gao. 2d gaussian splatting for geometrically ac-             ing depth completion from diffusion prior. arXiv preprint
+     curate radiance fields. In ACM SIGGRAPH 2024 Conference               arXiv:2404.11613, 2024. 3
+     Papers, pages 1–11, 2024. 3, 7                                   [26] Shiyang Lu, Haonan Chang, Eric Pu Jing, Abdeslam Boular-
+[13] Mazeyu Ji, Ri-Zhao Qiu, Xueyan Zou, and Xiaolong Wang.                ias, and Kostas Bekris. Ovir-3d: Open-vocabulary 3d in-
+     Graspsplats: Efficient manipulation with 3d feature splatting.        stance retrieval without training on 3d data. In Conference
+     arXiv preprint arXiv:2409.02084, 2024. 1                              on Robot Learning, pages 1610–1620. PMLR, 2023. 4
+[27] Andreas Lugmayr, Martin Danelljan, Andres Romero, Fisher             ference on computer vision and pattern recognition, pages
+     Yu, Radu Timofte, and Luc Van Gool. Repaint: Inpainting              4104–4113, 2016. 1
+     using denoising diffusion probabilistic models. In Proceed-     [40] Johannes Lutz Schönberger, Enliang Zheng, Marc Pollefeys,
+     ings of the IEEE/CVF conference on computer vision and               and Jan-Michael Frahm. Pixelwise view selection for un-
+     pattern recognition, pages 11461–11471, 2022. 3                      structured multi-view stereo. In European Conference on
+[28] Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik,                 Computer Vision (ECCV), 2016. 2
+     Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:          [41] Jin-Chuan Shi, Miao Wang, Hao-Bin Duan, and Shao-
+     Representing scenes as neural radiance fields for view syn-          Hua Guan. Language embedded 3d gaussians for open-
+     thesis. Communications of the ACM, 65(1):99–106, 2021. 1,            vocabulary scene understanding. In Proceedings of the
+     2                                                                    IEEE/CVF Conference on Computer Vision and Pattern
+[29] Ashkan Mirzaei, Tristan Aumentado-Armstrong, Konstanti-              Recognition, pages 5333–5343, 2024. 3
+     nos G Derpanis, Jonathan Kelly, Marcus A Brubaker, Igor         [42] Ruoxi Shi, Hansheng Chen, Zhuoyang Zhang, Minghua Liu,
+     Gilitschenski, and Alex Levinshtein. Spin-nerf: Multiview            Chao Xu, Xinyue Wei, Linghao Chen, Chong Zeng, and Hao
+     segmentation and perceptual inpainting with neural radiance          Su. Zero123++: a single image to consistent multi-view dif-
+     fields. In Proceedings of the IEEE/CVF Conference on Com-            fusion base model. arXiv preprint arXiv:2310.15110, 2023.
+     puter Vision and Pattern Recognition, pages 20669–20679,             3
+     2023. 3                                                         [43] Olaolu Shorinwa, Johnathan Tucker, Aliyah Smith, Aiden
+[30] Phuc Nguyen, Tuan Duc Ngo, Evangelos Kalogerakis,                    Swann, Timothy Chen, Roya Firoozi, Monroe David
+     Chuang Gan, Anh Tran, Cuong Pham, and Khoi Nguyen.                   Kennedy, and Mac Schwager. Splat-mover: multi-stage,
+     Open3dis: Open-vocabulary 3d instance segmentation with              open-vocabulary robotic manipulation via editable gaussian
+     2d mask guidance. In Proceedings of the IEEE/CVF Con-                splatting. In 8th Annual Conference on Robot Learning,
+     ference on Computer Vision and Pattern Recognition, pages            2024. 1
+     4018–4028, 2024. 4                                              [44] Roman Suvorov, Elizaveta Logacheva, Anton Mashikhin,
+[31] Junfeng Ni, Yu Liu, Ruijie Lu, Zirui Zhou, Song-Chun                 Anastasia Remizova, Arsenii Ashukha, Aleksei Silvestrov,
+     Zhu, Yixin Chen, and Siyuan Huang. Decompositional neu-              Naejin Kong, Harshith Goka, Kiwoong Park, and Victor
+     ral scene reconstruction with generative diffusion prior. In         Lempitsky. Resolution-robust large mask inpainting with
+     CVPR, 2025. 3                                                        fourier convolutions. In Proceedings of the IEEE/CVF winter
+[32] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy                conference on applications of computer vision, pages 2149–
+     Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez,               2159, 2022. 3
+     Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al.      [45] Andrew Szot, Alex Clegg, Eric Undersander, Erik Wijmans,
+     Dinov2: Learning robust visual features without supervision.         Yili Zhao, John Turner, Noah Maestre, Mustafa Mukadam,
+     arXiv preprint arXiv:2304.07193, 2023. 3                             Devendra Chaplot, Oleksandr Maksymets, Aaron Gokaslan,
+                                                                          Vladimir Vondrus, Sameer Dharur, Franziska Meier, Woj-
+[33] Songyou Peng, Kyle Genova, Chiyu Jiang, Andrea
+                                                                          ciech Galuba, Angel Chang, Zsolt Kira, Vladlen Koltun, Ji-
+     Tagliasacchi, Marc Pollefeys, Thomas Funkhouser, et al.
+                                                                          tendra Malik, Manolis Savva, and Dhruv Batra. Habitat 2.0:
+     Openscene: 3d scene understanding with open vocabularies.
+                                                                          Training home assistants to rearrange their habitat. In Ad-
+     In Proceedings of the IEEE/CVF conference on computer vi-
+                                                                          vances in Neural Information Processing Systems (NeurIPS),
+     sion and pattern recognition, pages 815–824, 2023. 1
+                                                                          2021. 7
+[34] Ben Poole, Ajay Jain, Jonathan T Barron, and Ben Milden-
+                                                                     [46] Ayça Takmaz, Elisabetta Fedele, Robert W Sumner, Marc
+     hall. Dreamfusion: Text-to-3d using 2d diffusion. arXiv
+                                                                          Pollefeys, Federico Tombari, and Francis Engelmann. Open-
+     preprint arXiv:2209.14988, 2022. 1, 2
+                                                                          mask3d: Open-vocabulary 3d instance segmentation. arXiv
+[35] Lu Qi, Jason Kuen, Weidong Guo, Tiancheng Shen, Jiuxiang             preprint arXiv:2306.13631, 2023. 1
+     Gu, Jiaya Jia, Zhe Lin, and Ming-Hsuan Yang. High-quality       [47] Peng Wang, Lingjie Liu, Yuan Liu, Christian Theobalt, Taku
+     entity segmentation. arXiv preprint arXiv:2211.05776, 2022.          Komura, and Wenping Wang. Neus: Learning neural implicit
+     4, 6                                                                 surfaces by volume rendering for multi-view reconstruction.
+[36] Minghan Qin, Wanhua Li, Jiawei Zhou, Haoqian Wang, and               arXiv preprint arXiv:2106.10689, 2021. 1, 7
+     Hanspeter Pfister. Langsplat: 3d language gaussian splatting.   [48] Ethan Weber, Aleksander Holynski, Varun Jampani, Saurabh
+     In Proceedings of the IEEE/CVF Conference on Computer                Saxena, Noah Snavely, Abhishek Kar, and Angjoo
+     Vision and Pattern Recognition, pages 20051–20060, 2024.             Kanazawa. Nerfiller: Completing scenes via generative 3d
+     3, 5, 6                                                              inpainting. In Proceedings of the IEEE/CVF Conference
+[37] Ri-Zhao Qiu, Ge Yang, Weijia Zeng, and Xiaolong Wang.                on Computer Vision and Pattern Recognition, pages 20731–
+     Feature splatting: Language-driven physics-based scene syn-          20741, 2024. 3
+     thesis and editing. arXiv preprint arXiv:2404.01223, 2024.      [49] Qianyi Wu, Xian Liu, Yuedong Chen, Kejie Li, Chuanxia
+     3                                                                    Zheng, Jianfei Cai, and Jianmin Zheng.              Object-
+[38] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya                   compositional neural implicit surfaces. In European Con-
+     Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,                ference on Computer Vision, pages 197–213. Springer, 2022.
+     Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning           2
+     transferable visual models from natural language supervi-       [50] Qianyi Wu, Kaisiyuan Wang, Kejie Li, Jianmin Zheng, and
+     sion. In International conference on machine learning, pages         Jianfei Cai. Objectsdf++: Improved object-compositional
+     8748–8763. PMLR, 2021. 3                                             neural implicit surfaces. In Proceedings of the IEEE/CVF
+[39] Johannes L Schonberger and Jan-Michael Frahm. Structure-             International Conference on Computer Vision, pages 21764–
+     from-motion revisited. In Proceedings of the IEEE con-               21774, 2023. 2
+[51] Yanmin Wu, Jiarui Meng, Haijie Li, Chenming Wu, Yahao               Conference on Computer Vision and Pattern Recognition,
+     Shi, Xinhua Cheng, Chen Zhao, Haocheng Feng, Errui Ding,            pages 21634–21643, 2024. 1
+     Jingdong Wang, et al. Opengaussian: Towards point-level
+     3d gaussian-based open vocabulary understanding. arXiv
+     preprint arXiv:2406.02058, 2024. 3, 4
+[52] Chao Xu, Ang Li, Linghao Chen, Yulin Liu, Ruoxi Shi, Hao
+     Su, and Minghua Liu. Sparp: Fast 3d object reconstruction
+     and pose estimation from sparse views. In European Confer-
+     ence on Computer Vision, pages 143–163. Springer, 2025. 4,
+     7
+[53] Jiale Xu, Weihao Cheng, Yiming Gao, Xintao Wang,
+     Shenghua Gao, and Ying Shan. Instantmesh: Efficient 3d
+     mesh generation from a single image with sparse-view large
+     reconstruction models. arXiv preprint arXiv:2404.07191,
+     2024. 4, 7
+[54] Mi Yan, Jiazhao Zhang, Yan Zhu, and He Wang. Maskclus-
+     tering: View consensus based mask graph clustering for
+     open-vocabulary 3d instance segmentation. In Proceedings
+     of the IEEE/CVF Conference on Computer Vision and Pat-
+     tern Recognition, pages 28274–28284, 2024. 4
+[55] Yunzhi Yan, Haotong Lin, Chenxu Zhou, Weijie Wang,
+     Haiyang Sun, Kun Zhan, Xianpeng Lang, Xiaowei Zhou,
+     and Sida Peng. Street gaussians for modeling dynamic ur-
+     ban scenes. arXiv preprint arXiv:2401.01339, 2024. 1
+[56] Bangbang Yang, Yinda Zhang, Yinghao Xu, Yijin Li, Han
+     Zhou, Hujun Bao, Guofeng Zhang, and Zhaopeng Cui.
+     Learning object-compositional neural radiance field for ed-
+     itable scene rendering. In International Conference on Com-
+     puter Vision (ICCV), 2021. 2
+[57] Yunhan Yang, Xiaoyang Wu, Tong He, Hengshuang Zhao,
+     and Xihui Liu. Sam3d: Segment anything in 3d scenes. arXiv
+     preprint arXiv:2306.03908, 2023. 4
+[58] Mingqiao Ye, Martin Danelljan, Fisher Yu, and Lei Ke.
+     Gaussian grouping: Segment and edit anything in 3d scenes.
+     In European Conference on Computer Vision, pages 162–
+     179. Springer, 2025. 3, 5, 6
+[59] Yingda Yin, Yuzheng Liu, Yang Xiao, Daniel Cohen-Or,
+     Jingwei Huang, and Baoquan Chen. Sai3d: Segment any
+     instance in 3d scenes. In Proceedings of the IEEE/CVF Con-
+     ference on Computer Vision and Pattern Recognition, pages
+     3292–3302, 2024. 4
+[60] Haiyang Ying, Yixuan Yin, Jinzhi Zhang, Fan Wang, Tao
+     Yu, Ruqi Huang, and Lu Fang. Omniseg3d: Omniversal 3d
+     segmentation via hierarchical contrastive learning. In Pro-
+     ceedings of the IEEE/CVF Conference on Computer Vision
+     and Pattern Recognition, pages 20612–20622, 2024. 3, 4
+[61] Longwen Zhang, Ziyu Wang, Qixuan Zhang, Qiwei Qiu,
+     Anqi Pang, Haoran Jiang, Wei Yang, Lan Xu, and Jingyi Yu.
+     Clay: A controllable large-scale generative model for creat-
+     ing high-quality 3d assets. ACM Transactions on Graphics
+     (TOG), 43(4):1–20, 2024. 1, 2
+[62] Shijie Zhou, Haoran Chang, Sicheng Jiang, Zhiwen Fan, Ze-
+     hao Zhu, Dejia Xu, Pradyumna Chari, Suya You, Zhangyang
+     Wang, and Achuta Kadambi. Feature 3dgs: Supercharging
+     3d gaussian splatting to enable distilled feature fields. In Pro-
+     ceedings of the IEEE/CVF Conference on Computer Vision
+     and Pattern Recognition, pages 21676–21685, 2024. 3
+[63] Xiaoyu Zhou, Zhiwei Lin, Xiaojun Shan, Yongtao Wang,
+     Deqing Sun, and Ming-Hsuan Yang. Drivinggaussian:
+     Composite gaussian splatting for surrounding dynamic au-
+     tonomous driving scenes. In Proceedings of the IEEE/CVF
+

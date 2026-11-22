@@ -1,0 +1,27 @@
+{
+  "id": "P20",
+  "slug": "Spring_Gaus",
+  "arxiv_id": "2403.09434",
+  "family": "physics",
+  "source_url": "https://arxiv.org/abs/2403.09434",
+  "accessed": "2026-11-09",
+  "title": "Reconstruction and Simulation of Elastic Objects with Spring-Mass 3D Gaussians",
+  "authors": [
+    "Zhong, Licheng",
+    "Yu, Hong-Xing",
+    "Wu, Jiajun",
+    "Li, Yunzhu"
+  ],
+  "publication_date": "2024/03/14",
+  "submitted_date": "2024/07/19",
+  "abstract": " Reconstructing and simulating elastic objects from visual observations is crucial for applications in computer vision and robotics. Existing methods, such as 3D Gaussians, model 3D appearance and geometry, but lack the ability to estimate physical properties for objects and simulate them. The core challenge lies in integrating an expressive yet efficient physical dynamics model. We propose Spring-Gaus, a 3D physical object representation for reconstructing and simulating elastic objects from videos of the object from multiple viewpoints. In particular, we develop and integrate a 3D Spring-Mass model into 3D Gaussian kernels, enabling the reconstruction of the visual appearance, shape, and physical dynamics of the object. Our approach enables future prediction and simulation under various initial states and environmental properties. We evaluate Spring-Gaus on both synthetic and real-world datasets, demonstrating accurate reconstruction and simulation of elastic objects. Project page: this https URL .",
+  "submission_history": "Submission history From: Licheng Zhong [ view email ] [v1] Thu, 14 Mar 2024 14:25:10 UTC (10,095 KB) [v2] Sun, 7 Apr 2024 13:05:24 UTC (11,648 KB) [v3] Fri, 19 Jul 2024 10:23:21 UTC (11,893 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2403.09434v3",
+  "local_pdf": "papers/P20_Spring_Gaus_2403.09434v3.pdf",
+  "sha256": "03d88ab0f14a191f371d98b53c43ad45cafd392cb653722b672fd582853eab4e",
+  "bytes": 9904553,
+  "pages": 20,
+  "text_file": "research/P20_Spring_Gaus.txt",
+  "status": "downloaded_and_text_extracted"
+}

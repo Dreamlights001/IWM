@@ -1,0 +1,26 @@
+{
+  "id": "P94",
+  "slug": "SceneAgent",
+  "arxiv_id": "2610.34745",
+  "family": "segmentation",
+  "source_url": "https://arxiv.org/abs/2610.34745",
+  "accessed": "2026-11-11",
+  "title": "SceneAgent: An Agentic Pipeline from 3D and 4D Captures to Simulation Environments",
+  "authors": [
+    "Hollis, Luke",
+    "Fan, Tianxing",
+    "Yang, Heng"
+  ],
+  "publication_date": "2026/10/26",
+  "submitted_date": "2026/10/26",
+  "abstract": " Visual captures provide detailed scene appearance, but converting them into interactive simulation environments requires object reconstruction, physical modeling, and correction of intermediate errors. We present SceneAgent, an agentic pipeline that coordinates these steps through simulator-based visual inspection and repair. The pipeline processes 3D Gaussian Splatting (3DGS), photogrammetry, LiDAR captures, AI-generated 3DGS scenes, and 4D videos of dynamic scenes, and combines object segmentation, physical parameter estimation, part decomposition, articulation, and deformable simulation. To support policy learning, SceneAgent generates diverse object variants (\"digital sisters\") and scripted demonstrations. On a cluttered bin scene from GraspClutter6D, SceneAgent raises F1 at 1 cm for every coding agent with scorable outputs both with and without its skills, and its reconstructions are better than SimFoundry: all agent configurations exceed SimFoundry's F1 score, with a best of 60.75% versus 6.9%. On three dynamic scenes from 4DCodeBench, SceneAgent raises the mean dynamic IoU of Gemini 4 Argon from 0.86% to 99.09%. We further demonstrate diverse simulated interactions and preliminary policy transfer to a real robot.",
+  "submission_history": "Submission history From: Luke Hollis [ view email ] [v1] Mon, 26 Oct 2026 02:45:35 UTC (29,450 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2610.34745v1",
+  "local_pdf": "papers/P94_SceneAgent_2610.34745v1.pdf",
+  "sha256": "1b3529cd1b40805b37abc42c123c84ae826a83dcbc00ba4adaeb7d730755663b",
+  "bytes": 30850579,
+  "pages": 27,
+  "text_file": "research/P94_SceneAgent.txt",
+  "status": "downloaded_and_text_extracted"
+}

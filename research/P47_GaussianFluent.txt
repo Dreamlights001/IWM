@@ -1,0 +1,866 @@
+                                         GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials
+
+                                           Bei Huang1,2* , Yixin Chen2*† , Ruijie Lu1,2 , Gang Zeng1 , Hongbin Zha1 , Yuru Pei1† , Siyuan Huang2†
+                                                                                           ⋆
+                                                                                               Equal Contribution † Corresponding Authors
+                                                                        1
+                                                                            State Key Laboratory of General Artificial Intelligence, Peking University
+                                                                                2
+                                                                                    State Key Laboratory of General Artificial Intelligence, BIGAI
+                                                             https://hb-pencil-zero.github.io/GaussianFluent/
+arXiv:2601.09265v1 [cs.CV] 14 Jan 2026
+
+
+
+
+                                         Figure 1. Physical simulation of dynamic object states with 3D Gaussian Splatting. GaussianFluent is capable of generating realistic
+                                         internal texture, simulating and rendering complex object dynamics (e.g., elastic deformation, fracture, and slicing) with mixed materials
+                                         (e.g., jelly with internal blue sugar penetrated by a rigid bullet in top row), in response to different lighting conditions.
+
+                                                                   Abstract                                           sians. To address these challenges, we introduce Gaus-
+                                                                                                                      sianFluent, a unified framework for realistic simulation
+                                                                                                                      and rendering of dynamic object states. First, it synthe-
+                                         3D Gaussian Splatting (3DGS) has emerged as a promi-                         sizes photorealistic interiors by densifying internal Gaus-
+                                         nent 3D representation for high-fidelity and real-time ren-                  sians guided by generative models. Second, it integrates
+                                         dering. Prior work has coupled physics simulation with                       an optimized Continuum Damage Material Point Method
+                                         Gaussians, but predominantly targets soft, deformable ma-                    (CD-MPM) to enable brittle fracture simulation at remark-
+                                         terials, leaving brittle fracture largely unresolved. This                   ably high speed. Our approach handles complex scenar-
+                                         stems from two key obstacles: the lack of volumetric inte-                   ios including mixed-material objects and multi-stage frac-
+                                         riors with coherent textures in GS representation, and the                   ture propagation, achieving results infeasible with previous
+                                         absence of fracture-aware simulation methods for Gaus-
+methods. Experiments clearly demonstrate GaussianFlu-            work with an optimized integration of CD-MPM, resolving
+ent’s capability for photo-realistic, real-time rendering with   instability issues in the previous algorithm and implement-
+structurally consistent interiors, highlighting its potential    ing GPU parallelism. This enables physics-plausible brittle
+for downstream application, such as VR and Robotics.             fracture simulation with substantial real-time rendering.
+                                                                     We validate GaussianFluent on a suite of challenging
+1. Introduction                                                  scenarios involving food, liquids, and fruits, where inter-
+                                                                 nal and external appearances differ significantly, and mate-
+3D Gaussian Splatting (3DGS) [15] has recently emerged
+                                                                 rials span brittle solids, viscoelastic gels, and soft tissues.
+as a prominent and highly effective technique for high-
+                                                                 Our experiments cover diverse topological changes, includ-
+fidelity, real-time rendering of complex 3D scenes, achiev-
+                                                                 ing dynamic fracturing, elastoplastic deformation, slicing,
+ing state-of-the-art rendering quality with exceptional effi-
+                                                                 and high-velocity bullet impacts, such as a bullet shoot-
+ciency. Despite its remarkable success, modeling dynamic
+                                                                 ing through jelly and crossing over it, a watermelon falling
+scenes within the Gaussian Splatting (GS) framework, es-
+                                                                 down onto a table and fracturing, and milk falling onto a
+pecially the physics simulation of consistent evolution of
+                                                                 table with splashing. Results show that our method effec-
+multi-material objects, still presents significant challenges.
+                                                                 tively reconstructs structurally coherent internal GS primi-
+This difficulty stems from two primary fundamental issues.
+                                                                 tives with realistic textures and achieves high-fidelity sim-
+    First, as a surface-based method, Gaussian Splatting in-
+                                                                 ulation and rendering of dynamic scenes, substantially out-
+herently lacks representation of internal structures. Con-
+                                                                 performing existing methods.
+sequently, the stress, inertia, and contact-force computa-
+tions required for physically accurate solid-object simula-
+tion remain undefined. More critically, GS cannot realis-        2. Related work
+tically render the newly exposed surfaces during fracture.       2.1. Deformation-Predicted Dynamic Scenes
+For instance, simulating a watermelon falling and fractur-
+ing would require modeling its red flesh and black seeds         Neural Radiance Fields (NeRF) [2–4, 8, 26, 27] and
+beneath the green rind. However, current GS reconstruction       3DGS [9, 12, 15, 48] have recently emerged as two promi-
+methods leave such interiors hollow and textureless, making      nent approaches for scene reconstruction, largely due to
+realistic fracture visualization impossible.                     their ability to produce photo-realistic and efficient ren-
+    Second, previous GS simulation methods, such as Phys-        derings. However, both methods primarily focus on static
+Gaussian [42], have largely targeted elastic material dynam-     scenes and lack inherent support for modeling dynamic
+ics. While subsequent works, such as OmniPhysGS [18]             environments. To address this limitation, subsequent
+and Pixie [16], have automated the estimation of mate-           works incorporate deformation fields into neural radiance
+rial parameters (e.g., Young’s modulus and Poisson’s ra-         fields [28, 31, 35] and Gaussian primitives [14, 17, 23, 36,
+tio), they remain confined to elastic deformation and do not     41, 46] to capture scene dynamics. Despite these advance-
+extend simulation capabilities to more complex materials.        ments, existing approaches are typically limited to replay-
+Consequently, methods capable of simulating brittle frac-        ing observed motion trajectories rather than enabling fur-
+ture and topological changes within the GS framework are         ther simulation or interaction, thereby restricting their gen-
+still absent. Existing point-cloud fracture methods [39] are     eralization capability. Moreover, the modeling of motion in
+incompatible with GS representation: they lack a continu-        deformable Gaussians often lacks physically grounded con-
+ous return-mapping scheme, resulting in physically implau-       straints: each Gaussian is assigned an independent defor-
+sible fracture dynamics, and their reliance on CPU-bound         mation vector without regard to physical plausibility, which
+execution, with limited parallelism, imposes severe perfor-      can result in unrealistic or implausible dynamics.
+mance bottlenecks. These limitations hinder the application
+                                                                 2.2. Physics-Simulated Dynamic Scenes for GS
+of GS to realistic scenarios involving complex fracture be-
+haviors and dynamic structural changes.                          Gaussian Splatting (GS) is inherently compatible with the
+    To address these challenges, we introduce GaussianFlu-       Material Point Method (MPM) physics simulation frame-
+ent, a novel framework to populate GS interiors and sim-         work, as its representation is composed of particle-like
+ulate complex object dynamics such as brittle fracture and       primitives, which provide a unified explicit foundation for
+bullet impacts, with physically accurate responses under dy-     both simulation and rendering. PhysGaussian [42] pio-
+namic lighting. More specifically, we introduce: 1) internal     neers this direction by associating physical properties with
+texture synthesis, a novel pipeline that synthesizes realis-     Gaussian primitives and employing the MPM for physically
+tic and consistent internal structures and textures for GS by    based simulation. Subsequent works [13, 19, 50] extend
+leveraging publicly available generative models, requiring       this framework by either learning physical properties from
+no additional training data, and 2) optimized CD-MPM for         generative priors [5, 18, 37, 43], enabling automated phys-
+GS, where we augment the current GS simulation frame-            ical parameter optimization. However, these methods still
+cannot model highly dynamic scenes, primarily due to the
+absence of simulation models suitable for brittle fracture.
+Furthermore, existing methods generally neglect the plausi-
+bility of internal textures that become visible when objects                        Internal                Opacity
+tear or break. FruitNinja [40] addresses internal texture gen-                       Filling               Optimization
+eration for static GS reconstructions of fruits using a diffu-
+sion model fine-tuned on a self-collected dataset, which is
+                                                                     GS trained with            Rough GS                Smooth GS
+extremely costly and lacks generalizability.                       scale regularization          surface                 surface
+    Building upon Continuum Damage Mechanics (CDM)
+used in point cloud [6, 25, 34], we develop an optimized           Figure 2. Internal Gaussian filling and refinement. The opac-
+                                                                   ity optimization improves the smoothness of the GS surface after
+CD-MPM formulation for 3DGS that delivers realistic brit-
+                                                                   internal filling, beneficial for texture inpainting and simulation.
+tle fracture on mixed-material objects, and pair it with an
+efficient internal texture filling pipeline.
+                                                                   d(x) ≥ τd are marked high-density; these high-density
+3. Method                                                          grids are extracted as the object boundary. New internal
+We propose GaussianFluent to enable realistic simulation           Gaussians are then initialized inside the enclosed volume,
+of dynamic scenes, particularly material fracture, within the      following prior practice in PhysGaussian [42].
+3DGS framework. The overall framework is shown in Fig-                 This initial density-based filling can be imprecise, poten-
+ure 3. Our method first generates internal structures and tex-     tially creating Gaussians outside the true boundary due to
+tures for GS representations, followed by simulating frac-         sensitivities to surface geometry and threshold choice [40].
+ture dynamics using an optimized CD-MPM framework to               To refine this, we perform an opacity-only optimization for
+achieve diverse simulations across solid objects to fluids.        all new internal Gaussians using the rendering loss by fixing
+                                                                   other attributes. This drives the opacity of extraneous Gaus-
+3.1. Internal Filling for 3D Gaussian Splatting                    sians to zero. Finally, we prune Gaussians with opacity near
+3.1.1. Internal Volume Initialization                              zero, resulting in a clean, well-defined solid volume repre-
+Standard 3DGS primarily captures external surfaces, leav-          sentation suitable for subsequent texturing and simulation,
+ing interiors undefined, which is problematic for simulating       as shown in Figure 2.
+interactions like cutting that expose internal structures. Our     3.1.2. Internal Texture Generation
+method first populates the interior volume and then textures
+it, as illustrated in Figure 3.                                    Once the interior volume is populated, assigning plausible
+    To initialize the internal volume, we first train an initial   internal textures is the next crucial step. Generating multi-
+3DGS model of the target object from multiview images.             view and spatially coherent internal textures is a particularly
+To prevent large Gaussians from straddling boundaries and          significant challenge due to scarce training data for object
+ensure a clear exterior-interior separation [22, 40], we aug-      interiors [20, 30]. Thus, we propose a training-free two-
+ment the standard rendering loss with a scale regularization:      stage approach: an initial texture generation via single-view
+                                                                   inpainting, followed by iterative multi-axis refinement, as
+                                         N
+                                         X                         illustrated in Figure 3.
+           Ltotal = LMSE + LSSIM + λ            ∥si ∥22 ,   (1)
+                                          i=1
+                                                                   Coarse Texture Initialization We first establish a coarse
+where si are the scale parameters of Gaussian i, and λ con-        internal texture by uniformly slicing the object into slices
+trols regularization strength. This encourages smaller, more       along the X-axis and inpainting each slice from its frontal
+localized Gaussians, crucial for interior definition and plau-     viewpoint. For each slice, we render its initial appearance
+sible performance under relighting.                                Cinitial and an internal region mask Minit . The masked re-
+   Next, we identify the object boundary as the high-density       gion in Cinitial is then inpainted using a generative model,
+regions. Given a resolution n, we uniformly discretize the         e.g., MVInpainter [7], which is guided by a text prompt P
+scene space into n3 grids and compute the density field d(x)       and a reference image generated by Stable Diffusion XL
+for each grid center by accumulating contributions from its        (SD-XL) to produce the consistent target image Cinpaint .
+neighboring Gaussians P :                                          Each internal Gaussian i whose 2D projection ui falls
+           X                                                     within the inpainted region then samples its color ci from
+  d(x) =        αp exp − 12 (x − xp )T A−1p  (x  − x p )  , (2)    Cinpaint using bilinear interpolation. Its zeroth-order spheri-
+          p∈P                                                      cal harmonic (SH) coefficient, sh0i , is initialized as:
+   where αp , xp , and Ap denote the opacity, GS center,                                           ci − 0.5
+and covariance of Gaussian p, respectively. Grids with                                    sh0i =            ,                     (3)
+                                                                                                      C0
+  Gaussian Infilling     Texture Inpainting                 Mixed Material Physics Simulation                   Lighting System
+
+
+
+
+Figure 3. Overview of GaussianFluent. Our model first populates Gaussians in the internal volume and generates interior realistic
+texture with pretrained image generative models (Sec. 3.1). We then incorporate optimized CD-MPM simulation with mixed materials for
+Gaussian Splatting (Sec. 3.2) and introduce Blinn-Phong reflection in the rendering pipeline ( Supplementary Sec. C.1).
+
+                                 √
+where the constant C0 = 1/(2 π). Higher-order SH co-                 a three-layer cake as the reference image, MVInpainter en-
+efficients for these internal Gaussians are simply initialized       sures all X-slices exhibit the three-layer structure; subse-
+to zero, ensuring an initially isotropic appearance derived          quently, the low-strength inpainting by SD-XL propagates
+from the inpainted texture.                                          this constraint to the Y- and Z-slices, as any deviation would
+                                                                     contradict the established X-slice structure.
+Iterative Texture Refinement The single-view initializa-
+tion, while providing a reasonable start, still lacks consis-        3.2. CD-MPM in GS with Mixed Materials
+tency across the 3D internal structure and different viewing
+                                                                     We extend the 3DGS simulation framework by incorporat-
+directions. To achieve consistency, we therefore iteratively
+                                                                     ing the CD-MPM with support for mixed materials. Similar
+refine the texture across all three primary axes (X, Y, and Z).
+                                                                     to PhysGaussian [42], each 3D Gaussian primitive in our
+This refinement is carefully guided by text-prompted image
+                                                                     framework is assigned physical properties, including mass,
+inpainting using image generative models like SD-XL [29];
+                                                                     velocity, volume, and stress, and interacts with other parti-
+detailed prompts are provided in Supplementary Sec. C.
+                                                                     cles via a background Eulerian grid. Our GPU paralleliza-
+    Inspired by the iterative corrective philosophy of
+                                                                     tion implementation for efficient physical simulation is de-
+SDS [30], we perform successive low-strength inpainting
+                                                                     tailed in Supplementary Sec. B.3.
+updates. The core refinement loop, repeated per iteration,
+consists of two main steps: 1) Generative Inpainting of              Initialization We initialize covariances only for newly
+Slices: We uniformly space slices along each of the X, Y,            added interior Gaussians, assigning each a spherical covari-
+and Z axes. For every slice, we render its axis-aligned or-          ance whose radius directly corresponds to its per-particle
+thographic view and an internal structure mask; these inputs         volume, i.e., the cell volume divided by the number of
+are passed to SD-XL with a low inpaint strength, constrain-          particles in the cell. This initialization strategy ensures
+ing denoising so that edits incrementally inject new inter-          strong spatial consistency between the Gaussian representa-
+nal details while maintaining the global structure. 2) Gaus-         tion and the MPM discretization. The physical material pa-
+sian Optimization: The newly inpainted 2D images from all            rameters of the Gaussians, such as Young’s modulus, Pois-
+slices serve as optimization targets. The SH coefficients of         son’s ratio, friction angle, mass density, fracture control
+the internal GS are optimized for small steps to minimize            parameters β and α, etc., are manually defined following
+the rendering discrepancy against these inpainted images.            PhysGaussian and CD-MPM.
+    This two-step cycle is systematically repeated until the         GS Property Evolution with MPM Let X denote the
+optimization loss converges or a maximum number of it-               reference GS state before simulation, and x the state after
+erations is reached, ultimately yielding an internally con-          simulation. Continuum mechanics describes motion via a
+sistent and highly detailed 3D texture. Our successive low-          time-dependent deformation map as follows:
+strength inpainting strategy produces sharp and realistic tex-
+tures, in stark contrast to vanilla SDS, which leads to blurry                               x = φ(X, t).                       (4)
+and oversaturated results [1, 24, 38]. Since the consistent
+images generated by MVInpainter and the internal slices              Here, φ represents the MPM simulation function. The de-
+are inherently co-dependent through their intersections on           formation gradient Fp (t) is defined as
+orthogonal views, the iterative refinement drives the opti-                                     ∂x   ∂φ(X, t)
+mization toward tri-axial consistency. For example, given                            Fp (t) =      =          ,                 (5)
+                                                                                                ∂X     ∂X
+                                                                    to project (ptr , q tr ) onto the ellipsoid such that y = 0. In
+ PhysGaussian
+
+                                                                    CD-MPM, this projection involves two possible cases:
+                                                                    1. Exterior pressures (ptr ≥ p0 or ptr ≤ −βp0 ): tip pro-
+                                                                        jection, where ptr ≥ p0 ⇒ (p0 , 0), and ptr ≤ −βp0 ⇒
+                                                                        (−βp0 , 0).
+                                                                    2. Interior pressures (−βp0 < ptr < p0 ): connect (ptr , q tr )
+                                                                        to (pc , 0) with the ellipse center pc = −βp20 +p0 =
+ Ours
+
+
+
+
+                                                                        1−β
+                                                                          2 p0 , where the intersection with the yield ellipse
+                                                                        gives (pnew , qnew ).
+                                                                        The connection to the fixed center (pc , 0) causes return-
+Figure 4. A jelly-like material is shot with a bullet. We compare
+                                                                    map discontinuities at p = p0 and p = −βp0 . At the right
+our method with PhysGaussian to demonstrate the effectiveness of
+                                                                    boundary p, letting q tr → ∞ shows a jump:
+our simulation and visualize the damage variable α.                                                                             
+                                                                                                 tr       1−β        M (β + 1)
+                                                                      lim lim R(p0 − ε, q ) =                   p0 ,  √        p0 ,
+                                                                     ε→0+ q tr →∞                           2        2 1 + 2β
+which encodes both local rigid deformation (rotation) and             lim trlim R(p0 + ε, q tr ) = (p0 , 0).
+non-rigid deformation (stretch and shear). For each sim-            ε→0+ q →∞
+ulation step, we apply Fp (t) to the GS’s covariance and                We present a schematic diagram in Supplementary Fig-
+spherical harmonics to achieve physics-plausible simula-            ure A1 to illustrate the discontinuity jump problem of this
+tion results. For more details, please refer to Supplementary       projection. Specifically, approaching p → p−      0 with q →
+                                                                                                                                tr
+Sec. A.                                                             ∞ maps the trial state to the upper apex of the yield ellipse,
+                                                                    whereas p → p+   0 maps it to the right tip (p0 , 0). This jump
+Fracture Mechanism We model brittle fracture by track-
+                                                                    triggers numerical instability: a machine-precision fluctua-
+ing the deformation Fp (t) of each GS. A softening law
+                                                                    tion δ about p0 can map an identical geometric state to com-
+reduces its stress-generating capacity with increasing de-
+                                                                    pletely different return points. To resolve this instability, we
+formation. Fracture is not triggered by a sharp threshold
+                                                                    regularize the projection by introducing a dynamic point,
+but emerges when this capacity becomes negligible and
+                                                                    (p′c , 0), which smoothly adapts to the (p, q) and ensures a
+fails to sustain internal forces. We decompose Fp (t) into
+                                                                    continuous mapping. We define this new point as:
+rigid and non-rigid components; only the latter, compris-
+ing volumetric stretch p and shear distortion q, contributes                        p′c = pc + ϕk (ptr )(ptr − pc ),            (6)
+to fracture. A square under volumetric stretch becomes a                                  tr    k
+scaled orthogonal rectangle, whereas pure shear turns it into       where ϕk (ptr ) = pp0 −p
+                                                                                          −pc
+                                                                                             c
+                                                                                                 and p0 − pc is the semi-major
+an area-preserving parallelogram with skewed angles. The            axis of the ellipse.
+elastic, stress-generating region is defined by a yield sur-           This modified scheme can be regarded as an extension
+face y(p, q) ≤ 0. With accumulating deformation, this sur-          of the original approach, replacing the fixed point (pc , 0)
+face contracts in the (p, q)-plane, diminishing the sustain-        with a dynamic point (p′c , 0). For any finite k, we have
+able elastic stress. Fracture occurs as this residual capacity      limε→0+ p′c (p0 − ε) = p0 , indicating continuity:
+vanishes. The Non-Associated Cam-Clay (NACC) model
+                                                                                 lim   lim R(p0 − ε, q tr ) = (p0 , 0),
+specifies this surface via the equation y(p, q; p0 , β, M ) = 0.                ε→0+ q tr →∞
+More specifically,                                                               lim   lim R(p0 + ε, q tr ) = (p0 , 0).
+                                                                                ε→0+ q tr →∞
+y(p, q; p0 , β, M ) = q 2 (1 + 2β) + M 2 (p + βp0 )(p − p0 ),          Moreover, it recovers the original discontinuous scheme
+                                                                    in the limit as k → ∞, because for any ptr in (−βp0 , p0 ),
+                p0 = K sinh(ξ max(−α, 0)).                                                                       tr    k
+                                                                                                                 −pc
+                                                                    we have limk→∞ p′c = limk→∞ (pc + pp0 −p       c
+                                                                                                                       ) = pc . In
+β, M, K, ξ are all predefined hyperparameters, following            our practical implementation, we choose k = 2, as it pro-
+the setting of CD-MPM, p is the volumetric stretch mag-             vides a robust and smooth projection. After projection, we
+nitude, and q is the shear magnitude. α is the key damage           compose p and q to obtain the Fp . We define Jtr = det Ftr  p
+variable. At each step, we apply return mapping to enforce          and Jnew = det Fnew p  , and   update the hardening parame-
+y ≤ 0 and update α to evolve the yield surface y.
+                                                                                                 
+                                                                    ter via α ← α + ln JJnew  tr
+                                                                                                   . We present an example of α
+Continuous Return Mapping At each step, a trial state               heatmap in Figure 4 to visualize the changes in α within
+(ptr , q tr ) is formed and evaluated by the yield function         the jelly. As the α value progressively increases, the cor-
+y tr = y(ptr , q tr ). Only the region where y ≤ 0 is physi-        responding regions of the jelly undergo fracturing. Further
+cally meaningful. Therefore, when y > 0, it is necessary            details are provided in Supplementary Sec. B.
+           Ours                       𝛽=0                       𝛽 = 0.6                      𝛽=2                         𝛽=5
+Figure 5. Comparison between our mixed material modeling and fixed β setting. Our approach assigns distinct β values, i.e., 2, 0.6,
+and 5, to the rind, flesh, and seed, respectively. This yields more realistic simulation results compared to settings that apply a single,
+uniform β value to the entire watermelon.
+
+
+Mixed material simulation Unlike PhysGaussian, which                    negligible. Thus, materials with vastly different elastic
+assumes uniform material properties, our method supports                properties, whether using linear elasticity or hyperelastic
+more realistic and complex simulations by assigning dif-                models, such as Neo-Hookean for rubber-like materials,
+ferent β to various parts of an object, such as the seed,               all exhibit identical fluid behavior under the same low-p0
+flesh, and rind of a watermelon. This requires segment-                 regime. Similarly, retaining a small but non-zero yield sur-
+ing both external and internal structures through existing              face produces clay-like viscoplastic flow.
+segmentation methods [21, 44], part-aware object genera-                    Figure A2 in Supplementary showcases simulations of
+tion [45, 49], or heuristics. For example, to realistically             sandcastles and milk as extensive examples. The milk flows
+model a watermelon fracture, we assign β values based on                down the table naturally, and the sandcastle breaks down
+the color of the GS, i.e., a high β to the black seeds, a low β         under gravity with the Neo-Hookean elastic constitutive
+to the red flesh, and a middle β to the green rind, where the           model, exhibiting fluid and viscous behavior through plas-
+value range of β follows the design in CD-MPM. As shown                 tic dissipation. This demonstrates that our framework spans
+in Figure 5, our mixed material approach produces more                  the various spectra, from brittle solids to flowing fluids, all
+realistic results, whereas using a uniform material leads to            within a single, unified model.
+visual artifacts and unnatural fracture patterns. The lollipop
+shattering scene in Figure 7 further demonstrates the cracks            4. Experiment
+that PhysGaussian cannot generate.
+                                                                        We conduct experiments on both internal texture filling and
+Extension to Fluid Simulation Beyond brittle fracture,                  the physical simulation of dynamic scenes. For a more in-
+our framework is also applicable to simulating fluid-like               tuitive visualization of our results, we refer the reader to the
+materials. Many real-world scenarios involve both solid and             supplementary videos.
+fluid phases, such as milk flowing on a table. Rather than
+coupling separate solid and fluid solvers, we achieve uni-              4.1. Internal Texture Filling
+fied simulation by adjusting material parameters within the
+same CD-MPM framework.                                                  Table 1. Quantitative internal filling comparison. PhysGaus-
+    The key insight is that our NACC model naturally de-                sian’s direct color copying results in blurred textures, whereas 2D
+generates to fluid behavior when p0 → 0. In this limit,                 inpainting fails on oblique viewpoints.
+the elastic region vanishes, and the material loses its resis-
+                                                                               Method            CLIP Score ↑       User study ↑
+tance to separation, allowing it to flow freely like a liq-
+uid. Combined with appropriate elastic parameters, e.g.,                       PhysGaussian           22.3         3.57% (3/84)
+Young’s modulus E and Poisson’s ratio ν, that characterize                     2D Inpainting          30.1        25.00% (21/84)
+fluid-like compressibility, this configuration produces phys-                  Ours                   35.4        71.43% (60/84)
+ically realistic fluid behavior. We exploit this property to
+simulate fluids while preserving the continuous return map-                We evaluate the quality of the generated interior texture,
+ping scheme, enabling a unified simulation framework that               both quantitatively and qualitatively, against PhysGaussian
+handles both solids and fluids without separate treatment. In           and 2D Inpainting. We report CLIP scores [32] and conduct
+practice, we set α0 and β close to zero to achieve p0 → 0.              a user study, where participants are asked to select the best
+    Remarkably, this fluid-like behavior is independent of              internal filling results. As presented in Tab. 1, our method
+the underlying elastic constitutive model. When p0 is suf-              achieves the highest CLIP score, significantly outperform-
+ficiently small, our NACC model makes the elastic phase                 ing PhysGaussian and 2D inpainting. These results indicate
+   Input                       Ours                                     2D Inpaint                            PhysGaussian
+Figure 6. Qualitative comparison of internal texture filling. Our method yields more realistic and consistent interior textures from GS
+rendering. PhysGaussian copies exterior colors to internal Gaussians, resulting in blurring, while 2D inpainting fails on oblique views and
+suffers from multi-view inconsistency.
+
+
+that the interior textures generated by our approach exhibit            Table 2. Dynamic scene simulation comparison. Our method
+superior semantic consistency with the target descriptions.             significantly outperforms baselines. PhysGaussian fails to produce
+Prompt details are shown in Supplementary Sec. C.                       brittle fracture, and OmniPhysGS is constrained by the PhysGaus-
+                                                                        sian framework.
+    Figure 6 provides a qualitative comparison of rendered
+internal structures, and our method produces highly real-                       Method           CLIP Score ↑       User study ↑
+istic and visually detailed results. For instance, the figure                   PhysGaussian          12.2          3.84% (1/26)
+showcases the distinct seeds and flesh texture within a wa-                     OmniPhysGS            13.1          7.69% (2/26)
+termelon, a spherical cross-section of a kiwi that reveals its                  Ours                  22.7         88.46% (23/26)
+characteristic patterns, and an oblique slice through a cake
+displaying its clearly defined layers. These high-fidelity re-
+sults stand in sharp contrast to those from PhysGaussian,               outperforming PhysGaussian and OmniPhysGS. The per-
+which appear significantly blurrier and less defined. Fur-              ceptual study demonstrates that our results align with users’
+thermore, while 2D inpainting can produce plausible indi-               understanding of realistic dynamic evolution and conform
+vidual slices, it fails to maintain 3D consistency across dif-          to intuitive physical commonsense. The higher CLIP score
+ferent views, resulting in visually unconvincing volumetric             affirms that our simulation outcomes are not only visually
+representations. In addition to static textures, our method             more convincing but also semantically more accurate.
+achieves realistic dynamic rendering during simulation, ef-
+fectively capturing authentic material behavior under vari-             Diverse Object Simulation We conduct an extensive se-
+ous physical conditions, as detailed in the next section.               ries of qualitative experiments, as shown in Figures 1
+                                                                        and 7, and Figures A2 and A3 in Supplementary, to further
+4.2. Physics Simulation for dynamic scenes                              substantiate the broad applicability and robustness of our
+Quantitative evaluations of physics simulations further val-            framework for various objects with significantly different
+idate the performance of our method using both CLIP simi-               material properties. The set included elastic materials like
+larity scores and a perceptual user study, where participants           jelly, sliceable fruits such as pineapples and kiwis, brittle
+are asked to choose the most realistic simulation outcome               objects like watermelons, fluids including milk, and gran-
+from our method and the baselines using the same form as                ular structures like sandcastles. They provide compelling
+Figure 7. As shown in Tab. 2, our method achieves the high-             visual evidence of our model’s capabilities under different
+est CLIP similarity score and user preference, substantially            lighting conditions in diverse scenarios. For example, the
+ Ours
+ PhysGaussian
+ OmniPhysGS
+
+
+
+
+Figure 7. Qualitative comparison of object state simulation. We present a comparison for a lollipop, where our result correctly simulates
+its fracture of mixed materials, outperforming PhysGaussian and OmniPhysGS.
+
+
+top example in Figure 1 illustrates the deformation of a jelly         5. Conclusion and Discussion
+when struck by a bullet, highlighting not only its elastic re-
+sponse but also the detailed internal expulsion of rigid sugar.        In this paper, we introduce GaussianFluent, a novel frame-
+More examples are included in the supplementary video.                 work for physically plausible and realistic simulations of
+                                                                       dynamic scenes with 3D Gaussian Splatting, including ma-
+Mixed-Material Physics Simulation Our method simu-                     terial fracture and behaviors of mixed materials. Our core
+lates complex fractures and deformations for objects with              contributions include a method for internal structure texture
+different material responses. Figure 7 highlights this with a          synthesis, an adapted CD-MPM for efficient physics simu-
+challenging scenario: a lollipop shatters on impact while its          lation. This integration allows GaussianFluent to simulate
+wooden stick remains intact. This ability to model mixed-              complex events like shattering, deformation, fluid splash-
+material physics is visibly more detailed and realistic than           ing, cutting, and granular collapse with high visual fidelity
+prior works. This is also demonstrated in our simulation               directly within the GS representation, as demonstrated by
+of a falling watermelon (Figures 1 and 5), where the inter-            our diverse qualitative results. The ability to model, simu-
+nal seed and flesh remain distinctly separate. These results           late, and render dynamic scenes paves the way for more ap-
+demonstrate the generalizability of our framework across               plications involving dynamic and interactive virtual worlds.
+diverse material combinations and fracture patterns.
+                                                                       Limitations and Future Direction To further enhance
+Relighting with Phong Shading Our framework can                        the applicability and generalization of physical simulation
+achieve realistic simulations under different lighting con-            in the GS framework, we point out several promising di-
+ditions in dynamic scenes. To showcase this capability,                rections for future work. Firstly, enhancing physical ac-
+we integrate a lighting system, e.g., Blinn-Phong shading              curacy and versatility could be achieved by incorporating
+model, into our framework. This requires accurate surface              a broader range of constitutive models and exploring sim-
+normals for each GS, which we obtain by utilizing Equa-                ulation techniques that are better suited for specific phe-
+tion (1) to promote kernel densification and surface align-            nomena like fluids and granular materials. Secondly, the
+ment, thereby enabling effective PCA-based normal com-                 current physical parameters are manually set; automating
+putation. As demonstrated in Figure 1, falling pineapple               this process through inverse rendering or learning-based
+blocks cast dynamic shadows onto one another, while Fig-               approaches would significantly reduce tuning efforts and
+ure A3 in Supplementary showcases an orbiting light source             could improve simulation fidelity. Future research could
+illuminating multiple fruits on the table with evolving shad-          also focus on scalability for extremely complex scenes,
+ows and highlights. For further details, please refer to               more intricate multi-physics interactions, and effectively in-
+Sec. C.1 in the Supplementary.                                         tegrating learning-based methods for predictive simulation.
+References                                                          [15] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler,
+                                                                         and George Drettakis. 3d gaussian splatting for real-time
+ [1] Thiemo Alldieck, Nikos Kolotouros, and Cristian Sminchis-           radiance field rendering. ACM Transactions on Graphics, 42
+     escu. Score distillation sampling with learned manifold             (4), 2023. 2
+     corrective. In European Conference on Computer Vision
+                                                                    [16] Long Le, Ryan Lucas, Chen Wang, Chuhao Chen, Dinesh Ja-
+     (ECCV), 2024. 4
+                                                                         yaraman, Eric Eaton, and Lingjie Liu. Pixie: Fast and gener-
+ [2] Jonathan T Barron, Ben Mildenhall, Matthew Tancik, Peter
+                                                                         alizable supervised learning of 3d physics from pixels, 2025.
+     Hedman, Ricardo Martin-Brualla, and Pratul P Srinivasan.
+                                                                         2
+     Mip-nerf: A multiscale representation for anti-aliasing neu-
+                                                                    [17] Hanxue Liang, Jiawei Ren, Ashkan Mirzaei, Antonio Tor-
+     ral radiance fields. In International Conference on Computer
+                                                                         ralba, Ziwei Liu, Igor Gilitschenski, Sanja Fidler, Cen-
+     Vision (ICCV), 2021. 2
+                                                                         giz Oztireli, Huan Ling, Zan Gojcic, et al. Feed-forward
+ [3] Jonathan T Barron, Ben Mildenhall, Dor Verbin, Pratul P
+                                                                         bullet-time reconstruction of dynamic scenes from monocu-
+     Srinivasan, and Peter Hedman. Mip-nerf 360: Unbounded
+                                                                         lar videos. arXiv preprint arXiv:2412.03526, 2024. 2
+     anti-aliased neural radiance fields. In Conference on Com-
+                                                                    [18] Yuchen Lin, Chenguo Lin, Jianjin Xu, and Yadong
+     puter Vision and Pattern Recognition (CVPR), 2022.
+                                                                         Mu. Omniphysgs: 3d constitutive gaussians for gen-
+ [4] Jonathan T Barron, Ben Mildenhall, Dor Verbin, Pratul P
+                                                                         eral physics-based dynamics generation. arXiv preprint
+     Srinivasan, and Peter Hedman. Zip-nerf: Anti-aliased grid-
+                                                                         arXiv:2501.18982, 2025. 2
+     based neural radiance fields. In International Conference on
+     Computer Vision (ICCV), 2023. 2                                [19] Fangfu Liu, Hanyang Wang, Shunyu Yao, Shengjun Zhang,
+                                                                         Jie Zhou, and Yueqi Duan. Physics3d: Learning physical
+ [5] Andreas Blattmann, Tim Dockhorn, Sumith Kulal, Daniel
+                                                                         properties of 3d gaussians via video diffusion. arXiv preprint
+     Mendelevitch, Maciej Kilian, Dominik Lorenz, Yam Levi,
+                                                                         arXiv:2406.04338, 2024. 2
+     Zion English, Vikram Voleti, Adam Letts, et al. Stable video
+     diffusion: Scaling latent video diffusion models to large      [20] Minghua Liu, Ruoxi Shi, Linghao Chen, Zhuoyang Zhang,
+     datasets. arXiv preprint arXiv:2311.15127, 2023. 2                  Chao Xu, Xinyue Wei, Hansheng Chen, Chong Zeng, Ji-
+ [6] Blaise Bourdin, Gilles A Francfort, and Jean-Jacques                ayuan Gu, and Hao Su. One-2-3-45++: Fast single image
+     Marigo. Numerical experiments in revisited brittle fracture.        to 3d objects with consistent multi-view generation and 3d
+     Journal of the Mechanics and Physics of Solids, 2000. 3             diffusion. In Conference on Computer Vision and Pattern
+                                                                         Recognition (CVPR), 2024. 3
+ [7] Chenjie Cao, Chaohui Yu, Yanwei Fu, Fan Wang, and Xi-
+     angyang Xue. Mvinpainter: Learning multi-view consistent       [21] Minghua Liu, Mikaela Angelina Uy, Donglai Xiang, Hao Su,
+     inpainting to bridge 2d and 3d editing. Advances in Neural          Sanja Fidler, Nicholas Sharp, and Jun Gao. Partfield: Learn-
+     Information Processing Systems (NeurIPS), 2024. 3                   ing 3d feature fields for part segmentation and beyond. arXiv
+ [8] Anpei Chen, Zexiang Xu, Andreas Geiger, Jingyi Yu, and              preprint arXiv:2504.11451, 2025. 6
+     Hao Su. Tensorf: Tensorial radiance fields. In European        [22] Rong Liu, Rui Xu, Yue Hu, Meida Chen, and Andrew Feng.
+     Conference on Computer Vision (ECCV), 2022. 2                       Atomgs: Atomizing gaussian splatting for high-fidelity radi-
+ [9] Guikun Chen and Wenguan Wang. A survey on 3d gaussian               ance field. arXiv preprint arXiv:2405.12369, 2024. 3
+     splatting. arXiv preprint arXiv:2401.03890, 2024. 2            [23] Jonathon Luiten, Georgios Kopanas, Bastian Leibe, and
+[10] Jian Gao, Chun Gu, Youtian Lin, Zhihao Li, Hao Zhu, Xun             Deva Ramanan. Dynamic 3d gaussians: Tracking by per-
+     Cao, Li Zhang, and Yao Yao. Relightable 3d gaussians: Re-           sistent dynamic view synthesis. In International Conference
+     alistic point cloud relighting with brdf decomposition and          on 3D Vision (3DV), 2024. 2
+     ray tracing. In European Conference on Computer Vision         [24] Artem Lukoianov, Haitz Sáez de Ocáriz Borde, Kristjan
+     (ECCV), 2024. 3                                                     Greenewald, Vitor Guizilini, Timur Bagautdinov, Vincent
+[11] Yumeng He, Yunbo Wang, and Xiaokang Yang. Gs-phong:                 Sitzmann, and Justin M Solomon. Score distillation via
+     Meta-learned 3d gaussians for relightable novel view synthe-        reparametrized ddim. In Advances in Neural Information
+     sis. arXiv preprint arXiv:2405.20791, 2024. 3                       Processing Systems (NeurIPS), 2024. 4
+[12] Binbin Huang, Zehao Yu, Anpei Chen, Andreas Geiger, and        [25] Hajime Matsuoka, Yangping Yao, and DEAN SUN. The
+     Shenghua Gao. 2d gaussian splatting for geometrically ac-           cam-clay models revised by the smp criterion. Soils and
+     curate radiance fields. In ACM SIGGRAPH Conference Pro-             foundations, 39, 1999. 3
+     ceedings, 2024. 2                                              [26] Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik,
+[13] Tianyu Huang, Haoze Zhang, Yihan Zeng, Zhilu Zhang, Hui             Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:
+     Li, Wangmeng Zuo, and Rynson WH Lau. Dreamphysics:                  Representing scenes as neural radiance fields for view syn-
+     Learning physical properties of dynamic 3d gaussians with           thesis. ACM Transactions on Graphics (TOG), 2021. 2
+     video diffusion priors. arXiv preprint arXiv:2406.01476,       [27] Thomas Müller, Alex Evans, Christoph Schied, and Alexan-
+     2024. 2                                                             der Keller. Instant neural graphics primitives with a mul-
+[14] Yi-Hua Huang, Yang-Tian Sun, Ziyi Yang, Xiaoyang Lyu,               tiresolution hash encoding. ACM Transactions on Graphics
+     Yan-Pei Cao, and Xiaojuan Qi. Sc-gs: Sparse-controlled              (TOG), 2022. 2
+     gaussian splatting for editable dynamic scenes. In Confer-     [28] Keunhong Park, Utkarsh Sinha, Peter Hedman, Jonathan T
+     ence on Computer Vision and Pattern Recognition (CVPR),             Barron, Sofien Bouaziz, Dan B Goldman, Ricardo Martin-
+     2024. 2                                                             Brualla, and Steven M Seitz.          Hypernerf: A higher-
+     dimensional representation for topologically varying neural           ence on Computer Vision and Pattern Recognition (CVPR),
+     radiance fields. arXiv preprint arXiv:2106.13228, 2021. 2             2024. 2, 3, 4
+[29] Dustin Podell, Zion English, Kyle Lacey, Andreas                 [43] Jinbo Xing, Menghan Xia, Yong Zhang, Haoxin Chen,
+     Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and                Wangbo Yu, Hanyuan Liu, Gongye Liu, Xintao Wang, Ying
+     Robin Rombach. Sdxl: Improving latent diffusion models                Shan, and Tien-Tsin Wong. Dynamicrafter: Animating
+     for high-resolution image synthesis, 2023. 4                          open-domain images with video diffusion priors. In Euro-
+[30] Ben Poole, Ajay Jain, Jonathan T Barron, and Ben Milden-              pean Conference on Computer Vision (ECCV), 2024. 2
+     hall. Dreamfusion: Text-to-3d using 2d diffusion. arXiv          [44] Yunhan Yang, Yukun Huang, Yuan-Chen Guo, Liangjun Lu,
+     preprint arXiv:2209.14988, 2022. 3, 4                                 Xiaoyang Wu, Edmund Y Lam, Yan-Pei Cao, and Xihui Liu.
+[31] Albert Pumarola, Enric Corona, Gerard Pons-Moll, and                  Sampart3d: Segment any part in 3d objects. arXiv preprint
+     Francesc Moreno-Noguer. D-nerf: Neural radiance fields for            arXiv:2411.07184, 2024. 6
+     dynamic scenes. In Conference on Computer Vision and Pat-        [45] Yunhan Yang, Yufan Zhou, Yuan-Chen Guo, Zi-Xin Zou,
+     tern Recognition (CVPR), pages 10318–10327, 2021. 2                   Yukun Huang, Ying-Tian Liu, Hao Xu, Ding Liang, Yan-
+[32] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya                    Pei Cao, and Xihui Liu. Omnipart: Part-aware 3d genera-
+     Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,                 tion with semantic decoupling and structural cohesion. arXiv
+     Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn-              preprint arXiv:2507.06165, 2025. 6
+     ing transferable visual models from natural language super-      [46] Ziyi Yang, Xinyu Gao, Wen Zhou, Shaohui Jiao, Yuqing
+     vision. In International Conference on Machine Learning               Zhang, and Xiaogang Jin. Deformable 3d gaussians for high-
+     (ICML), 2021. 6                                                       fidelity monocular dynamic scene reconstruction. In Confer-
+[33] Yichun Shi, Peng Wang, Jianglong Ye, Mai Long, Kejie Li,              ence on Computer Vision and Pattern Recognition (CVPR),
+     and Xiao Yang. Mvdream: Multi-view diffusion for 3d gen-              2024. 2
+     eration. arXiv preprint arXiv:2308.16512, 2023. 3                [47] Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. Ip-
+[34] Juan C Simo and Jiannwen W Ju. Strain-and stress-based                adapter: Text compatible image prompt adapter for text-to-
+     continuum damage models—i. formulation. International                 image diffusion models. arXiv preprint arXiv:2308.06721,
+     journal of solids and structures, 1987. 3                             2023. 3
+[35] Edgar Tretschk, Ayush Tewari, Vladislav Golyanik, Michael        [48] Zehao Yu, Anpei Chen, Binbin Huang, Torsten Sattler, and
+     Zollhöfer, Christoph Lassner, and Christian Theobalt. Non-           Andreas Geiger. Mip-splatting: Alias-free 3d gaussian splat-
+     rigid neural radiance fields: Reconstruction and novel view           ting. In Conference on Computer Vision and Pattern Recog-
+     synthesis of a dynamic scene from monocular video. In                 nition (CVPR), 2024. 2
+     Conference on Computer Vision and Pattern Recognition            [49] Longwen Zhang, Qixuan Zhang, Haoran Jiang, Yinuo Bai,
+     (CVPR), 2021. 2                                                       Wei Yang, Lan Xu, and Jingyi Yu. Bang: Dividing 3d assets
+[36] Diwen Wan, Ruijie Lu, and Gang Zeng. Superpoint gaus-                 via generative exploded dynamics. ACM Transactions on
+     sian splatting for real-time high-fidelity dynamic scene re-          Graphics (TOG), 2025. 6
+     construction. arXiv preprint arXiv:2406.03697, 2024. 2           [50] Tianyuan Zhang, Hong-Xing Yu, Rundi Wu, Brandon Y
+[37] Jiuniu Wang, Hangjie Yuan, Dayou Chen, Yingya Zhang,                  Feng, Changxi Zheng, Noah Snavely, Jiajun Wu, and
+     Xiang Wang, and Shiwei Zhang. Modelscope text-to-video                William T Freeman. Physdreamer: Physics-based interac-
+     technical report. arXiv preprint arXiv:2308.06571, 2023. 2            tion with 3d objects via video generation. In European Con-
+[38] Zhengyi Wang, Cheng Lu, Yikai Wang, Fan Bao, Chongxuan                ference on Computer Vision (ECCV), 2024. 2
+     Li, Hang Su, and Jun Zhu. Prolificdreamer: High-fidelity and
+     diverse text-to-3d generation with variational score distilla-
+     tion. In Advances in Neural Information Processing Systems
+     (NeurIPS), 2023. 4
+[39] Joshuah Wolper, Yu Fang, Minchen Li, Jiecong Lu, Ming
+     Gao, and Chenfanfu Jiang. Cd-mpm: continuum dam-
+     age material point methods for dynamic fracture animation.
+     ACM Transactions on Graphics (TOG), 2019. 2
+[40] Fangyu Wu and Yuhao Chen. Fruitninja: 3d object interior
+     texture generation with gaussian splatting. In Conference on
+     Computer Vision and Pattern Recognition (CVPR), 2025. 3
+[41] Guanjun Wu, Taoran Yi, Jiemin Fang, Lingxi Xie, Xiaopeng
+     Zhang, Wei Wei, Wenyu Liu, Qi Tian, and Xinggang Wang.
+     4d gaussian splatting for real-time dynamic scene rendering.
+     In Conference on Computer Vision and Pattern Recognition
+     (CVPR), 2024. 2
+[42] Tianyi Xie, Zeshun Zong, Yuxing Qiu, Xuan Li, Yutao Feng,
+     Yin Yang, and Chenfanfu Jiang. Physgaussian: Physics-
+     integrated 3d gaussians for generative dynamics. In Confer-
+GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials
+                                                     Supplementary Material
+A. Material Point Method                                                  The total force on a node is fi = fiinternal + fiexternal .
+                                                                             With the total force, the grid node velocities are updated over
+Overview We use an explicit MPM. Particles (also the 3D                   the time step ∆t using an explicit time integration scheme (e.g.,
+Gaussian splats) carry
+                                                                          Forward Euler):
+                                                                                                                       fi
+                                                                                                vin+1 = vin + ∆t          .             (A4)
+                                                                                                                       mi
+      mp , Vp0 , Xp , xp , vp , Fp , Ap , ap , σp , Cp .         (A1)
+                                                                          Boundary conditions, such as collisions with obstacles, are also
+In summary, given the 3D GS of a static scene {Xp , Ap , σp , Cp },       enforced on the grid during this stage by modifying the nodal ve-
+we use simulation to dynamize the scene by evolving these Gaus-           locities.
+sians to produce dynamic Gaussians {xp (t), ap (t), σp , Cp }. Here,
+Xp is the initial position, while xp is the current position that         A.1.3. Grid-to-Particle Transfer (G2P)
+evolves over time with velocity vp . Furthermore, Ap is the static        Finally, the updated kinematic information is transferred from the
+covariance of the initial Gaussian; the dynamic covariance ap is          grid back to the particles. This stage, often called the ”gather”
+derived at each step; Fp is the deformation gradient used to calcu-       step, updates the Lagrangian particles’ state using the newly com-
+late ap ; and the opacity σp and SH coefficient magnitudes Cp are         puted fields on the Eulerian grid, preparing them for the next time
+considered time-invariant.                                                step. This process involves updating each particle’s velocity, its
+                                                                          deformation gradient, and finally its position.
+A.1. The Material Point Method (MPM) Algorithm                                First, the particle’s velocity vp is updated by interpolating the
+      Steps                                                               new velocities vin+1 from the surrounding grid nodes. This is es-
+The Material Point Method (MPM) algorithm iteratively transfers           sentially a weighted average, using the same interpolation func-
+data between particles and a background grid. A single time step          tions Nip as the P2G step:
+can be broken down into the following three main stages.
+                                                                                                          X
+                                                                                                vpn+1 =            vin+1 Nip .            (A5)
+A.1.1. Particle-to-Grid Transfer (P2G)                                                                        i
+In the first stage, information is transferred from the Lagrangian
+particles to the nodes of the Eulerian grid. This process, known          This update can be a pure Particle-In-Cell (PIC) update, or it can
+as rasterization, effectively creates a grid-based snapshot of the        be combined with the particle’s previous velocity in a FLIP (Fluid-
+continuum’s state. For each particle p, its mass mp and momen-            Implicit-Particle) scheme to reduce numerical dissipation.
+tum pp = mp vp are interpolated and added to the surrounding                  Simultaneously, the particle’s deformation gradient Fp , which
+grid nodes i. This is done using interpolation functions Nip (also        tracks the local rotation and strain of the material, must also be
+known as shape functions), which depend on the particle’s position        updated. This is done by first computing the velocity gradient ∇v
+relative to the grid.                                                     at the particle’s position, which is also interpolated from the grid
+    The nodal mass mi and nodal momentum pi are computed as               node velocities:
+follows:
+                                                                                                        X
+                                 X                                                             ∇vp =              vin+1 ∇Nip
+                                                                                                                          T
+                                                                                                                             .            (A6)
+                          mi =          mp Nip                   (A2)                                     i
+                                    p
+                                X                                         This gradient is then used to advance the deformation gradient for-
+                         pi =       mp vp Nip .                  (A3)     ward in time:
+                                p
+                                                                                             Fn+1
+                                                                                              p   = (I + ∆t ∇vp ) Fn
+                                                                                                                   p,                     (A7)
+From the nodal momentum and mass, the initial nodal velocity is
+found: vi = pi /mi , provided mi > 0.                                     where I is the identity matrix. This update is crucial for correctly
+                                                                          computing material stress in the next time step.
+A.1.2. Grid Update                                                           Lastly, with the new velocity vpn+1 computed, the particle’s
+This stage contains the core physics computations, which are per-         position xp is updated as:
+formed entirely on the grid. First, forces acting on each grid node
+are calculated. These forces are typically composed of two parts:                              xn+1
+                                                                                                p   = xn       n+1
+                                                                                                       p + ∆t vp   .                      (A8)
+• Internal forces fiinternal , which arise from the material’s stress.
+  These are computed by transferring particle stress information          Once all particles have been updated, the information on the back-
+  (derived from the deformation gradient Fp ) back to the grid.           ground grid is no longer needed and is typically reset or discarded.
+• External forces fiexternal , such as gravity or user-defined interac-   The simulation is now ready to begin the next time step with the
+  tions.                                                                  P2G phase.
+A.2. Evolution of 3D Gaussian Properties via Con-                           Here pc , qc identify the center of the yield ellipsoid (y = 0);
+      tinuum Mechanics                                                  ptr , qtr is the uncorrected trial stress state produced at simulation
+                                                                        step n; JE is the determinant of the elastic deformation gradient
+This approach outlines a method for animating 3D GS by treating
+                                                                        (elastic volume ratio); κ is the Bulk Modules; and pn+1 , qn+1 is
+them as discrete particles within a physics-based system governed
+                                                                        the state after applying the return mapping R:
+by continuum mechanics. The primary goal is to evolve a static
+scene, defined by initial properties, into a dynamic state for ren-
+dering.                                                                                   
+                                                                                            (p , q ),          ytr ≤ 0
+     The evolution of the key Gaussian properties for each time step                       tr tr
+                                                                                          
+                                                                                                               (Elastic)
+                                                                                          
+                                                                                          
+                                                                                          
+is as follows:                                                                            
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                           (p0 , 0),          ytr > 0 ∧ ptr > p0
+• Position Evolution (Mean): The Gaussian’s center, or mean, is                           
+                                                                                          
+                                                                                          
+   its world-space position xp . This is updated using the particle’s
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                                              (Case 1: upper tip
+   velocity vp , which is determined by the physical simulation, via
+                                                                                          
+                                                                                                                         projection)
+                                                                        R(pn+1 , qn+1 ) =   (−βp0 , 0),        ytr > 0 ∧ ptr < −βp0
+   explicit time integration:                                                             
+                                                                                          
+                                                                                          
+                                                                                                              (Case 2: lower tip
+                        xn+1 = xn
+                                                                                          
+                                p + ∆t vp .                     (A9)
+                                                                                          
+                         p
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                                                         projection)
+                                                                                          
+                                                                                          
+                                                                                           (px , qx ),        ytr > 0 ∧ −βp0 ≤ ptr ≤ p0
+• Shape Evolution (Covariance): The dynamic world-space co-                               
+                                                                                          
+                                                                                          
+                                                                                                              (Case 3: center–trial line
+  variance ap , which defines the Gaussian’s shape and size, is                           
+                                                                                          
+                                                                                                                          intersection)
+  computed directly from the deformation gradient Fp . The de-
+                                                                                                                                          (A15)
+  formation gradient describes the local deformation of the mate-
+                                                                            Here ytr = y(ptr , qtr ). If ytr ≤ 0, the trial point lies in
+  rial around the particle. It maps the initial, undeformed shape
+                                                                        the elastic domain and is accepted unchanged: (pn+1 , qn+1 ) =
+  (defined by the material-space covariance Ap ) to its current, de-
+                                                                        (ptr , qtr ). If ytr > 0 and ptr > p0 , the trial point lies beyond
+  formed configuration:
+                                                                        the positive p-axis tip and is projected to the upper tip (p0 , 0). If
+                     ap (t) = Fp (t)Ap Fp (t)T .              (A10)     ytr > 0 and ptr < −βp0 , it lies beyond the negative tip and is
+                                                                        projected to (−βp0 , 0). Otherwise (ytr > 0 with −βp0 ≤ ptr ≤
+• Orientation Evolution (for Rendering): To correctly render            p0 ), we join the center (pc , qc ) and the trial point (ptr , qtr ); the
+  anisotropic appearances (e.g., using Spherical Harmonics), the        intersection of this line segment with the yield ellipsoid y(p, q) =
+  particle’s orientation must be tracked. The rotation component        0 defines (px , qx ), and we set (pn+1 , qn+1 ) = (px , qx ). Besides
+  Rp is extracted from the deformation gradient, typically via po-      p, q, we also update α and JE as below:
+  lar decomposition (Fp = Rp Sp ). This rotation is then applied
+  to the appearance model during rendering.                                                  
+• Time-Invariant Properties: Visual attributes such as opacity                               0,                           ytr ≤ 0
+                                                                               αn+1 = αn +                                           ,   (A16)
+  σp and material-space appearance coefficients (e.g., Spherical                             log JE,tr /JE,n+1 ,         ytr > 0
+  Harmonics, Cp ) are considered intrinsic material properties.
+  They are typically held constant throughout the simulation.           with                    
+                                                                                                JE (p0 ),
+                                                                                                                      Case 1
+B. Fracture mechanism with Continuum Dam-                                               JE,n+1 = JE (−βp0 ),           Case 2            (A17)
+    age Material Point Method                                                                   
+                                                                                                
+                                                                                                  JE (px ),            Case 3
+B.1. Introduction of CD-MPM
+                                                                        B.2. Adapted Continuous Return Mapping
+The yield surface serves as a dividing boundary in stress space:
+inside it, the material response is elastic; at the boundary plastic    However, this piecewise return mapping is discontinuous at the
+yielding begins; any trial state predicted beyond this boundary is      right tip p = p0 . Consider trial states with ytr > 0 and very large
+reconciled by returning it to a suitable point on the boundary in       shear measure qtr → ∞. Take two sequences with ptr = p0 − ε
+accordance with ideal plasticity. As mentioned above, the yield         and ptr = p0 + ε (ε > 0). For ptr = p0 − ε, the algorithm falls
+surface of CD-MPM is defined as:                                        into the “center–trial line intersection” branch; as qtr → ∞ the
+                                                                        direction from the center (pc , 0), with pc = 1−β   2
+                                                                                                                              p0 , to the trial
+  y(p, q) = (1 + 2β) q 2 + M 2 (p + βp0 )(p − p0 ) = 0.       (A11)     point becomes vertical, so the mapped point tends to the upper
+                                                                        apex of the yield ellipsoid y(p, q) = 0, namely,
+If (p, q) lies in the elastic domain where y ≤ 0, no plastic correc-                                                               
+tion is applied.                                                            lim lim R(p0 − ε, qtr ) = 1−β       2
+                                                                                                                   p0 , M√
+                                                                                                                          (β+1)
+                                                                                                                        2 1+2β
+                                                                                                                                p 0  ,
+                                                                           ε→0+ qtr →∞
+                                   1 − β                                                                                              (A18)
+                    (pc , qc ) =            p0 , 0            (A12)         lim lim R(p0 + ε, qtr ) = (p0 , 0),
+                                                                          ε→0+ qtr →∞
+                                  2
+                        ytr = y(ptr , qtr )                   (A13)        showing a directional jump: one limit preserves (essentially)
+                                                                        shear while the other preserves only the volumetric extension. And
+                               r
+                                    2p
+                      JE (p) = −         +1                   (A14)     even some small q such as q = p0 will also occur jumps like this.
+                                     κ
+Table A1. Parameters and Timings. Seconds per frame (s/frame) is an average. All performance metrics were obtained from experiments
+conducted on a GPU delivering 103 Tensor TFLOPS at FP16 precision.
+Example                                 s/frame                                   ∆tf rame                                       ∆x                                ∆tstep                        N       ρ             E                 ν      NACC-(α0 , β, ξ, M )
+                                                                                                                                               −3                                        −4                                       4
+watermelon                              3.56                                            1/50                           3 × 10                                     1 × 10                         27M     2    2000/1000/1 × 10         0.38    (-0.04, 2/0.6/5, 2, 2.36)
+jelly                                   0.39                                           1/500                           3 × 10−3                                   1 × 10−5                       1M      2          2000               0.45         (-0.5, 1, 2, 2.36)
+pumpkin                                 5.12                                           1/50                            3 × 10−3                                   1 × 10−4                       27M     2          4000               0.40        (-0.04, 1, 2, 2.36)
+kiwi                                    1.58                                           1/50                            1 × 10−2                                   1 × 10−4                       1M      2          2000               0.42        (-0.04, 1, 2, 2.36)
+pineapple                               1.16                                           1/50                            1 × 10−2                                   1 × 10−4                       1M      2          5000               0.39        (-0.04, 1, 2, 2.36)
+dragonfruit                             2.27                                           1/50                            1 × 10−2                                   1 × 10−4                       1M      2          2000               0.42        (-0.04, 1, 2, 2.36)
+tosta                                   3.18                                           1/50                            5 × 10−3                                   1 × 10−4                       8M      2          2000               0.38         (-0.1, 1, 2, 2.36)
+sandcastle                              2.09                                           1/50                            1 × 10−2                                   1 × 10−4                       8M      2           50                0.05      (-0.04, 0.01, 1, 2.36)
+
+
+                                            Return Mapping near p = p₀: p_c discontinuity vs p_c' continuity
+                  Original (fixed p_c): jump                                                                        Regularized (adaptive p_c'): smooth
+                                                                                                                                                                                                     single second. This is accomplished through a complete frame-
+     Left → apex, Right → (p₀,0)
+     Discontinuous
+                                                                                                                                Both sides → (p₀,0)
+                                                                                                                                Continuous
+                                                                                                                                                                                                     work reimplementation that leverages the NVIDIA Warp library
+       q                                                                                                       q
+
+                                            apex
+                                                                         p = p₀
+                                                                                                                                                       apex
+                                                                                                                                                                               p = p₀
+                                                                                                                                                                                                     to parallelize the core simulation loop. Unlike the original CPU-
+                                                                   p₀ - ε         p₀ + ε                                                                                   p₀ - ε       p₀ + ε
+
+                                                                                                                                                                                                     only method, our GPU-native approach enables the simulation of
+                                                     (p_x,q_x)
+
+                                                                                                                                                                                                     far more complex scenes in interactive time.
+                                                                                                                                                                   (p_x,q_x)
+
+
+                                                                                                                                                                                                     C. Experiment details
+                                            p_c                          (p₀,0) p                                                                     p_c (ref)          p_c' (p₀,0) p               All experiments are conducted on a GPU capable of 52.22
+                                                                                           Legend
+
+                                      p_c           p_c (ref)     p_c'              apex     (p₀,0)   trial        (p_x,q_x)                                                                         TFLOPS (FP32) and approximately 103 Tensor TFLOPS (FP16).
+                                               orig return               regularized                  p = p₀                   callout
+
+                                                                                                                                                                                                     These simulations typically consume around 10 GB of VRAM,
+           Figure A1. Comparison of two return mapping kinds.                                                                                                                                        with peak usage not exceeding 16 GB. Detailed timings and mate-
+                                                                                                                                                                                                     rial parameters are provided in Tab. A1. For the NACC model, the
+                                                                                                                                                                                                     parameter β is adjusted to differentiate the material properties of
+    To remove both the numerical instability and the phys-                                                                                                                                           various components, while the initial parameter α0 is maintained
+ical ambiguity at the tip, we replace the interior (ptr ∈                                                                                                                                            uniformly for all particles within an object.
+[−βp0 , p0 ]) center–line branch with a normal closest-point re-                                                                                                                                          For coarse texture generation, MVInpainter [33] is selected
+turn: solve (pn+1 , qn+1 ) = (ptr , qtr ) − ∆λ∇y(pn+1 , qn+1 ),                                                                                                                                      over IP-Adapter [47] and MVDream [33] due to its ability to main-
+y(pn+1 , qn+1 ) = 0, ∆λ ≥ 0. Outside this interval, we still                                                                                                                                         tain color consistency across different viewing axes. Subsequently,
+project to the nearest tip. This yields a continuous mapping and                                                                                                                                     SD-XL was employed for fine texture generation, owing to its en-
+a well-defined consistent tangent.                                                                                                                                                                   hanced performance in generating detailed interior textures com-
+    We modify only the interior plastic branch with −βp0 ≤ ptr ≤                                                                                                                                     pared to IP-Adapter.
+p0 . Introduce a k-dependent pseudo-center on the p-axis:                                                                                                                                                 For the user study, we prepare eight distinct objects: water-
+                                                                 Lp = p0 − pc > 0,                                                                                                                   melon, cake, jelly, pumpkin, bread, kiwi, dragonfruit, and pineap-
+                                                                                                                                                                                                     ple. We then conduct two separate evaluations. To assess the qual-
+                                                                                                         k
+                                                                            ptr − pc                                                                                                                 ity of the interior filling, we recruit 21 participants, collecting a
+                                                   ϕk =                                                        ∈ [0, 1],                                                            (A19)
+                                                                               Lp                                                                                                                    total of 8 × 21 = 168 ratings. Separately, to evaluate the simu-
+                                   (p′c , qc′ ) = pc + ϕk (ptr − pc ), 0 .                                                                                                                           lation dynamics, 26 participants are recruited, providing a total of
+                                                                        
+                                                                                                                                                                                                     8 × 26 = 208 ratings.
+    In Case 3 we replace the fixed center (pc , 0) by (p′c , 0), draw                                                                                                                                     We use two types of prompts:
+the line through (p′c , 0) and the trial point (ptr , qtr ), and take its                                                                                                                            • For interior filling: We explicitly instruct GPT to generate an
+intersection with the yield surface y = 0 as the updated stress, as                                                                                                                                     inpainting prompt in the form “a slice of [object].” For exam-
+shown in Figure A1. All other cases are unchanged. For any finite                                                                                                                                       ple, GPT produces the following for a watermelon: “A realistic
+k the return mapping is continuous, because as ptr → p−       0 we have                                                                                                                                 and detailed drawing of the juicy red flesh and black seeds of a
+ϕk → 1 and thus p′c → ptr , so the update approaches the right tip                                                                                                                                      watermelon slice.”
+smoothly. For any fixed interior ptr < p0 , ϕk → 0 as k → ∞,                                                                                                                                         • For CLIP-score evaluation: To evaluate the plausibility of the
+giving p′c → pc and recovering the original (unmodified) branch.                                                                                                                                        final scene, we have human annotators write prompts that de-
+Hence k provides a homotopy from a continuous regularized map-                                                                                                                                          scribe the overall event, for example, “A watermelon dropped
+ping (finite k) back to the original formulation (k → ∞).                                                                                                                                               and shattered on a table,” and “Slices of a [object] landing on a
+                                                                                                                                                                                                        table.”
+B.3. GPU Parallelization
+We achieve a substantial performance improvement by porting the
+                                                                                                                                                                                                     C.1. Relighting
+CPU-bound CD-MPM algorithm to the GPU. Our implementa-                                                                                                                                               Existing GS lighting methods, such as Relightable 3DGS [10] and
+tion reduces simulation times from 4 minutes per frame to a                                                                                                                                          GS-Phong [11], are not applicable to dynamic simulations. These
+methods are intended for static scenes and rely on multiple images
+captured under known lighting conditions to learn GS normals and
+other attributes. Rather than adopting the Physically Based Ren-
+dering (PBR) lighting model in Relightable 3DGS, which requires
+learning additional material attributes, e.g., Fresnel parameters, for
+each GS, we employ the empirical Blinn-Phong reflection model,
+which only requires the normals for GS.
+    However, it is nontrivial to obtain GS normals using non-
+learning methods. As noted in Relightable 3DGS, numerical
+normal-estimation methods such as PCA are ill-suited to GS for
+two primary reasons: (i) GS particles are spatially sparse, and
+(ii) Gaussian centers, especially those with large kernels, are not
+tightly aligned with the visual surface. To overcome these issues,
+the regularization loss 1 we introduce in Sec. 3.1 promotes ker-
+nel densification and surface alignment, thereby enabling effective
+normal computation for each Gaussian splat using PCA.
+Blinn-Phong Reflection Model Once the normal n for each
+GS is computed, we apply the Blinn-Phong reflection model to
+determine its final color. For each Gaussian i with center pi and
+normal ni , we apply the Blinn-Phong reflection model using view
+direction v (from pi to the camera) and, for each light m, light
+direction lm , distance rm , and half vector hm = (lm + v)/∥lm +
+v∥2 . The diffuse and specular terms are Dm = max(ni · lm , 0)
+and Sm = [max(ni · hm , 0)]p , with shininess exponent p. Let
+c0 be the base color, Ia the ambient light color, IL,m the color of
+light m, and Ti,m a per-light visibility term. Then
+                   X                    1
+ Li = c0 ⊙ Ia +       Ti,m (c0 ⊙ IL,m ) 2 (Dm + Sm ), (A20)
+                    m
+                                       r m
+
+
+where ⊙ denotes element-wise multiplication.
+    This lighting framework allows us to effectively simulate com-
+plex scenes with multiple objects and dynamic light sources, as
+shown in Figure 1 and Figure A3. For example, in the latter fig-
+ure, we present a scene of multiple fruits with dynamic lighting
+on a table. Such dynamic illumination and shadowing are crucial
+for achieving visually consistent and plausible renderings during
+simulation, where the evolution of shadows is not considered in
+PhysGaussian [42].
+
+D. Use of Large Language Models (LLMs)
+We used a large language model solely as a writing aid to improve
+the clarity, grammar, and overall readability of the manuscript. Its
+role was limited to polishing the language and refining sentence
+structure, without contributing to research ideation, experimental
+design, or data analysis. All technical ideas, methods, results, and
+conclusions are entirely the work of the authors, and we take full
+responsibility for the final content.
+Figure A2. More examples of object simulation.
+Figure A3. More examples of object simulation and illumination.
+

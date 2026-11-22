@@ -1,0 +1,28 @@
+{
+  "id": "P66",
+  "slug": "LLM_Virtual_Commissioning",
+  "arxiv_id": "2606.03255",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2606.03255",
+  "accessed": "2026-11-11",
+  "title": "Multi-Agent Framework Leveraging Knowledge Graphs for Virtual Commissioning Models",
+  "authors": [
+    "Diekmann, Max",
+    "Nitzler, Jonas",
+    "Fischer, Jan",
+    "Pfisterer, Hans-Jürgen",
+    "Hartmann, Dirk"
+  ],
+  "publication_date": "2026/06/02",
+  "submitted_date": "2026/06/02",
+  "abstract": " Virtual commissioning models (VCMs) of discrete manufacturing systems are used to validate automation behavior before physical deployment, but creating and maintaining them remains labor-intensive. Relevant engineering information is distributed across programmable logic controller (PLC) engineering projects, such as Siemens TIA Portal, and kinematic simulation models, such as Siemens NX Mechatronics Concept Designer (NX MCD), where it is stored in incompatible, tool-specific data structures. In practice, IEC 61131-3-based PLC programs and variables are engineered separately from rigid-body and kinematic simulation objects such as parts, joints, sensors, and actuators. As a result, understanding system behavior, generating simulation components, and mapping PLC variables to corresponding simulation objects require cross-domain expertise and remain largely manual. This paper presents a knowledge-graph-grounded multi-agent framework for semi-automated VCM development. A deterministic setup process extracts structured data from Siemens TIA Portal and Siemens NX MCD and transforms both sources into graph-based representations within a shared graph database. The framework uses a hierarchical multi-agent architecture to support three task classes in early-stage VCM development: system understanding, simulation component generation, and cross-domain signal mapping. It provides grounded natural-language access to engineering knowledge, template-guided generation of executable NX Open journal scripts, and ranked mapping suggestions between PLC variables and NX MCD simulation objects. Evaluation on a laboratory-scale discrete manufacturing system shows that the approach reduces manual cross-domain interpretation effort and makes recurring VCM engineering tasks more actionable.",
+  "submission_history": "Submission history From: Max Diekmann [ view email ] [v1] Tue, 2 Jun 2026 07:16:15 UTC (700 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2606.03255v1",
+  "local_pdf": "papers/P66_LLM_Virtual_Commissioning_2606.03255v1.pdf",
+  "sha256": "ca7d77cd9fe1f1d595a70864355728114403a2884e9a9ba8fdd9b9dfdfc0d35b",
+  "bytes": 1585662,
+  "pages": 10,
+  "text_file": "research/P66_LLM_Virtual_Commissioning.txt",
+  "status": "downloaded_and_text_extracted"
+}

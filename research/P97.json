@@ -1,0 +1,31 @@
+{
+  "id": "P97",
+  "slug": "IndustReal",
+  "arxiv_id": "2305.17110",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2305.17110",
+  "accessed": "2026-11-12",
+  "title": "IndustReal: Transferring Contact-Rich Assembly Tasks from Simulation to Reality",
+  "authors": [
+    "Tang, Bingjie",
+    "Lin, Michael A.",
+    "Akinola, Iretiayo",
+    "Handa, Ankur",
+    "Sukhatme, Gaurav S.",
+    "Ramos, Fabio",
+    "Fox, Dieter",
+    "Narang, Yashraj"
+  ],
+  "publication_date": "2023/05/26",
+  "submitted_date": "2023/05/26",
+  "abstract": " Robotic assembly is a longstanding challenge, requiring contact-rich interaction and high precision and accuracy. Many applications also require adaptivity to diverse parts, poses, and environments, as well as low cycle times. In other areas of robotics, simulation is a powerful tool to develop algorithms, generate datasets, and train agents. However, simulation has had a more limited impact on assembly. We present IndustReal, a set of algorithms, systems, and tools that solve assembly tasks in simulation with reinforcement learning (RL) and successfully achieve policy transfer to the real world. Specifically, we propose 1) simulation-aware policy updates, 2) signed-distance-field rewards, and 3) sampling-based curricula for robotic RL agents. We use these algorithms to enable robots to solve contact-rich pick, place, and insertion tasks in simulation. We then propose 4) a policy-level action integrator to minimize error at policy deployment time. We build and demonstrate a real-world robotic assembly system that uses the trained policies and action integrator to achieve repeatable performance in the real world. Finally, we present hardware and software tools that allow other researchers to reproduce our system and results. For videos and additional details, please see this http URL .",
+  "submission_history": "Submission history From: Bingjie Tang [ view email ] [v1] Fri, 26 May 2023 17:20:02 UTC (8,599 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2305.17110v1",
+  "local_pdf": "papers/P97_IndustReal_2305.17110v1.pdf",
+  "sha256": "cb84773e54def381b301c07ec8907aeaa5fa7a2d0418beadabbd782772103954",
+  "bytes": 9152172,
+  "pages": 20,
+  "text_file": "research/P97_IndustReal.txt",
+  "status": "downloaded_and_text_extracted"
+}

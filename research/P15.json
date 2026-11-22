@@ -1,0 +1,33 @@
+{
+  "id": "P15",
+  "slug": "Articulate_Anything",
+  "arxiv_id": "2410.13882",
+  "family": "asset",
+  "source_url": "https://arxiv.org/abs/2410.13882",
+  "accessed": "2026-11-09",
+  "title": "Articulate-Anything: Automatic Modeling of Articulated Objects via a Vision-Language Foundation Model",
+  "authors": [
+    "Le, Long",
+    "Xie, Jason",
+    "Liang, William",
+    "Wang, Hung-Ju",
+    "Yang, Yue",
+    "Ma, Yecheng Jason",
+    "Vedder, Kyle",
+    "Krishna, Arjun",
+    "Jayaraman, Dinesh",
+    "Eaton, Eric"
+  ],
+  "publication_date": "2024/10/03",
+  "submitted_date": "2025/06/02",
+  "abstract": " Interactive 3D simulated objects are crucial in AR/VR, animations, and robotics, driving immersive experiences and advanced automation. However, creating these articulated objects requires extensive human effort and expertise, limiting their broader applications. To overcome this challenge, we present Articulate-Anything, a system that automates the articulation of diverse, complex objects from many input modalities, including text, images, and videos. Articulate-Anything leverages vision-language models (VLMs) to generate code that can be compiled into an interactable digital twin for use in standard 3D simulators. Our system exploits existing 3D asset datasets via a mesh retrieval mechanism, along with an actor-critic system that iteratively proposes, evaluates, and refines solutions for articulating the objects, self-correcting errors to achieve a robust outcome. Qualitative evaluations demonstrate Articulate-Anything's capability to articulate complex and even ambiguous object affordances by leveraging rich grounded inputs. In extensive quantitative experiments on the standard PartNet-Mobility dataset, Articulate-Anything substantially outperforms prior work, increasing the success rate from 8.7-11.6% to 75% and setting a new bar for state-of-the-art performance. We further showcase the utility of our system by generating 3D assets from in-the-wild video inputs, which are then used to train robotic policies for fine-grained manipulation tasks in simulation that go beyond basic pick and place. These policies are then transferred to a real robotic system.",
+  "submission_history": "Submission history From: Long Le [ view email ] [v1] Thu, 3 Oct 2024 19:42:16 UTC (12,721 KB) [v2] Wed, 4 Dec 2024 19:04:01 UTC (27,915 KB) [v3] Thu, 6 Feb 2025 18:15:21 UTC (27,915 KB) [v4] Mon, 2 Jun 2025 15:59:31 UTC (10,935 KB)",
+  "version": "v4",
+  "pdf_url": "https://arxiv.org/pdf/2410.13882v4",
+  "local_pdf": "papers/P15_Articulate_Anything_2410.13882v4.pdf",
+  "sha256": "ac7b28d9747634f700a503764f449ae7468c3cfded3c5f54064c130b9f02d473",
+  "bytes": 12667055,
+  "pages": 24,
+  "text_file": "research/P15_Articulate_Anything.txt",
+  "status": "downloaded_and_text_extracted"
+}

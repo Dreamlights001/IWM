@@ -1,0 +1,30 @@
+{
+  "id": "P43",
+  "slug": "UniSim",
+  "arxiv_id": "2310.06114",
+  "family": "video",
+  "source_url": "https://arxiv.org/abs/2310.06114",
+  "accessed": "2026-11-09",
+  "title": "Learning Interactive Real-World Simulators",
+  "authors": [
+    "Yang, Sherry",
+    "Du, Yilun",
+    "Ghasemipour, Kamyar",
+    "Tompson, Jonathan",
+    "Kaelbling, Leslie",
+    "Schuurmans, Dale",
+    "Abbeel, Pieter"
+  ],
+  "publication_date": "2023/10/09",
+  "submitted_date": "2024/09/26",
+  "abstract": " Generative models trained on internet data have revolutionized how text, image, and video content can be created. Perhaps the next milestone for generative models is to simulate realistic experience in response to actions taken by humans, robots, and other interactive agents. Applications of a real-world simulator range from controllable content creation in games and movies, to training embodied agents purely in simulation that can be directly deployed in the real world. We explore the possibility of learning a universal simulator (UniSim) of real-world interaction through generative modeling. We first make the important observation that natural datasets available for learning a real-world simulator are often rich along different dimensions (e.g., abundant objects in image data, densely sampled actions in robotics data, and diverse movements in navigation data). With careful orchestration of diverse datasets, each providing a different aspect of the overall experience, we can simulate the visual outcome of both high-level instructions such as \"open the drawer\" and low-level controls from otherwise static scenes and objects. We use the simulator to train both high-level vision-language policies and low-level reinforcement learning policies, each of which can be deployed in the real world in zero shot after training purely in simulation. We also show that other types of intelligence such as video captioning models can benefit from training with simulated experience, opening up even wider applications. Video demos can be found at this https URL .",
+  "submission_history": "Submission history From: Mengjiao Yang [ view email ] [v1] Mon, 9 Oct 2023 19:42:22 UTC (44,196 KB) [v2] Sat, 13 Jan 2024 00:42:24 UTC (36,104 KB) [v3] Thu, 26 Sep 2024 17:14:09 UTC (36,134 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2310.06114v3",
+  "local_pdf": "papers/P43_UniSim_2310.06114v3.pdf",
+  "sha256": "956d21809f36cc107c82b3a32177ea555cacf032b3bde014fed1b958bc09c295",
+  "bytes": 38316042,
+  "pages": 25,
+  "text_file": "research/P43_UniSim.txt",
+  "status": "downloaded_and_text_extracted"
+}

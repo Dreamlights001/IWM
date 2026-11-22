@@ -1,0 +1,655 @@
+                                           ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects
+                                                                  using 3D Gaussian Splatting
+
+                                                Junfu Guo 1           Yu Xin1         Gaoyi Liu1          Kai Xu2        Ligang Liu 1          Ruizhen Hu 3 *
+                                                                           1
+                                                                               University of Science and Technology of China
+                                                                                2
+                                                                                  National University of Defense Technology
+                                                                                            3
+                                                                                              Shenzhen University
+arXiv:2503.08135v2 [cs.CV] 4 Jul 2025
+
+
+
+
+                                                                   Abstract
+
+                                        We tackle the challenge of concurrent reconstruction at the
+                                        part level with the RGB appearance and estimation of mo-
+                                        tion parameters for building digital twins of articulated ob-
+                                        jects using the 3D Gaussian Splatting (3D-GS) method.                                                             Motion Estimation
+                                                                                                                        Real-World Object                & Part Segmentation
+                                        With two distinct sets of multi-view imagery, each depict-
+                                        ing an object in separate static articulation configurations,
+                                        we reconstruct the articulated object in 3D Gaussian rep-
+                                        resentations with both appearance and geometry informa-
+                                        tion at the same time. Our approach decoupled multiple
+                                        highly interdependent parameters through a multi-step op-
+                                                                                                                        Any-State Synthesis                 3D Gaussians
+                                        timization process, thereby achieving a stable optimization
+                                        procedure and high-quality outcomes. We introduce Artic-           Figure 1. ArticulatedGS is a self-supervised modeling and rea-
+                                        ulatedGS, a self-supervised, comprehensive framework that          soning pipeline to reconstruct the articulated objects using 3D
+                                        autonomously learns to model shapes and appearances at             Gaussian Splatting.
+                                        the part level and synchronizes the optimization of motion
+                                        parameters, all without reliance on 3D supervision, mo-
+                                        tion cues, or semantic labels. Our experimental results            ied AI [1, 35, 37]. Consequently, the capturing and recon-
+                                        demonstrate that, among comparable methodologies, our              struction of shape geometry, visual appearance, and articu-
+                                        approach has achieved optimal outcomes in terms of part            lation parameters is indispensable in building accurate and
+                                        segmentation accuracy, motion estimation accuracy, and             functional digital twins of articulated objects.
+                                        visual quality. The code will be made publicly available
+                                                                                                               The problem of modeling high-fidelity digital twins of
+                                        at our website https://guojunfu-tech.github.
+                                                                                                           articulated objects is receiving increasing attention in re-
+                                        io/articulatedGS-io/
+                                                                                                           cent years [11, 22, 23, 34]. Most of the previous works [11,
+                                                                                                           17, 22] are concentrated on the regeneration or construc-
+                                                                                                           tion of 3D geometrical representation of articulated objects,
+                                        1. Introduction                                                    which may involve the estimation of articulation parame-
+                                        Articulated objects, such as laptops, ovens, and drawers,          ters or functionalities to animate the objects into different
+                                        are a part of our daily life. Building the digital twin            articulation states. The result is usually a mesh-based rep-
+                                        of an articulated object with accurate reconstruction of           resentation of articulated objects with relatively low geo-
+                                        and fine-grained analysis often plays an important role in         metric fidelity and visual realism. Moreover, the reliance
+                                        robotics [25, 28, 32, 49], animation [20, 46], and simula-         on supervised learning, which typically consumes a large
+                                        tion [43, 47]. Moreover, it is also desirable to equip the dig-    3D dataset with articulation annotation, also limits the gen-
+                                        ital twins with color appearance to facilitate downstream ap-      eralizability to unseen object categories. To our knowledge,
+                                        plications such as training sim-to-real transferable embod-        the only self-supervised work that takes RGB observations
+                                                                                                           as input is PARIS [22]. PARIS adopts the neural radiance
+                                          * Corresponding author                                           field (NeRF) as an intermediate representation and outputs a
+mesh with compromised accuracy of geometry and appear-              timization task with efficiency and stability;
+ance. Additionally, it exhibits instability and suboptimality     • New state-of-the-art results of reconstruction quality, mo-
+issues in the optimization process.                                 tion estimation, and visual quality for articulated objects.
+    Recently, there has also been a massive success of 3D
+Gaussian Splatting (3D-GS) [13] in 3D scene learning and          2. Related work
+novel view synthesis as well as extensions to various appli-
+cations such as 3D reconstruction [3, 18, 33] and dynamic         Articulated Modeling. The primary objective of articu-
+scene rendering [4, 7]. 3D-GS requires only RGB images as         lated object reconstruction is to accurately recover the three-
+input and enables rapid scene reconstruction with real-time       dimensional (3D) geometry of articulated entities. Pekelny
+and realistic rendering. The reconstructed scene is com-          and Gotsman [30] introduced one of the pioneering works in
+posed of numerous Gaussians densely distributed around            this area, which focuses on reconstructing the surface from
+the object’s surface, thereby allowing for modeling rich ge-      a sequence of point clouds. A-SDF [29] represents an in-
+ometric details. Recent works [26, 44, 45] make it possible       novative approach, the inaugural study to reconstruct artic-
+to interact with digital twins represented with 3D-GS for         ulated objects from signed distance fields (SDFs) derived
+physically meaningful simulation and manipulation. The            from a solitary snapshot. This technique permits the de-
+fast and realistic rendering of 3D-GS also benefits learning      formation of objects into any conceivable articulation state.
+in simulation. For those purposes, what has been missing          While echoing the goals of A-SDF, the work of [40] di-
+is to reconstruct digital twins of articulated objects with the   verges in their approach by utilizing multi-view RGB im-
+representation of 3D Gaussians. In this work, we aim to           ages for reconstruction purposes. CARTO [9] and [16] ad-
+take the RGB observations of two states of a given articu-        vances this concept further by incorporating a single stereo
+lated object as an input and reconstruct a 3D-GS model of         RGB image as input. A common limitation across these
+the object with geometry, appearance and mobility.                three studies is their tendency to reconstruct the articulated
+    Optimizing for object geometry (masks of movable              object in its entirety as a unified surface. To counteract this
+parts), appearance, and motion parameters simultaneously          limitation, CLANeRF [38], Ditto [11], PARIS [22], LEIA
+from only two-view inputs is a highly ill-posed problem.          [36], and Deng’s work [2] have each developed method-
+This is because the three terms are deeply intertwined. The       ologies that reconstruct articulated objects at the part level.
+object’s movable parts, undergoing rigid body transforma-         CLANeRF, PARIS and Deng utilize multi-view RGB im-
+tions based on motion parameters, can greatly impact on           ages as their input, whereas Ditto processes point cloud
+the learning of part geometry and visual appearance. The          data. To overcome the instability of the optimization pro-
+same goes for the opposite way; the optimization of the           cess of PARIS, the DTA [41] and ArtGS[24] take depth
+movable mask and the motion parameters can be signifi-            as extra information to achieve the same goal but higher
+cantly affected by rendering quality. To that end, we pro-        performance. This work utilizes multiple modules and in-
+pose to decouple the optimization process into multiple sub-      corporates prior knowledge such as image feature extrac-
+processes. We first reconstruct the 3D-GS model of the            tion, but the output of this method does not inlcude appear-
+start state. We then train a network to estimate a deforma-       ance. In contrast, our approach requires only RGB data and
+tion flow for moving the movable Gaussians and initialize         employs a fully self-supervised method, with an optimiza-
+the geometry structure (movable mask) for the end state.          tion time that is approximately one-third of theirs, yet still
+Based on the initial movable mask, we leverage the geome-         achieves similar quality results. In our work, we adopt the
+try structure to supervise the learning of the motion param-      same RGB series input as PARIS and solve the stabilization
+eters. At last, we jointly update the appearance, motion pa-      problem while yielding a more accurate result with higher
+rameters, and movable mask to obtain the final reconstruc-        visualization quality. Moreover, the Gaussian representa-
+tion of the articulated object.                                   tion we utilize can, compared to PARIS, quite naturally en-
+                                                                  compass both appearance and geometry characteristics. For
+    Evaluation on an extended dataset from the previous
+                                                                  more complete coverage of works in this field, please see
+works [8, 22] demonstrates that our method achieves the
+                                                                  the recent survey [23].
+state-of-the-art performance of visual quality, motion pa-
+rameter estimation, and part segmentation. Our method also
+shows enhanced efficiency in model training and more sta-         Deformable 3D Gaussians. Gaussian Splatting [13] of-
+bility of the optimization process compared to the previous       fers improved rendering quality and speed for radiance
+self-supervision methods. Our work makes the following            fields. Several concurrent works have extended 3D-GS
+contributions:                                                    from representing static scenes to deformation areas. [5,
+• A 3D Gaussian model for building digital twins of articu-       12, 15, 21, 27, 42, 48] use the deformation field to represent
+   lated objects in a self-supervised fashion;                    the GS deformation with time varies. Given the RGB obser-
+• A progressive optimization scheme to the challenging op-        vations at dense time frames, the deformation field takes the
+  a) 3D Gaussian Splatting b) Isolated Deformation            c) Motion Parameter Optimization
+
+                                                                                                                          Global
+                                                                                                                      Transformation
+                                                                                         Movable Gaussian
+
+
+
+
+                                 DeformNet
+                                                                                           Identiﬁcation
+
+
+
+
+                                                                                                                      Motion Parameters
+
+
+
+
+                                                                 Movable Gaussian
+                    Input RGB Observations
+
+
+
+
+                                                                 Re-identiﬁcation
+                                             Supervised by:
+                                                                                                                                       Output
+                                              Start Frames                                                                             Gaussians
+                                              End Frames                                                                               Movable Mask
+                                              All Frames                                                                               Motion Parameters
+
+     Start Frames         End Frames                          d) Joint Optimization: Gaussians & Motion Parameters
+
+Figure 2. A pipeline overview of our self-supervised 3D Articulated Objects modeling method. (a) Given the sets of RGB observation
+sequence of two states I0 and I1 of an arbitrary articulated object, we first reconstruct the start state using 3D Gaussian Splatting method
+into the initial Gaussians G = {gi }N i=1 . (b) Each Gaussian gi is then fed into DeformNet, where its Gaussian kernel’s 3D coordinates
+xi is input to predict its individual rigid motion {δxi , δr i } within a local coordinate system, with the end state images I1 serving as
+visual supervision. (c) Based on the transformation predicted by DeformNet, we classify the displacements after regularization to obtain
+an initial moving Gaussian, and then apply the motion parameters to this moving Gaussian to perform a global rigid transformation,
+which is supervised by I1 , ultimately resulting in a motion category and converged motion parameters. (d) Subsequently, we optimize the
+preprocessed Gaussians, motion parameters, and the movable mask in tandem to achieve the final results.
+
+
+position of each GS and the time frame and predicts the de-                         use a set of 3D Gaussians associated with part segmenta-
+formation of each GS in position, rotation, and scaling. The                        tion and articulated motion parameters to reconstruct such
+work of [6] introduced a mesh-based approach to combine                             an articulated object.
+the mesh with 3D Gaussians, leveraging the mesh to guide                               To formally define the problem, we first explain how
+the splitting process and enhancing the overall quality of the                      the part-aware 3D Gaussians and the motion parameters are
+learned GS. However, these methods are highly dependent                             represented, and then define the optimization objective.
+on the density of frames; when frames are sparse, the Gaus-
+sian motion process between frames cannot be accurately
+                                                                                    Part-aware 3D Gaussian Representation. In the default
+predicted. In our work, the movable Gaussians deform to-
+                                                                                    setting, we assume that there is only one movable part dur-
+gether with the motion parameters, remaining visually and
+                                                                                    ing the movement between two states, and the rest of the
+geometrically consistent between the two states.
+                                                                                    object is unmovable, and use a movable mask to distin-
+   Another line of works focuses on using 3D-GS to model
+                                                                                    guish those two types of Gaussians. In more details, the
+the organic articulated objects, such as human [12, 14, 18],
+                                                                                    classical 3D Gaussian can be represented as G = {gi =
+body parts [3, 12, 31], and animals [18]. The motion al-
+                                                                                    (xi , r i , si , σi , shi )|i = 1...N }, where each Gaussian g has
+lowed for these objects is usually structurally complex, with
+                                                                                    a center position x, the rotation matrix represented by a
+a relatively large number of joints varied in the topology of
+                                                                                    quaternion r ∈ SO(3), S as a scaling matrix represented by
+connections and degrees of freedom. However, the kine-
+                                                                                    a 3D vector s, and view-dependent appearance represented
+matic structure is relatively fixed and need to be predefined
+                                                                                    by spherical harmonics (SH) parameters sh. In our method,
+for a specific species.
+                                                                                    for each gi , we add an extra element mi to present the mov-
+                                                                                    able mask such that the gi is a movable part if mi ̸= 0.
+3. Method
+                                                                                    Therefore, our part-ware 3D Gaussian representation G can
+3.1. Problem Statement                                                              be denoted as G = {Gm , Gu }, where Gm = {gi |mi ̸= 0}
+                                                                                    and Gu represents the complement.
+In this work, we take two sets of multi-view RGB images
+I0 = {I0i } and I1 = {I1i }, together with the corresponding
+camera poses, as input to represent the start and end states                        Articulated Motion Representation. Following previ-
+of the target articulated object, respectively. Our goal is to                      ous works[11, 19, 22], we consider two types of joints: pris-
+matic and revolute. The prismatic joint is parameterized by
+a 3D translation axis a ∈ R3 , ||a|| = 1 and a move distance                       (δxi , δr i )
+                                                                     MLP                                   Camera             End Frame
+d along this axis; And the revolute joint is parameterized
+by a 3D rotation orientation axis l ∈ R3 , ||l|| = 1, a pivot                                                              Lvis
+p ∈ R3 that locates the axis in the world coordinates, and                 sg(xi )
+the rotate angle θ.                                                gi (xi , ri , ...)                     Projection
+                                                                                                                             Diﬀ Gaussian
+    With the motion parameters above, we can construct                                                                       Rasterization
+
+rigid-body transformation functions for revolute joint on
+                                                                                    Larap
+each Gaussian by (x̂, r̂) = fl,p,θ (x, r), and prismatic joint,
+                                                                                                                  Operation Flow
+x̂ = fa,d (x), allowing each Gaussian g(x, r) to calculate
+                                                                                                                    Gradient Flow
+its post-motion ĝ(x̂, r̂). In this way, the transformed set of
+Gaussians can be represented as                                      Start Frame
+                                                                                            Deformed Gaussians
+                                                                    3D Gaussians
+
+                     Ĝ = {Gu , f (Gm )},                  (1)    Figure 3. The process diagram of DeformNet illustrates our ap-
+                                                                  proach where a neural network is utilized to predict the rigid trans-
+where f ∈ {fl,p,θ , fa,d }.                                       formation of a Gaussian. The input consists of the kernel’s posi-
+                                                                  tions xi for each Gaussian gi , and the output is the displacement
+Optimization formulation.        With the part-aware Gaus-        and relative rotation to the end state. In addition to visual super-
+sians and motion parameters, our goal is to optimize them         vision by I1 , we also impose geometrical supervision Larap that
+all together to achieve high-fidelity rendering of images         maintains local consistency among the local Gaussians.
+similar to the input RGB images across different angles and
+states. Thus, our optimization problem can be formulated
+as                                                                motion parameters and movable mask, we jointly optimize
+          X                                                       the Gaussians’ representation, the movable mask, and the
+                                 X
+              Lapp I0i (G) − I0i +     Lapp I1j (Ĝ) − I1j ,
+                                                          
+ argmin                                                           motion parameters to obtain the final result. Below we will
+   G,f     i                          j                           explain the details of each step.
+                                                         (2)
+where I(G) represents the image rasterized by Gaussian G          3.3. Isolated Deformation Prediction
+with the camera extrinsic and intrinsic of image I, and Lapp
+is the same appearance loss function used in the 3D Gaus-         Fig. 3 gives an illustration of our isolated deformation Pro-
+sian Splatting method [13]:                                       cess. With the trained Gaussians of start frames, we do not
+                                                                  optimize the motion parameters directly, but use a network
+               Lapp = (1 − λ)L1 + λLD SSIM .               (3)    fθ to predict the deformation field of the Gaussians. The
+                                                                  deformation field takes the position of each 3D Gaussian
+3.2. Overview                                                     xi as input, and output δxi and δr i , which represent the
+                                                                  translation and rotation of Gaussian g i :
+Given the complex problem formulated in Eq. (2), opti-
+mizing the motion parameters, the movable mask, and the
+Gaussian representations concurrently can result in a ten-                               (δxi , δr i ) = fθ (sg(xi )).                    (4)
+dency to settle for a local optimum or to face computational
+failure. To address this, we introduce a novel process that       Note that as we do not want to change the origin location
+methodically tackles the overarching objective in a step-         of each Gaussian but only predict the deformation field,
+wise fashion, each step aimed at securing initial parameter       we add a stop-gradient operation sg(·) to xi . The network
+estimates that are proximal to the ground truth, thus enhanc-     architecture is relatively simple, which consists of a four-
+ing the likelihood of reaching the optimal solution.              layer one-dimensional Convolutional Network (1D CNN)
+    The pipeline of our method is illustrated in Fig. 2. We       connected to a four-layer Multi-Layer Perceptron (MLP).
+first train a set of static Gaussians G with only viewpoints          The deformed 3D Gaussians Ĝ               =      {ĝi  =
+I0 from the start frames. Then, we use a deformation net-         (x̂i , rˆi , ...)|x̂i = xi + δxi , r̂ i = r i + δr i } is then
+work to predict each Gaussian’s translation and rotation, su-     put into the differential Gaussian rasterization pipeline to
+pervised by I1 . With the deformed Gaussians, we classify         get the rendered image Iˆ = I(Ĝ). The appearance loss
+the movements and obtain the initial movable Gaussians Gm         Lapp (defined in Eq. (3)) is then computed between the
+and unmovable Gaussians Gu . After that, We optimize the          rendered image Iˆ and the target image I1 .
+motion parameters in SE(3) by casting the rigid movement              Moreover, with the prior that the desired deformation
+to Gm . During this step, we classify the motion type ac-         should be part-wise rigid, we add an extra as-rigid-as-
+cording to the motion parameters. With the pre-processed          possible (ARAP) loss Larap as in previous works [10, 27]
+to encourage the motion to be locally rigid:                              Start State          End State             End State
+
+
+
+
+                                                                 Step 1
+                        1 X        X
+             Larap =                        Li,j
+                                             arap ,        (5)
+                       k|S|
+                             i∈S j∈knni,k
+                                     −1
+    Li,j
+     arap = ωi,j ||(xj − xi ) − Ri R̂i (x̂j − x̂i )||2 .   (6)
+                                                                                     Same
+Here, we restrict the set of Gaussians j to be the k-nearest-
+neighbor of i (k = 20), and the weight factor for the Gaus-
+
+
+
+
+                                                                 Step 2
+sian pair is defined as:
+
+               ωi,j = exp − λω ||xj − xi ||22
+                                              
+                                                          (7)
+
+where λω = 20 in our experiments.
+                                                                 Figure 4. An example of modeling a multi-part articulated object.
+   Therefore, the final loss function is the combination of
+                                                                 Taking the target object in multiple states, we update the Gaussians
+the appearance loss and the ARAP loss:
+                                                                 sequentially to reconstruct the final object with multiple sets of
+              Ldef orm = Lapp + λarap Larap ,              (8)   movable parts.
+
+where λarap = 1 in our experiments.
+                                                                 For the appearance, we maintain the use of the end frame
+3.4. Motion Parameter Optimization                               for supervision, and thus Lapp is the same as the one used
+Once we obtain the deformation field of all the Gaussians,       for the Deformation Network. For the geometric supervi-
+we can first roughly identify the movable part and estimate      sion, we preserve the Gaussian points that have undergone
+the motion parameters based on their deformations. Note          transformation by the Deformation Network and calculate
+that the movable part doesn’t need to be very accurate at        the Chamfer distance between the coordinates of these two
+this step, as the estimated motion parameters could be fur-      sets of points to provide geometric guidance. Therefore, the
+ther refined in the following joint optimization, and our goal   geometric loss is defined as:
+here is to get an good approximation as initialization for                                     
+joint optimization.                                                   Lgeo = dc f (x), x + δx , f ∈ {fl,p,θ , fa,d },   (10)
+    To identify the movable part, we first normalize the dis-
+                                                                 where dc (·, ·) denotes the chamfer distance.
+placement ||δx||2 within 0 and 1, and take the Gaussians
+with δx ≥ τ as the movable Gaussians Gm . Based on our           3.5. Final Joint Optimization
+observations, selecting a lower threshold τ often results in
+the inclusion of stationary Gaussians, which can lead to sub-    With the good initialization of 3D Gaussians, movable
+optimal outcomes when optimizing motion parameters later         mask, and the motion parameters, now we are able to per-
+on. Thus, we tend to set a higher threshold to get a partial     form a joint optimization to find optimal solution.
+set of movable parts with higher confidence, which is usu-          Given that we already obtained quite accurate motion pa-
+ally already enough for motion parameter prediction for the      rameters in the previous step, we employ a lower threshold
+entire part. We set τ = 0.3 in our experiments to classify       τ = 0.1 to reclassify the Gaussians to get a more strict
+the movable Gaussians.                                           movable mask for the joint optimization. With this mov-
+    With the movable Gaussians Gm , we proceed to optimize       able mask, we divide the Gaussians into movable part Gm
+the motion parameters by applying a global rigid transfor-       and unmovable part Gu . We apply the motion parameters
+mation to Gm . We observed that when fitting a prismatic         obtained earlier to the movable part to reach its correspond-
+motion with revolute motion parameters, the pivot of the         ing end state, while for the unmovable part, the start and
+revolute parameters typically moves a considerable distance      end states are the same. Note that during the densifica-
+to ensure that the movable Gaussians undergo minimal rota-       tion and pruning processes of the Gaussians, inaccuracies in
+tion during the motion. Therefore, we initiate with optimiz-     the classification within two masks can be treated as noise
+ing the revolute parameters. The motion is considered to be      within the Gaussians. This noise will be automatically up-
+prismatic if the pivot ||p|| > R, where R = 1 in our exper-      dated alongside the Gaussians’ densification and pruning
+iments, and we will reinitialize the optimization parameters     processes, thereby achieving an accurate movable mask.
+and the motion function to align with the prismatic motion.      We employ multi-perspective images from both states to su-
+    We utilize both appearance and geometric supervision to      pervise the rendering results before and after the movable
+refine the motion parameters:                                    part’s movement, with the expectation that the loss values
+                                                                 for each state will eventually converge to the same magni-
+                  Lparam = Lapp + Lgeo .                   (9)   tude.
+                                                                           Simulation                                                      Real
+                                  Foldchair   Fridge   Laptop*   Oven*    Scissor Stapler    USB     Washer   Blade    Storage*   Fridge     Storage*
+                         Ditto      89.35      89.30     3.12      0.96     4.50     89.86   89.77    89.51    79.54      6.32     1.71         5.88
+                        PARIS       7.90       9.19      0.02      0.04     3.92      0.73    0.13    25.18    15.18      0.03     1.64        43.13
+             Ang Err
+                        Vanilla     87.47      14.08    11.65     44.95    89.80     84.85   75.50    84.69    88.76     83.17    82.99        78.35
+                         Ours       0.02       0.04      0.07     0.04      0.20      0.03    0.30    0.06     1.99       0.05     5.41        41.52
+                         Ditto      3.770      1.020    0.010     0.130    5.700     0.200   5.410    0.660      -          -     1.840           -
+                        PARIS       0.374      0.298    0.010     0.003    2.154     2.258   2.367    1.502      -          -     0.340           -
+   Motion    Pos Err
+                        Vanilla     0.036      0.503    0.265     0.055    0.027     0.127   0.013    0.030      -          -     0.084           -
+                         Ours       0.003      0.001    0.003     0.007    0.002     0.000   0.000    0.004      -          -     0.057           -
+                         Ditto      99.36        F       5.18      2.09    19.28     56.61   80.60    55.72      F        0.09     8.43         0.38
+                        PARIS      131.82      24.64     0.03      0.04   120.61 110.71      64.91   60.62     0.54       0.14     2.16         0.56
+             Geo Dist
+                        Vanilla     80.00      59.49    37.92     29.97    40.00     40.05   44.77    30.00    48.41     32.55    35.45        48.25
+                         Ours       0.05       0.18      0.55      0.61     0.15      0.06   0.33     0.34     0.09       0.30     9.38         0.41
+                         Ditto      33.79       3.05     0.25      2.52    39.07     41.64    2.64    10.32    46.90      9.18    47.01        16.09
+                        PARIS       9.12       3.73      0.45    12.85      1.83     1.96     2.58    25.19    1.33     12.80     42.57        54.54
+              CD-s
+                        Vanilla    308.39       8.81   389.67       F        F      100.23   88.12   312.80      F      218.01      F            F
+                         Ours       0.33       0.90      2.96     2.06      0.34      1.68    1.02    6.17     0.69      2.96     37.01        50.12
+                         Ditto     141.11       0.99     0.19      0.94    20.68     31.21   15.88    12.89   195.93      2.20    50.60        20.35
+                        PARIS       8.79       7.76      0.49    28.51     46.69    19.36     5.53   178.39   25.29     76.75     45.66       864.82
+ Geometry     CD-d
+                        Vanilla    189.26     254.50   159.95    717.63    90.31    116.08   88.12   512.02   102.91    854.10    923.22      965.15
+                         Ours       0.32       0.59      6.23     0.80      0.41      1.14    0.90    0.17     4.75      0.71     43.00       730.45
+                         Ditto      6.80       2.16      0.31     2.51      1.70      2.38    2.09    7.29    42.04      3.91      6.50        14.08
+                        PARIS       1.90       2.53      0.50     1.94     10.20     3.60     2.31    24.71    0.44      8.34     22.98        63.35
+              CD-w
+                        Vanilla     5.91       9.99      4.73     2.80      7.63    33.34     8.74    8.37     5.52      3.21     30.44        78.65
+                         Ours       0.36       0.85      0.87     1.91      0.33      1.42    0.93    5.64     0.34      2.09     13.25        55.57
+
+Table 1. The results on the PARIS dataset, encompassing both synthetic and real data, are presented. Objects marked with a ‘*’ are the
+categories that Ditto [11] has been trained to recognize. Occasionally, Ditto may provide incorrect motion type predictions, which are
+indicated with an ‘F’ for joint state and a ‘*’ for joint axis or position. There is a chance that Vanilla may fail to successfully segment the
+object, classifying the entire object as part of the movable category, which we also mark with an ‘F’.
+
+
+3.6. Multi-Part Object Modeling                                              4. Results and Evaluation
+                                                                             4.1. Experimental Setup
+To extend our method to reconstruct objects with multiple
+moving parts, we dissect the entire procedure into multiple                  Baselines. We compare our method to most related SOTA
+sub-processes of single-object modeling and address each                     works Ditto [11] and PARIS [22]. Note that we fol-
+in turn, as shown in Fig. 4.                                                 low PARIS’s protocol and report the results derived from
+                                                                             Ditto’s released pre-trained model, which was trained on
+                                                                             four object categories from the Shape2Motion dataset [39].
+    Throughout the reconstruction process, we consistently                   Moreover, we have also constructed a trivial reconstruction
+maintain the same set of Gaussians. We align the start                       method based on our framework, denoted as Vanilla. Rather
+state of the subsequent sub-process with one of the states                   than employing our multi-step optimization process, we si-
+from the preceding sub-process, ensuring that only an ad-                    multaneously optimize all parameters. We directly initialize
+ditional moving component is introduced in the new sub-                      two sets of Gaussians, one representing the static part and
+process. Before entering the next sub-process, we config-                    the other the mobile part. To simplify the problem, we also
+ure the movable components within the existing Gaussian                      assume that the type of motion is known.
+to the starting state of the subsequent sub-process using the
+motion parameters derived from the previous one. Within
+each sub-process, we employ a new identifier to label the
+movable mask while concurrently optimizing the unmov-                        Evaluation metrics. To evaluate the efficacy of our
+able Gaussians to update the new movable mask. Given that                    methodology, we have designed a comparative experimen-
+our movable mask is capable of being simultaneously den-                     tal framework that spans three critical aspects: reasoning of
+sified and pruned with the Gaussian, the Gaussians marked                    motion, precision of geometry, and visual quality of novel
+by the movable mask from the previous step can also be op-                   views, as in previous works [22, 41]. The details of all the
+timized in the new sub-process. Furthermore, there is an                     metrics are provided in the supplementary material. More-
+advantage in that for the new sub-process, we can bypass                     over, we compare our approach’s computational efficiency
+the step of pre-training the initial Gaussian and proceed di-                and memory utilization against PARIS, which is also a self-
+rectly to the deformation network.                                           supervised method like ours.
+                 Metrics     Methods   Foldchair   Fridge   Laptop    Oven                 Scissor        Stapler   USB     Washer   Blade   Storage
+                             PARIS      37.95      36.45    36.59     35.59                 37.64          33.84    37.58   37.22    38.28    35.02
+                PSNR-s (↑)   Vanilla    31.49      23.21    22.45     24.16                 21.08          22.26    21.99   26.65    23.87    29.65
+                              Ours      41.68      36.89    37.08     36.60                 40.99          43.36    41.09   40.63    41.31    38.65
+                             PARIS      38.45      33.68    34.24     34.33                 38.15          40.19    36.13   37.75    37.13    36.41
+                PSNR-e (↑)   Vanilla    31.42      25.44    22.56     23.38                 21.07          22.75    23.11   26.09    27.76    29.65
+                              Ours      42.83      37.63    35.37     36.72                 41.13          42.84    42.27   39.98    41.36    38.08
+                             PARIS      0.956      0.968    0.987     0.966                 0.953          0.957    0.979   0.970    0.988    0.961
+                SSIM-s (↑)   Vanilla    0.949      0.938    0.936     0.954                 0.961          0.964    0.926   0.979    0.940    0.952
+                              Ours      0.980      0.987    0.988     0.984                 0.995          0.996    0.993   0.993    0.996    0.976
+                             PARIS      0.955      0.965    0.984     0.970                 0.954          0.956    0.980   0.972    0.987    0.965
+                SSIM-e (↑)   Vanilla    0.943      0.948    0.924     0.945                 0.933          0.967    0.931   0.980    0.947    0.950
+                              Ours      0.983      0.989    0.986     0.984                 0.995          0.995    0.994   0.992    0.996    0.975
+                             PARIS      0.062      0.038    0.047     0.070                 0.067          0.064    0.070   0.020    0.008    0.084
+               LPIPS-s (↓)   Vanilla    0.084      0.083    0.083     0.081                 0.083          0.081    0.087   0.084    0.081    0.114
+                              Ours      0.056      0.039    0.036     0.040                 0.012          0.008    0.019   0.021    0.008    0.081
+                             PARIS      0.061      0.039    0.047     0.044                 0.016          0.021    0.027   0.020    0.009    0.083
+               LPIPS-e (↓)   Vanilla    0.094      0.073    0.090     0.073                 0.067          0.051    0.068   0.037    0.085    0.124
+                              Ours      0.059      0.033    0.031     0.039                 0.012          0.009    0.017   0.023    0.007    0.087
+
+             Table 2. Comparison of visual quality on the PARIS dataset, where (-s) and (-e) denote the start and end states.
+
+
+ Start State End State       Ours         PARIS         Vanilla                                     Start State                                        End State
+
+                                                                              Ours DGS PARIS Ours
+                                                                              DGS PARIS
+
+
+
+
+Figure 5. Qualitative results of part segmentation and motion esti-
+mation for some of the synthetic objects derived from the PARIS
+dataset.                                                                                                Figure 6. Illustration of unseen states inference.
+
+
+
+4.2. Comparison to Baselines                                                  varying initial conditions and consistently delivers precise
+Table 1 and Table 2 show results on the PARIS object                          reconstructions of both shape and articulation throughout
+dataset, including synthetic and real instances, summarized                   multiple iterations.
+over 10 trials. Ditto’s performance is contingent upon                           Figure 5 shows some representative results of various
+its exposure to object forms and structural templates ac-                     methods in part-segmentation and motion estimation. We
+quired from the training dataset, which includes categories                   have visualized each of our Gaussian movable masks in the
+such as laptops, ovens, and storage units. The algorithm                      form of point clouds, which allows for a more intuitive ob-
+demonstrates proficiency in reconstructing shapes for ob-                     servation of the accuracy of our method in segmentation and
+jects that fall within its training purview. PARIS, on the                    estimation. Figure 6 illustrates the predicted articulation se-
+other hand, experiences significant fluctuations in its per-                  quence based on the reconstructions obtained by different
+formance across various trials. Although it occasionally                      methods. PARIS struggles to accurately estimate motion
+achieves commendable shape reconstruction, it also suffers                    parameters for certain objects. Even when the segmentation
+from occasional catastrophic failures. These inconsisten-                     results are close to correct, the motion process still deviates
+cies result in a markedly inferior overall performance in                     from the actual outcome. We also added the Deformable GS
+both the reconstruction of shape and the delineation of ob-                   (DGS) [48], a recent and pioneering 4D Gaussian work, for
+ject articulation. Our approach demonstrates resilience to                    visual comparison. Due to the sparsity of the input temporal
+              Start State                                  End State                                          Results
+
+
+
+
+     GT         Ours         PARIS                GT        Ours          PARIS              GT                Ours              PARIS
+                  Figure 7. Illustration of the effects of applying our method and the PARIS algorithm to our dataset.
+
+       Real-World Object                Start State                    End State                                Results
+
+
+
+
+                                 Ours            PARIS             Ours            PARIS           Ours                  PARIS
+
+                    Figure 8. Illustrations of our method applied to the reconstruction results of real-world objects.
+
+
+states, DGS can only reconstruct the appearance of the two              4.3. Ablation Studies
+input states with relative accuracy. It lacks prior knowledge
+                                                                        The “Vanilla” baseline in Table 1, Table 2 and Figure 5
+of articulated motion and thus cannot infer the actual trans-
+                                                                        refers to the framework of our method without the progres-
+formation process between the two states. We also created
+                                                                        sive optimization process. The results demonstrate that the
+our own datasets for comparative analysis. As shown in
+                                                                        visual similarity between the initial and final states is pre-
+Figure 7, our method demonstrates superior results across a
+                                                                        served even after the removal of our progressive optimiza-
+greater variety of objects compared to previous works, and
+                                                                        tion. Nonetheless, part segmentation tends to optimize di-
+more results can be found in the supplementary material.
+                                                                        rectly to a scenario where all Gaussians are consolidated
+   Note that our method on real objects has not achieved                into a single category. Consequently, the motion parame-
+consistently the best performance for all metrics in Table 1.           ters that are learned result in a motion that is nearly static.
+That is because, in the PARIS dataset, the real-world ob-
+ject masks have various imperfections at the edges, such                5. Conclusion
+as missing parts of the object or mistakenly including por-
+tions of the background as part of the object. Additionally,            In this work, we introduce ArticulatedGS, a self-supervised
+obtaining the ground truth for motion and segmentation of               framework designed to build digital twins of articulated
+real-world objects is also quite peculiar, as manual annota-            objects using 3D Gaussian Splatting. Utilizing two dis-
+tion of motion and segmentation can easily introduce errors             tinct sets of multi-view images, each depicting an object
+in the ground truth. Consequently, using it is not entirely             in separate static articulation configurations, we reconstruct
+effective for quantitative evaluation. To demonstrate the ef-           the articulated object in 3D Gaussian representations, in-
+fectiveness of our method in reconstructing real objects, we            tegrating both appearance and mobility information simul-
+scanned multiple objects and applied our method for digital-            taneously. Our method adeptly disentangles a multitude
+twin modeling, as shown in Figure 1 and Figure 8.                       of highly interrelated parameters through a sophisticated
+                                                                        multi-step optimization process. This approach not only en-
+  For additional visual results, please refer to the supple-            sures a stable and reliable optimization procedure but also
+mentary materials.                                                      delivers high-fidelity results. These outcomes are crucial
+for the precise depiction of articulated objects within dig-             the IEEE/CVF Conference on Computer Vision and Pattern
+ital twins, ensuring that they are accurately and realisti-              Recognition, pages 7081–7091, 2023. 2
+cally represented. Our approach also has certain limitations,        [9] Nick Heppert, Muhammad Zubair Irshad, Sergey Zakharov,
+such as the requirement for world coordinate alignment be-               Katherine Liu, Rares Andrei Ambrus, Jeannette Bohg, Ab-
+tween two states, and corresponding areas under two differ-              hinav Valada, and Thomas Kollar. Carto: Category and joint
+                                                                         agnostic reconstruction of articulated objects. In Proceed-
+ent states should have similar lighting effects. More detailed
+                                                                         ings of the IEEE/CVF Conference on Computer Vision and
+analysis can be found in the supplementary material.
+                                                                         Pattern Recognition, pages 21201–21210, 2023. 2
+                                                                    [10] Yi-Hua Huang, Yang-Tian Sun, Ziyi Yang, Xiaoyang Lyu,
+Acknowledgement                                                          Yan-Pei Cao, and Xiaojuan Qi. Sc-gs: Sparse-controlled
+This work was supported in part by NSFC (62322207,                       gaussian splatting for editable dynamic scenes. arXiv
+                                                                         preprint arXiv:2312.14937, 2023. 4
+62025207, 62325211, 62132021), Shenzhen Science and
+                                                                    [11] Zhenyu Jiang, Cheng-Chun Hsu, and Yuke Zhu. Ditto:
+Technology Program (RCYX20210609103121030), and
+                                                                         Building digital twins of articulated objects from interaction.
+the Major Program of Xiangjiang Laboratory (23XJ01009).                  In Proceedings of the IEEE/CVF Conference on Computer
+We would like to thank Youcheng Cai and Changhao Li                      Vision and Pattern Recognition, pages 5616–5626, 2022. 1,
+from University of Science and Technology of China, for                  2, 3, 6
+their advice on the methodology. We also thank the anony-           [12] Zheheng Jiang, Hossein Rahmani, Sue Black, and Bryan M
+mous reviewers for their valuable comments and sugges-                   Williams. 3d points splatting for real-time dynamic hand
+tions.                                                                   reconstruction. arXiv preprint arXiv:2312.13770, 2023. 2, 3
+                                                                    [13] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler,
+References                                                               and George Drettakis. 3d gaussian splatting for real-time
+                                                                         radiance field rendering. ACM Transactions on Graphics, 42
+ [1] Matt Deitke, Eli VanderBilt, Alvaro Herrasti, Luca Weihs,           (4), 2023. 2, 4
+     Kiana Ehsani, Jordi Salvador, Winson Han, Eric Kolve,          [14] Muhammed Kocabas, Jen-Hao Rick Chang, James Gabriel,
+     Aniruddha Kembhavi, and Roozbeh Mottaghi. Procthor:                 Oncel Tuzel, and Anurag Ranjan. HUGS: Human gaussian
+     Large-scale embodied ai using procedural generation. Ad-            splatting. In 2024 IEEE/CVF Conference on Computer Vi-
+     vances in Neural Information Processing Systems, 35:5982–           sion and Pattern Recognition (CVPR), 2024. 3
+     5994, 2022. 1                                                  [15] Agelos Kratimenos, Jiahui Lei, and Kostas Daniilidis.
+ [2] Jianning Deng, Kartic Subr, and Hakan Bilen. Articulate             Dynmf: Neural motion factorization for real-time dynamic
+     your nerf: Unsupervised articulated object modeling via con-        view synthesis with 3d gaussian splatting. arXiv preprint
+     ditional view synthesis. arXiv preprint arXiv:2406.16623,           arXiv:2312.00112, 2023. 2
+     2024. 2                                                        [16] Long Le, Jason Xie, William Liang, Hung-Ju Wang, Yue
+ [3] Helisa Dhamo, Yinyu Nie, Arthur Moreau, Jifei Song,                 Yang, Yecheng Jason Ma, Kyle Vedder, Arjun Krishna, Di-
+     Richard Shaw, Yiren Zhou, and Eduardo Pérez-Pellitero.             nesh Jayaraman, and Eric Eaton. Articulate-anything: Auto-
+     Headgas: Real-time animatable head avatars via 3d gaussian          matic modeling of articulated objects via a vision-language
+     splatting. arXiv preprint arXiv:2312.02902, 2023. 2, 3              foundation model. arXiv preprint arXiv:2410.13882, 2024.
+ [4] Yuanxing Duan, Fangyin Wei, Qiyu Dai, Yuhang He, Wen-               2
+     zheng Chen, and Baoquan Chen. 4d gaussian splatting:           [17] Jiahui Lei, Congyue Deng, Bokui Shen, Leonidas Guibas,
+     Towards efficient novel view synthesis for dynamic scenes.          and Kostas Daniilidis. Nap: Neural 3d articulation prior.
+     arXiv preprint arXiv:2402.03307, 2024. 2                            arXiv preprint arXiv:2305.16315, 2023. 1
+ [5] Bardienus P Duisterhof, Zhao Mandi, Yunchao Yao, Jia-          [18] Jiahui Lei, Yufu Wang, Georgios Pavlakos, Lingjie Liu, and
+     Wei Liu, Mike Zheng Shou, Shuran Song, and Jeffrey Ich-             Kostas Daniilidis. Gart: Gaussian articulated template mod-
+     nowski. Md-splatting: Learning metric deformation from              els. arXiv preprint arXiv:2311.16099, 2023. 2, 3
+     4d gaussians in highly deformable scenes. arXiv preprint       [19] Xiaolong Li, He Wang, Li Yi, Leonidas J Guibas, A Lynn
+     arXiv:2312.00583, 2023. 2                                           Abbott, and Shuran Song. Category-level articulated ob-
+ [6] Lin Gao, Jie Yang, Bo-Tao Zhang, Jia-Mu Sun, Yu-Jie Yuan,           ject pose estimation. In Proceedings of the IEEE/CVF con-
+     Hongbo Fu, and Yu-Kun Lai. Mesh-based gaussian splat-               ference on computer vision and pattern recognition, pages
+     ting for real-time large-scale deformation. arXiv preprint          3706–3715, 2020. 3
+     arXiv:2402.04796, 2024. 3                                      [20] Zhe Li, Zerong Zheng, Lizhen Wang, and Yebin Liu. Ani-
+ [7] Quankai Gao, Qiangeng Xu, Zhe Cao, Ben Mildenhall, Wen-             matable gaussians: Learning pose-dependent gaussian maps
+     chao Ma, Le Chen, Danhang Tang, and Ulrich Neumann.                 for high-fidelity human avatar modeling. arXiv preprint
+     Gaussianflow: Splatting gaussian dynamics for 4d content            arXiv:2311.16096, 2023. 1
+     creation. arXiv preprint arXiv:2403.12365, 2024. 2             [21] Youtian Lin, Zuozhuo Dai, Siyu Zhu, and Yao Yao.
+ [8] Haoran Geng, Helin Xu, Chengyang Zhao, Chao Xu, Li Yi,              Gaussian-flow: 4d reconstruction with dynamic 3d gaussian
+     Siyuan Huang, and He Wang. Gapartnet: Cross-category                particle. arXiv preprint arXiv:2312.03431, 2023. 2
+     domain-generalizable object perception and manipulation        [22] Jiayi Liu, Ali Mahdavi-Amiri, and Manolis Savva. Paris:
+     via generalizable and actionable parts. In Proceedings of           Part-level reconstruction and motion analysis for articulated
+     objects. In Proceedings of the IEEE/CVF International Con-           and Dieter Fox. Alfred: A benchmark for interpreting
+     ference on Computer Vision, pages 352–363, 2023. 1, 2, 3,            grounded instructions for everyday tasks. In Proceedings of
+     6                                                                    the IEEE/CVF conference on computer vision and pattern
+[23] Jiayi Liu, Manolis Savva, and Ali Mahdavi-Amiri. Sur-                recognition, pages 10740–10749, 2020. 1
+     vey on modeling of articulated objects. arXiv preprint          [36] Archana Swaminathan, Anubhav Gupta, Kamal Gupta,
+     arXiv:2403.14937, 2024. 1, 2                                         Shishira R Maiya, Vatsal Agarwal, and Abhinav Shrivastava.
+[24] Yu Liu, Baoxiong Jia, Ruijie Lu, Junfeng Ni, Song-Chun               Leia: Latent view-invariant embeddings for implicit 3d artic-
+     Zhu, and Siyuan Huang. Building interactable replicas of             ulation. In European Conference on Computer Vision, pages
+     complex articulated objects via gaussian splatting. In The           210–227. Springer, 2024. 2
+     Thirteenth International Conference on Learning Represen-       [37] Andrew Szot, Alexander Clegg, Eric Undersander, Erik Wi-
+     tations, 2025. 2                                                     jmans, Yili Zhao, John Turner, Noah Maestre, Mustafa
+[25] Haozhe Lou, Yurong Liu, Yike Pan, Yiran Geng, Jianteng               Mukadam, Devendra Singh Chaplot, Oleksandr Maksymets,
+     Chen, Wenlong Ma, Chenglong Li, Lin Wang, Hengzhen                   et al. Habitat 2.0: Training home assistants to rearrange their
+     Feng, Lu Shi, et al. Robo-gs: A physics consistent spatial-          habitat. Advances in neural information processing systems,
+     temporal model for robotic arm with hybrid representation.           34:251–266, 2021. 1
+     arXiv preprint arXiv:2408.14873, 2024. 1                        [38] Wei-Cheng Tseng, Hung-Ju Liao, Lin Yen-Chen, and Min
+[26] Guanxing Lu, Shiyi Zhang, Ziwei Wang, Changliu Liu, Ji-              Sun. Cla-nerf: Category-level articulated neural radiance
+     wen Lu, and Yansong Tang. Manigaussian: Dynamic gaus-                field. In 2022 International Conference on Robotics and Au-
+     sian splatting for multi-task robotic manipulation. arXiv            tomation (ICRA), pages 8454–8460. IEEE, 2022. 2
+     preprint arXiv:2403.08321, 2024. 2                              [39] Xiaogang Wang, Bin Zhou, Yahao Shi, Xiaowu Chen, Qin-
+[27] Jonathon Luiten, Georgios Kopanas, Bastian Leibe, and                ping Zhao, and Kai Xu. Shape2motion: Joint analysis of
+     Deva Ramanan.          Dynamic 3d gaussians: Tracking                motion parts and attributes from 3d shapes. In Proceedings
+     by persistent dynamic view synthesis.         arXiv preprint         of the IEEE/CVF Conference on Computer Vision and Pat-
+     arXiv:2308.09713, 2023. 2, 4                                         tern Recognition, pages 8876–8884, 2019. 6
+                                                                     [40] Fangyin Wei, Rohan Chabra, Lingni Ma, Christoph Lassner,
+[28] Kaichun Mo, Leonidas J Guibas, Mustafa Mukadam, Abhi-
+                                                                          Michael Zollhöfer, Szymon Rusinkiewicz, Chris Sweeney,
+     nav Gupta, and Shubham Tulsiani. Where2act: From pixels
+                                                                          Richard Newcombe, and Mira Slavcheva. Self-supervised
+     to actions for articulated 3d objects. In Proceedings of the
+                                                                          neural articulated shape and appearance models. In Proceed-
+     IEEE/CVF International Conference on Computer Vision,
+                                                                          ings of the IEEE/CVF Conference on Computer Vision and
+     pages 6813–6823, 2021. 1
+                                                                          Pattern Recognition, pages 15816–15826, 2022. 2
+[29] Jiteng Mu, Weichao Qiu, Adam Kortylewski, Alan Yuille,
+                                                                     [41] Yijia Weng, Bowen Wen, Jonathan Tremblay, Valts Blukis,
+     Nuno Vasconcelos, and Xiaolong Wang. A-sdf: Learning
+                                                                          Dieter Fox, Leonidas Guibas, and Stan Birchfield. Neural
+     disentangled signed distance functions for articulated shape
+                                                                          implicit representation for building digital twins of unknown
+     representation. In Proceedings of the IEEE/CVF Interna-
+                                                                          articulated objects. arXiv preprint arXiv:2404.01440, 2024.
+     tional Conference on Computer Vision, pages 13001–13011,
+                                                                          2, 6
+     2021. 2
+                                                                     [42] Guanjun Wu, Taoran Yi, Jiemin Fang, Lingxi Xie, Xiaopeng
+[30] Yuri Pekelny and Craig Gotsman. Articulated object recon-            Zhang, Wei Wei, Wenyu Liu, Qi Tian, and Xinggang Wang.
+     struction and markerless motion capture from depth video.            4d gaussian splatting for real-time dynamic scene rendering.
+     In Computer Graphics Forum, pages 399–408. Wiley Online              arXiv preprint arXiv:2310.08528, 2023. 2
+     Library, 2008. 2
+                                                                     [43] Fanbo Xiang, Yuzhe Qin, Kaichun Mo, Yikuan Xia, Hao
+[31] Chandradeep Pokhariya and N Ishaan. Manus: Markerless                Zhu, Fangchen Liu, Minghua Liu, Hanxiao Jiang, Yifu Yuan,
+     hand-object grasp capture using articulated 3d gaussians. In         He Wang, et al. Sapien: A simulated part-based interactive
+     IEEE/CVF Computer Vision and Pattern Recognition Con-                environment. In Proceedings of the IEEE/CVF conference
+     ference (CVPR). CVPR 2024, 2024. 3                                   on computer vision and pattern recognition, pages 11097–
+[32] Shengyi Qian and David F Fouhey. Understanding 3d ob-                11107, 2020. 1
+     ject interaction from a single image. In Proceedings of the     [44] Tianyi Xie, Zeshun Zong, Yuxing Qiu, Xuan Li, Yutao Feng,
+     IEEE/CVF International Conference on Computer Vision,                Yin Yang, and Chenfanfu Jiang. Physgaussian: Physics-
+     pages 21753–21763, 2023. 1                                           integrated 3d gaussians for generative dynamics. arXiv
+[33] Shenhan Qian, Tobias Kirschstein, Liam Schoneveld, Davide            preprint arXiv:2311.12198, 2023. 2
+     Davoli, Simon Giebenhain, and Matthias Nießner. Gaus-           [45] Yunzhi Yan, Haotong Lin, Chenxu Zhou, Weijie Wang,
+     sianavatars: Photorealistic head avatars with rigged 3d gaus-        Haiyang Sun, Kun Zhan, Xianpeng Lang, Xiaowei Zhou,
+     sians. arXiv preprint arXiv:2312.02069, 2023. 2                      and Sida Peng. Street gaussians for modeling dynamic ur-
+[34] Andrei Sharf, Hui Huang, Cheng Liang, Jiapei Zhang, Bao-             ban scenes. arXiv preprint arXiv:2401.01339, 2024. 2
+     quan Chen, and Minglun Gong. Mobility-trees for indoor          [46] Gengshan Yang, Minh Vo, Natalia Neverova, Deva Ra-
+     scenes manipulation. In Computer Graphics Forum, pages               manan, Andrea Vedaldi, and Hanbyul Joo. Banmo: Building
+     2–14. Wiley Online Library, 2014. 1                                  animatable 3d neural models from many casual videos. In
+[35] Mohit Shridhar, Jesse Thomason, Daniel Gordon, Yonatan               Proceedings of the IEEE/CVF Conference on Computer Vi-
+     Bisk, Winson Han, Roozbeh Mottaghi, Luke Zettlemoyer,                sion and Pattern Recognition, pages 2863–2873, 2022. 1
+[47] Ji Yang, Xinxin Zuo, Sen Wang, Zhenbo Yu, Xingyu Li,
+     Bingbing Ni, Minglun Gong, and Li Cheng. Object wake-
+     up: 3d object rigging from a single image. In European
+     Conference on Computer Vision, pages 311–327. Springer,
+     2022. 1
+[48] Ziyi Yang, Xinyu Gao, Wen Zhou, Shaohui Jiao, Yuqing
+     Zhang, and Xiaogang Jin. Deformable 3d gaussians for
+     high-fidelity monocular dynamic scene reconstruction. arXiv
+     preprint arXiv:2309.13101, 2023. 2, 7
+[49] Jiajun Zhang, Yuxiang Zhang, Liang An, Mengcheng Li,
+     Hongwen Zhang, Zonghai Hu, and Yebin Liu. Manidext:
+     Hand-object manipulation synthesis via continuous corre-
+     spondence embeddings and residual-guided diffusion. arXiv
+     preprint arXiv:2409.09300, 2024. 1
+

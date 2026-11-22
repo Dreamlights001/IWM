@@ -1,0 +1,795 @@
+                                            ConceptGraphs: Open-Vocabulary 3D Scene Graphs for Perception and Planning
+                                                                                                     https://concept-graphs.github.io/
+                                                         Qiao Gu†∗1 , Ali Kuwajerwala†∗2 , Sacha Morin∗2 , Krishna Murthy Jatavallabhula∗3 ,
+                                                           Bipasha Sen2 , Aditya Agarwal2 , Corban Rivera5 , William Paul5 , Kirsty Ellis2 ,
+                                                                      Rama Chellappa6 , Chuang Gan7 , Celso Miguel de Melo4 ,
+                                                              Joshua B. Tenenbaum3 , Antonio Torralba3 , Florian Shkurti1 Liam Paull2 ,
+                                              1 University of Toronto, 2 Université de Montréal, 3 MIT, 4 DEVCOM ARL, 5 JHU APL, 6 JHU, 7 UMass
+
+                                                                                                                                    Object: cabinet                  Queries with Both Image and Language Context
+                                               “A picture of a boat”                                                                                                       Find something this guy would play with
+                                                                                                                                    Center: (x, y, z)
+
+                                              Object Caption                                                              3D Object Detection
+arXiv:2309.16650v1 [cs.RO] 28 Sep 2023
+
+
+
+
+                                                                                                                                                                                          ConceptGraphs
+
+
+
+
+                                                                                                                                                                                      Traversability Estimation
+                                                                                                                                                             Can I push this object        ConceptGraphs: “Yes! It's probably a piece of
+                                                                                                                                                             and traverse through?        green fabric. You can push it without damage.”
+
+
+
+
+                                               A white sofa with 3                                                                The ottoman is on
+                                               pillows on the top.                                                                   the carpet.
+
+                                             Scene Structure                                                                Spatial Reasoning
+
+
+                                                                                     ConceptGraphs                     My wrist hurts from using
+                                                                                                                        my screwdriver all day.                           I'm craving something
+                                                               Pick up the                                                Anything to help?                                  fizzy and sweet.
+                                                            “cuddly quacker”
+                                                                                                                        ConceptGraphs: Go to                               ConceptGraphs: Go to
+                                                                                                                        object 18, a power drill                           object 37, a soda can
+
+                                                                               Open-vocabulary Pick and Place                                              Complex Text Queries
+
+
+                                         Fig. 1: ConceptGraphs builds open-vocabulary 3D scene graphs. We (a) design an object-based mapping system that only assumes
+                                         class-agnostic instance masks and fuses them to 3D, (b) interprets and extracts language tags for each mapped instance leveraging large
+                                         vision-language models, and (c) builds a graph of object spatial relationships by leveraging priors encoded in large language models. The
+                                         object-centric nature of ConceptGraphs allows easy map maintenance and promotes scalability, and the graph structure provides relational
+                                         information within the scene. Furthermore, our scene graph representations are easily mapped to natural language formats to interface
+                                         with LLMs, enabling them to answer complex scene queries and granting robots access to useful facts about surrounding objects, such
+                                         as traversability and utility. We implement and demonstrate ConceptGraphs on a number of real-world robotics tasks across wheeled and
+                                         legged mobile robot platforms. (Webpage) (Explainer Video)
+                                            Abstract— For robots to perform a wide variety of tasks, they                                               I. I NTRODUCTION
+                                         require a 3D representation of the world that is semantically
+                                         rich, yet compact and efficient for task-driven perception                      Scene representation is one of the key design choices
+                                         and planning. Recent approaches have attempted to leverage
+                                         features from large vision-language models to encode semantics               that can facilitate downstream planning for a variety of
+                                         in 3D representations. However, these approaches tend to                     tasks, including mobility and manipulation. Robots need
+                                         produce maps with per-point feature vectors, which do not                    to build these representations online from onboard sen-
+                                         scale well in larger environments, nor do they contain semantic              sors as they navigate through an environment. For efficient
+                                         spatial relationships between entities in the environment, which             execution of complex tasks such representations should
+                                         are useful for downstream planning. In this work, we propose
+                                         ConceptGraphs, an open-vocabulary graph-structured represen-                 be: scalable and efficient to maintain, as the volume of the
+                                         tation for 3D scenes. ConceptGraphs is built by leveraging 2D                scene and the duration of the robot’s operation increases;
+                                         foundation models and fusing their output to 3D by multi-                    open-vocabulary, not limited to making inferences about a
+                                         view association. The resulting representations generalize to                set of concepts that is predefined at training time, but capable
+                                         novel semantic classes, without the need to collect large 3D                 of handling new objects and concepts at inference time; and
+                                         datasets or finetune models. We demonstrate the utility of this
+                                         representation through a number of downstream planning tasks                 with a flexible level of detail to enable planning over a range
+                                         that are specified through abstract (language) prompts and                   of tasks, from ones that require dense geometric information
+                                         require complex reasoning over spatial and semantic concepts.                for mobility and manipulation, to ones that need abstract
+                                         To explore the full scope of our experiments and results, we                 semantic information and object-level affordance information
+                                         encourage readers to visit our project webpage.                              for task planning. We propose ConceptGraphs, a 3D scene
+                                                                                                                      representation method for robot perception and planning that
+                                           †Project Lead *Equal Contribution                                          satisfies all the above requirements.
+A. Related Work                                                  among objects are encoded in the graph edges. At the
+   Closed-vocabulary semantic mapping in 3D. Early               core of ConceptGraphs is an object-centric 3D mapping
+works reconstruct the 3D map through online algorithms like      technique that integrates geometric cues from conventional
+simultaneous localization and mapping (SLAM) [1]–[5] or          3D mapping systems, and semantic cues from vision and
+offline methods like structure-from-motion (SfM) [6], [7].       language foundation models [31], [33], [34], [53]–[55]. Ob-
+Aside from reconstructing 3D geometry, recent works also         jects are assigned language tags by leveraging large lan-
+use deep learning-based object detection and segmentation        guage models (LLMs) [32] and large vision-language models
+models to reconstruct the 3D scene representations with          (LVLMs) [55], which provide semantically rich descriptions
+dense semantic mapping [8]–[11] or object-level decompo-         and enable free-form language querying, all while using off-
+sition [12]–[15]. While these methods achieve impressive         the-shelf models (no training/finetuning). The scene graph
+results in mapping semantic information to 3D, they are          structure allows us to efficiently represent large scenes with a
+closed-vocabulary and their applicability is limited to object   low memory footprint and makes for efficient task planning.
+categories annotated in their training datasets.                    In experiments, we demonstrate that ConceptGraphs is
+   3D scene representations using foundation models.             able to discover, map, and caption a large number of objects
+There have been significant recent efforts [16]–[30] focused     in a scene. Further, we conduct real-world trials on multiple
+on building 3D representations by leveraging foundation          robot platforms over a wide range of downstream tasks,
+models - large, powerful models that capture a diverse set       including manipulation, navigation, localization, and map
+of concepts and accomplish a wide range of tasks [31]–           updates. To summarize, our key contributions are:
+[35]. Such models have excelled in tackling open-vocabulary         • We propose a novel object-centric mapping system that
+challenges in 2D vision. However, they require an “internet-          integrates geometric cues from traditional 3D mapping
+scale” of training data, and no 3D datasets exist yet of a            systems and semantic cues from 2D foundation models.
+comparable size. Recent works have therefore attempted to           • We construct open-vocabulary 3D scene graphs; effi-
+ground the 2D representations produced by image and lan-              cient and structured semantic abstractions for perception
+guage foundation models to the 3D world and show impres-              and planning.
+sive results on open-vocabulary tasks, including language-          • We implement ConceptGraphs on real-world wheeled
+guided object grounding [17], [18], [24], [26], [36], 3D              and legged robotic platforms and demonstrate a number
+reasoning [37], [38], robot manipulation [39], [40] and               of downstream perception and planning capabilities for
+navigation [41], [42]. These approaches project dense per-            complex/abstract language queries.
+pixel features from images to 3D to build explicit repre-
+                                                                                         II. M ETHOD
+sentations such as pointclouds [17]–[21] or implicit neural
+representations [16], [22]–[30].                                    ConceptGraphs builds a compact, semantically rich repre-
+   However, such methods have two key limitations. First,        sentation of a 3D environment. Given a set of posed RGB-D
+assigning every point a semantic feature vector is highly re-    frames, we run a class-agnostic segmentation model to obtain
+dundant and consumes more memory than necessary, greatly         candidate objects, associate them across multiple views using
+limiting scalability to large scenes. Second, these dense        geometric and semantic similarity measures, and instantiate
+representations do not admit an easy decomposition – this        nodes in a 3D scene graph. We then use an LVLM to caption
+lack of structure makes them less amenable to dynamic            each node and an LLM to infer relationships between adjoin-
+updates to the map (crucial for robotics).                       ing nodes, which results in edges in the scene graph. This
+   3D scene graphs. 3D scene graphs (3DSGs) address              resultant scene graph is open-vocabulary, encapsulates object
+the second limitation by compactly and efficiently describ-      properties, and can be used for a multitude of downstream
+ing scenes with graph structures, with nodes representing        tasks including segmentation, object grounding, navigation,
+objects and edges encoding inter-object relationships [43]–      manipulation, localization, and remapping. The approach is
+[47]. These approaches have enabled building real-time sys-      illustrated in Fig. 2.
+tems that can dynamically build up hierarchical 3D scene         A. Object-based 3D Mapping
+representations [48]–[50], and more recently shown that
+various robotics planning tasks can benefit from efficiency         Object-centric 3D representation: Given a sequence
+and compactness of 3DSGs [51], [52]. However, existing           of RGB-D observations I = {I1 , I2 , . . . , It }, Concept-
+work on building 3D scene graphs has been confined to            Graphs constructs a map, a 3D scene graph, Mt = ⟨Ot , Et ⟩,
+the closed-vocabulary setting, limiting their applicability to   where Ot = {oj }j=1...J and Et = {ek }k=1...K represent
+a small set of tasks.                                            the sets of objects and edges, respectively. Each object oj is
+                                                                 characterized by a 3D point cloud po j and a semantic feature
+B. Overview of Our Contribution                                  vector foj . This map is built incrementally, incorporating
+   In this work, we mitigate all the aforementioned limita-      each incoming frame It = ⟨Itrgb , Itdepth , θt ⟩ (color image,
+tions and propose ConceptGraphs, an open-vocabulary and          depth image, pose) into the existing object set Ot−1 , by
+object-centric 3D representation for robot perception and        either adding to existing objects or instantiating new ones.
+planning. In ConceptGraphs, each object is represented as a         Class-agnostic 2D Segmentation: When processing
+node with geometric and semantic features, and relationships     frame It , a class-agnostic segmentation model Seg(·)
+      Input RGB-D sequence                          Incrementally Built 3D Map                                            Object Set (Nodes)                 Segmentation / Grounding
+                                                                                                                                                               “Find somewhere comfy to sit”
+
+
+                                                                                              Final Object Map
+
+
+
+
+                                                                                                                                                                 Robot Navigation
+                                                                                                                                    Query:
+                                                                                                                  Object 1 is a stool with position…
+                                                                                                                  Object 2 is a carpet with position…
+                                                                                                                 What is the relationship between 1 and 2?
+             Open-vocab               Object
+       Detection/Segmentation        Features                                                                                        LLM
+
+                                                                                              Object Fusion                       LLM Response:                Robot Manipulation
+                                                     Observation-object Association
+                                                                                              / Initialization     Object 1 is on the top of Object 2.
+
+                                    Observation
+                                     Features
+
+
+                                                                  Feature
+                                                                 Extractor
+
+
+
+                                                                                                                                                                        ⵈⵈ
+        Open-vocab masks                                Newly Detected Objects                                   3D Scene Graph (Nodes + Edges)                Downstream tasks
+Fig. 2: ConceptGraphs builds an open-vocabulary 3D scene graph from a sequence of posed RGB-D images. We use generic instance
+segmentation models to segment regions from RGB images, extract semantic feature vectors for each, and project them to a 3D point
+cloud. These regions are incrementally associated and fused from multiple views, resulting in a set of 3D objects and associated vision
+(and language) descriptors. Then large vision and language models are used to caption each mapped 3D objects and derive inter-object
+relations, which generates the edges to connect the set of objects and form a graph. The resulting 3D scene graph provides a structured and
+comprehensive understanding of the scene and can further be easily translated to a text description, useful for LLM-based task planning.
+
+is used to obtain a set of masks {mt,i }i=1...M =                                     of detections that have been associated to oj so far; and
+Seg(Itrgb ) corresponding to candidate objects1 . Each ex-                            updating the pointcloud as pt,i ∪ po j , followed by down-
+tracted mask mt,i is then passed to a visual feature extractor                        sampling to remove redundant points.
+(CLIP [31], DINO [53]) to obtain a visual descriptor ft,i =                              Node Captioning: Once the entire image sequence has
+Embed(Itrgb , mt,i ). Each masked region is projected to 3D,                          been processed, a vision-language model, denoted LVLM(·),
+denoised using DBSCAN clustering, and transformed to                                  is used to generate object captions. For each object, the
+the map frame. This results in a pointcloud pt,i and its                              associated image crops from the best4 10 views are passed
+corresponding unit-normalized semantic feature vector ft,i .                          to the language model with the prompt “describe the central
+   Object Association: For every newly detected object                                object in the image” to generate a set of initial rough captions
+⟨pt,i , ft,i ⟩, we compute semantic and geometric similarity                          ĉj = {ĉj,1 , ĉj,2 , . . . , ĉj,10 } for each detected object oj .
+with respect to all objects ot-1,j = ⟨po j , foj ⟩ in the map                         Each set of captions is then refined to the final caption by
+that shares any partial geometric overlap. The geometric                              passing ĉj to another language model LLM(·) with a prompt
+similarity ϕgeo (i, j) = nnratio(pt,i , po j ) is the proportion                      instruction to summarize the initial captions into a coherent
+of points in point cloud pt,i that have nearest neighbors                             and accurate final caption cj .
+in point cloud po j , within a distance threshold of δnn .
+                                           T                                          B. Scene Graph Generation
+The semantic similarity ϕsem (i, j) = ft,i    foj /2 + 1/2 is the
+normalized cosine distance between the corresponding visual                              Given the set of 3D objects OT obtained from the previous
+descriptors.2 The overall similarity measure ϕ(i, j) is a sum                         step, we estimate their spatial relationships, i.e., the edges
+of both: ϕ(i, j) = ϕsem (i, j) + ϕgeo (i, j). We perform object                       ET , to complete the 3D scene graph. We do this by first
+association by a greedy assignment3 strategy where each new                           estimating potential connectivity among object nodes based
+detection is matched with an existing object with the highest                         on their spatial overlaps. We compute the 3D bounding box
+similarity score. If no match is found with a similarity higher                       IoU between every pair of object nodes to obtain a similarity
+than δsim , we initialize a new object.                                               matrix (i.e., a dense graph), which we prune by estimating
+   Object Fusion: If a detection ot-1,j is associated with                            a minimum spanning tree (MST), resulting in a refined set
+a mapped object oj , we fuse the detection with the map.                              of potential edges among the objects. To further determine
+This is achieved by updating the object semantic feature as                           the semantic relationships, for each edge in the MST, we
+foj = (noj foj + ft,i )/(noj + 1), where noj is the number                            input the information about the object pair, consisting of
+                                                                                      object captions and 3D location, to a language model LLM.
+  1 Without loss of generality, Seg(·) may be replaced by open-/closed-               The prompt instructs the model to describe the likely spatial
+vocabulary models to build category-specific mapping systems.                         relationship between the objects, such as “a on b” or “b in
+  2 For the sake of brevity, we only describe the best-performing geometric
+and semantic similarity measures. For an exhaustive list of alternatives,
+                                                                                      a”, along with the underlying reasoning. The model outputs a
+please see our project website and code.                                              relationship label with an explanation detailing the rationale.
+  3 While we also experimented with optimal assignment strategies such as
+the Hungarian algorithm, we experimentally determined them to be slower                  4 We maintain a running index of the number of noise-free points each
+and offer only a minuscule improvement over greedy association.                       view contributes to the object point cloud.
+The use of an LLM allows us to extend the nominal edge                                     scene    node prec.   valid objects   duplicates   edge prec.
+type defined above to other output relationships a language                               room0       0.78            54             3          0.91
+                                                                                          room1       0.77            43             4          0.93
+model can interpret, such as “a backpack may be stored in                                 room2       0.66            47             4           1.0
+a closet” and “sheets of paper may be recycled in a trash                       CG
+                                                                                          office0     0.65            44             2          0.88
+                                                                                          office1     0.65            23             0           0.9
+can”. This results in an open-vocabulary 3D scene graph                                   office2     0.75            44             3          0.82
+MT = (OT , ET ), a compact and efficient representation                                   office3     0.68            60             5          0.79
+for use in downstream tasks.                                                              Average     0.71             -              -         0.88
+                                                                                          room0       0.56            60             4          0.87
+C. Robotic Task Planning through LLMs                                                     room1       0.70            40             3          0.93
+                                                                                          room2       0.54            49             2          0.93
+   To enable users to carry out tasks described in natural                      CG-D
+                                                                                          office0     0.59            35             0           1.0
+                                                                                          office1     0.49            24             2           0.9
+language queries, we interface the scene graph MT with                                    office2     0.67            47             3          0.88
+an LLM. For each object in OT , we construct JSON-                                        office3     0.71            59             1          0.83
+structured text descriptions that include information about its                           Average     0.61             -              -         0.91
+
+3D location (bounding box) and its node caption. Given a text                  TABLE I: Accuracy of constructed scene graphs: node precision
+query, we task the LLM to identify the most relevant object                    indicates the accuracy of the label for each node (as measured
+in the scene. We then pass the 3D pose of this object to the                   by a human evaluator); valid objects is the number of human-
+appropriate pipeline for the downstream task (e.g., grasping,                  recognizable objects (mturkers used) discovered by our system;
+                                                                               duplicates are the number of redundant detections; edge precision
+navigation). This integration of ConceptGraphs with an LLM                     indicates the accuracy of each estimated spatial relationship (again,
+is easy to implement, and enables a wide range of open-                        as evaluated by an mturker)
+vocabulary tasks by giving robots access to the semantic
+properties of surrounding objects5 (see Sec. III).                             of nodes for which at least 2 of 3 human evaluators deem
+                                                                               the node caption correct. We also report the number of
+D. Implementation Details                                                      valid objects retrieved by each variant by asking evaluators
+   The modularity of ConceptGraphs enables any appro-                          whether they deem each node a valid object. Both CG and
+priate open/closed-vocabulary segmentation model, LLM,                         CG-D identify a number of valid objects in each scene, and
+or LVLM to be employed. Our experiments use Segment-                           incur only a small number (0-5) of duplicate detections. The
+Anything (SAM) [33] as the segmentation model Seg(·),                          node labels are accurate about 70% of the time; most of
+and the CLIP image encoder [31] as the feature extrac-                         the errors are incurred due to errors made by the LVLM
+tor Embed(·). We use LLaVA [55] as the vision-language                         employed (LLaVA [55]). The edges (spatial relationships)
+model LVLM and GPT-4 [32] (gpt-4-0613) for our LLM.                            are labeled with a high degree of accuracy (90% on average).
+The voxel size for point cloud downsampling and nearest
+neighbor threshold δnn are both 2.5cm. We use 1.1 for the                      B. 3D Semantic Segmentation
+association threshold δsim .                                                      ConceptGraphs focuses on the construction of the open-
+   We also develop a variant of our system, ConceptGraphs-                     vocabulary 3D scene graphs for scene understanding and
+Detector (CG-D), where we employ an image tagging model                        planning. For completeness, in this section, we also use
+(RAM [54]) to list the object classes present in the image                     an open-vocabulary 3D semantic segmentation task to eval-
+and an open-vocabulary 2D detector (Grounding DINO [34])                       uate the quality of the obtained 3D maps. To generate
+to obtain object bounding boxes6 . In this variant, we need to                 the semantic segmentation, given a set of class names, we
+separately handle detected background objects (wall, ceiling,                  compute the similarity between the fused semantic feature
+floor) by merging them regardless of their similarity scores.                  of each object node and the CLIP text embeddings of the
+                         III. E XPERIMENTS                                     phrase an image of {class}. Then the points asso-
+                                                                               ciated with each object are assigned to the class with the
+A. Scene Graph Construction
+                                                                               highest similarity, which gives a point cloud with dense
+  We first evaluate the accuracy of the 3D scene graphs                        class labels. In Table II, we report the semantic segmentation
+output by the ConceptGraphs system in Table I. For each                        results on the Replica [56] dataset, following the evaluation
+scene in the Replica dataset [56], we report scene graph                       protocol used in ConceptFusion [17]. We also provide an
+accuracy metrics for both CG and the detector-variant CG-D.                    additional baseline, ConceptFusion+SAM, by replacing the
+The open-vocabulary nature of our system makes automated                       Mask2Former used in ConceptFusion with the more perfor-
+evaluation of the quality of nodes and edges in the scene                      mant SAM [33] model. As shown in Table II, the proposed
+graph challenging. We instead evaluate the scene graph by                      ConceptGraphs performs comparably with or better than
+engaging human evaluators on Amazon Mechanical Turk                            ConceptFusion, which has a much larger memory footprint.
+(AMT). For each node, we compute precision as the fraction
+  5 For large scenes where the description length of the scene graph exceeds
+                                                                               C. Object Retrieval based on Text Queries
+the context length of the LLM, one can easily substitute in alternative          We assess the capability of ConceptGraphs to handle
+(concurrent) LLM planners [52].                                                complex semantic queries, focusing on three key types.
+   6 We discard the (often noisy) tags produced by the image tagging model,
+relying instead on our node captions.                                             •   Descriptive: E.g., A potted plant.
+               Method                           mAcc    F-mIoU        Dataset   Query Type    Model    R@1     R@2     R@3     # Queries
+               CLIPSeg (rd64-uni) [57]          28.21     39.84                                CLIP     0.59    0.82    0.86
+                                                                                Descriptive                                           20
+  Privileged   LSeg [58]                        33.39     51.54                                LLM      0.61    0.64    0.64
+               OpenSeg [59]                     41.19     53.74                                CLIP     0.43    0.57    0.63
+                                                                      Replica   Affordance                                             5
+                                                                                               LLM      0.57    0.63    0.66
+               MaskCLIP [60]                     4.53      0.94                                CLIP     0.26    0.60    0.71
+               Mask2former + Global CLIP feat   10.42     13.11                 Negation                                               5
+                                                                                               LLM      0.80    0.89    0.97
+               ConceptFusion [17]               24.16     31.31
+  Zero-shot
+               ConceptFusion [17] + SAM [33]    31.53     38.70                                CLIP     1.00       –       –
+                                                                                Descriptive                                           10
+               ConceptGraphs (Ours)             40.63     35.95                                LLM      1.00       –       –
+               ConceptGraphs-Detector (Ours)    38.72     35.82                                CLIP     0.40    0.60    0.60
+                                                                      Lab       Affordance                                            10
+                                                                                               LLM      1.00       –       –
+TABLE II: Open-vocabulary semantic segmentation on the                          Negation
+                                                                                               CLIP     0.00       –       –
+                                                                                                                                      10
+Replica [56] dataset. Privileged methods specifically finetune the                             LLM      1.00       –       –
+pretrained models for semantic segmentation. Zero-shot approaches
+do not need any finetuning and are evaluated off the shelf.          TABLE III: Object retrieval from text queries on the Replica and
+                                                                     REAL Lab scenes. We measure the top-1, top-2, and top-3 recall.
+  •   Affordance: E.g., Something to use for temporarily             CLIP refers to object retrieval using cosine similarity, whereas LLM
+      securing a broken zipper.                                      refers to having an LLM parse the scene graph and return the most
+                                                                     relevant object.
+   • Negation: E.g., Something to drink other than soda.
+
+   We evaluate on the Replica dataset [56] and a real-               a mobile robot to access a vast knowledge base of everyday
+world scan of the REAL Lab, where we staged a number                 objects. Specifically, we prompt an LLM to infer two addi-
+of items including clothes, tools, and toys. For Replica,            tional object properties from ConceptGraphs captions: i) the
+human evaluators on AMT annotate captions for SAM mask               location where a given object is typically found, and ii) if
+proposals, which serve as both ground truth labels and               the object can be safely pushed or traversed by the Jackal
+descriptive queries. We created 5 affordance and negation            robot. We design two tasks around the LLM predictions.
+queries for each scene type (office & room) in Replica and 10           Object search: The robot receives an abstract user query
+queries of each type for the lab scan, ensuring that each query      and must navigate to the most relevant object in the Concept-
+corresponds to at least one relevant object. We manually             Graphs map. Using an LVLM [55], the robot then checks if
+select relevant objects as ground truth for each query.              the object is at the expected location. If not, it queries an
+   We use two object retrieval strategies: CLIP-based and            LLM to find a new plausible location given the captions of
+LLM-based. CLIP selects the object with the highest similar-         the other objects in the representation. In our prompt, we
+ity to the query’s embedding, while the LLM goes through             nudge the LLM to consider typical containers or storage
+the scenegraph nodes to identify the object with the most            locations. We illustrate two such queries where the target
+relevant caption. Table III shows that CLIP excels with              object is moved in Figure 3.
+descriptive queries but struggles with complex affordance               Traversability estimation: As shown in Fig. 4, we design
+and negation queries [61]. For example, CLIP inaccurately            a real-world scenario where the robot finds itself enclaved
+retrieves a backpack for the broken zipper query, whereas the        by objects. In this scenario, the robot must push around
+LLM correctly identifies a roll of tape. The LLM performs            multiple objects and create a path to the goal state. While
+well across the board, but is limited by the accuracy of the         traversability can be learned through experience [62], we
+node captions, as discussed in Section III-A. Since the lab          show that grounding LLM knowledge in a 3D map can grant
+has a larger variety of objects to choose from, the LLM finds        similar capabilities to robotic agents.
+compatible objects for complex queries more reliably there.
+                                                                     F. Open-Vocabulary Pick and Place
+D. Complex Visual-Language Queries
+                                                                        To illustrate how ConceptGraphs can act as the percep-
+   To assess the performance of ConceptGraphs in a real-
+                                                                     tion backbone for open-vocabulary mobile manipulation, we
+world environment, we carry out navigation experiments in
+                                                                     conducted a series of experiments with a Boston Dynamics
+the REAL Lab scene with a Clearpath Jackal UGV. The robot
+                                                                     Spot Arm robot. Using an onboard RGBD camera and
+is equipped with a VLP-16 LiDAR and a forward-facing
+                                                                     a ConceptGraphs representation of the scene, the Spot robot
+Realsense D435i camera.
+                                                                     responds to the query cuddly quacker by grabbing a
+   The Jackal needs to respond to abstract user queries and
+                                                                     duck plush toy and placing it in a nearby box (Figure 1). In
+navigate to the most relevant object (Figure 1). By using
+                                                                     the supplementary video, Spot completes a similar grasping
+an LVLM [55] to add a description of the current camera
+                                                                     maneuver with a mango when prompted with the query
+image to the text prompt, the robot can also answer visual
+                                                                     something healthy to eat.
+queries. For example, when shown a picture of Michael Jor-
+dan and prompted with Something this guy would
+                                                                     G. Localization and Map Updates
+play with, the robot finds a basketball.
+                                                                        ConceptGraphs can also be used for object-based lo-
+E. Object Search and Traversability Estimation                       calization and map updates. We showcase this with a 3-
+   In this section, we showcase how the interaction between          DoF (x, y and yaw) localization and remapping task in
+the ConceptGraphs representation and an LLM can enable               the AI2Thor [63], [64] simulation environment, where a
+Fig. 3: A Jackal robot answering user queries using the ConceptGraphs representation of a lab environment. We first query an LLM to
+identify the most relevant object given the user query, then validate with an LVLM if the target object if is at the expected location. If
+not, we query the LLM again to find a likely location or container for the missing object. (Blue) When prompted with something
+to wear for a space party, the Jackal attempts to find a grey shirt with a NASA logo. After failing to detect the shirt at the
+expected location, the LLM reasons that it could likely be in the laundry bag. (Red) The Jackal searches for red and white sneakers after
+receiving the user query footwear for a Ronald McDonald outfit. The LLM redirects the robot to a shoe rack after failing
+to detect the sneakers where they initially appeared on the map.
+
+                                                                        and querying the scenegraph, which may be significant.
+
+                                                                                         IV. C ONCURRENT W ORK
+                                                                           We briefly review recent and unpublished pre-prints that
+                                                                        are exploring themes related to open-vocabulary object-based
+Fig. 4: The Jackal robot solving a traversability challenge. All        factorization of 3D scenes. Concurrently to us, [65], [66]
+paths to the goal are obstructed by objects. We query an LLM to         have explored open-vocabulary object-based factorization of
+identify which objects can be safely pushed or traversed by the robot
+                                                                        3D scenes. Where [65] assumes a pre-built point cloud map
+(green) and which objects would be too heavy or hinder the robot’s
+movement (red). The LLM relies on the ConceptGraphs node                of the scene, [66] builds a map on the go. Both approaches
+captions to make traversability predictions and we add the non-         associate CLIP descriptors to the reconstruction, resulting
+traversable objects to the Jackal costmap for path planning. The        in performance comparable to our system’s CLIP variant,
+Jackal successfully reaches the goal by going through a curtain and     which struggles with queries involving complex affordances
+pushing a basketball, while also avoiding contact with bricks, an
+                                                                        and negation, as shown in Table III. OGSV [67] is closer
+iron dumbbell, and a flower pot.
+                                                                        to our setting, building an open-vocabulary 3D scene graph
+mobile robot uses a particle filter to localize in a pre-               from RGB-D images. However, [67] relies on a (closed-set)
+built ConceptGraphs map of the environment. During the                  graph neural network to predict object relationships; whereas
+observation update step of particle filtering, the robot’s              ConceptGraphs relies on the capabilities of modern LLMs,
+detections are matched against the objects in the map based             eliminating the need to train an object relation model.
+on the hypothesized pose, in a similar way as described in
+Section II-A. The matching results are aggregated into a                                      V. C ONCLUSION
+single observation score for weighting the pose hypothesis.                In this paper, we introduced ConceptGraphs, a novel ap-
+During this process, previously observed objects are removed            proach to open-vocab object-centric 3D scene representation
+if they are not observed by the robot and new objects can also          that addresses key limitations in the existing landscape of
+be added. We provide a demonstration of this localization and           dense and implicit representations. Through effective integra-
+map updating approach in the supplementary video material.              tion of foundational 2D models, ConceptGraphs significantly
+                                                                        mitigates memory constraints, provides relational informa-
+H. Limitations                                                          tion among objects, and allows for dynamic updates to the
+   Despite its impressive performance, ConceptGraphs has                scene—three pervasive challenges in current methods. Ex-
+failure modes that remain to be addressed in future work.               perimental evidence underscores ConceptGraphs’ robustness
+First, node captioning incurs errors due to the current limi-           and extensibility, highlighting its superiority over existing
+tations of LVLMs like LLaVA [55]. Second, our 3D scene                  baselines for a variety of real-world tasks including manipu-
+graph occasionally misses small or thin objects and makes               lation and navigation. The versatility of our framework also
+duplicate detections. This impacts downstream planning, par-            accommodates a broad range of downstream applications,
+ticularly when the incorrect detection is crucial to planning           thereby opening new avenues for innovation in robot per-
+success. Additionally, the computational and economic costs             ception and planning. Future work may delve into integrating
+of our system include multiple LVLM (LLaVA [55]) and                    temporal dynamics into the model and assessing its perfor-
+one or more proprietary LLM inference(s) when building                  mance in less structured, more challenging environments.
+                   ACKNOWLEDGMENTS                              number of (noise-free) 3D points that each image segment
+   This project was supported in part (KM, AT, JBT)             contributes to an object in the map7 . Intuitively, these views
+by grants from the Army Research Laboratory (grant              offer the best image views for the object. We run each view
+W911NF1820218), office of naval research (MURI). FS             through an LVLM, here LLaVA-7B [55], to generate an
+and LP thank NSERC for funding support. LP acknowl-             image caption. We use the same prompt across all images:
+edges support from the Canada CIFAR AI Chairs program.          describe the central object in this image.
+All findings, opinions, and conclusions expressed in this          We found the captions generated by LLaVA-7B to be
+manuscript solely reflect the views of the authors; and not     incoherent or unreliable across all viewpoints. To alleviate
+that of our research sponsors.                                  this, we employed GPT-4 as a caption summarizer, to map
+                                                                all of the LLaVA-7B captions to a coherent object tag (or
+                        A PPENDIX                               optionally, declare the object as an invalid detection). We use
+            A1. C ONTRIBUTION S TATEMENT                        the following GPT-4 system prompt:
+   Qiao Gu, Ali Kuwajerwala, Sacha Morin, and Krishna           Identify and describe objects in scenes. Input
+                                                                and output must be in JSON format. The input
+Murthy were instrumental in the development, integration,       field ’captions’ contains a list of image captions
+and deployment of ConceptGraphs. These authors were             aiming to identify objects. Output ’summary’ as a
+responsible for writing the majority of the manuscript.         concise description of the identified object(s).
+                                                                An object mentioned multiple times is likely
+   Qiao spearheaded the implementation of the object-based      accurate. If various objects are repeated and
+mapping, localization and map update system, prototyped the     a container/surface is noted such as a shelf or
+object captioning module, and conducted the segmentation        table, assume the (repeated) objects are on that
+                                                                container/surface. For unrelated, non-repeating
+experiments.                                                    (or empty) captions, summarize as ’conflicting
+   Ali wrote initial prototypes of the mapping pipeline,        (or empty) captions about [objects]’ and set
+coordinated the real-robot experiments at the REAL Lab,         ’object tag’ to ’invalid’. Output ’possible tags’
+                                                                listing potential object categories. Set
+implemented the integration with the LLM planners and           ’object tag’ as the conclusive identification.
+object retrieval experiments, and performed a significant       Focus on indoor object types, as the input captions
+amount of the hardware setup.                                   are from indoor scans.
+   Sacha was at the forefront of deploying the system on        Listing 1: GPT-4 system prompt used for caption summarization
+robot navigation, object search, and led the traversability
+experiment, implementing a variety of crucial robot-side             A3. LLM P LANNER : I MPLEMENTATION DETAILS
+functionalities.                                                   For task planning over 3D scene graphs, we use GPT-
+   Krishna crafted initial prototypes of the detector-free      4 (gpt-4-0613) with a context length of 8K tokens8 . We
+mapping system, scene graph construction, and vision/lan-       first convert each node in the 3D scene graph into a structured
+guage model interfaces, also coordinating the project.          text format (here, a JSON string). Each entry in the JSON
+   Bipasha Sen and Aditya Agarwal integrated Concept-           list corresponds to one object in the scene, and contains the
+Graphs with a robotic manipulation platform for open-           following attributes:
+vocabulary pick and place demonstrations, with Kirsty Ellis
+                                                                  1) object id: a unique (numerical) object identifier
+assisting them in setting up the manipulation platform.
+                                                                  2) bounding box extents: dimensions of each side of the
+   Corban Rivera and William Paul deployed Concept-
+                                                                      bounding cuboid
+Graphs on-board a Spot mini robot, showcasing the mobile
+                                                                  3) bounding box center: centroid of the object bounding
+manipulation capabilities enabled by our system.
+                                                                      cuboid
+   Chuang Gan helped qualitatively evaluate our system
+                                                                  4) object tag: a brief tag describing the object
+against end-to-end learned approaches like 3D-LLM.
+                                                                  5) caption: a one-sentence caption (possibly encoding
+   Rama Chellappa and Celso de Melo provided adivce on
+                                                                      mode details than present in the object tag
+real-world demonstrations involving mobile manipulation.
+   Josh Tenenbaum and Antonio Torralba contributed cog-            Here is a sample snippet from the scene graph for the
+nitive science and computer vision perspectives respectively,   room0 scene of the Replica [56] dataset.
+which shaped the experiments evaluating scene-graph con-        [
+struction accuracy.                                             {
+                                                                      id: 2,
+   Florian Shkurti and Liam Paull provided equal advisory             bbox_extent: [2.0, 0.7, 0.6],
+support on this project, contributing to brainstorming and            bbox_center: [-0.6, 1.1, -1.2],
+critical review processes throughout, and writing/proofread-          object_tag: wooden dresser or chest of drawers,
+                                                                      caption: A wooden dresser or chest of drawers
+ing significant sections of the paper.                          },
+ A2. 3D S CENE G RAPH : G ENERATING N ODE C APTIONS                7 We track these statistics throughout the mapping lifecycle; meaning that
+
+   Once we build an object-level map of the scene using         we do not impose any additional computational overhead to determine the
+the methodology described in Sec. II-A, we extract and          10 best views per object
+                                                                   8 We also prototyped variants of this approach on off-the-shelf LLMs with
+summarize captions for each object. We first extract upto the   larger context lengths, such as Claude-2 with a context length of 32K tokens,
+10 most-informative views for each object, by tracking the      and found it to work reliably.
+{                                                               explanation: The most suitable object for a gift
+      id: 3,                                                        could be the ceramic vase (id 6). Vases are
+      bbox_extent: [0.6, 0.5, 0.4],                                 commonly gifted items and this one could
+      bbox_center: [2.8, -0.4, -0.8],                               potentially be filled with a plant or flower
+      object_tag: vase,                                             arrangement, making a lovely present.
+      caption: a white, floral-patterned vase (or               }
+      possibly a ceramic bowl)
+},                                                              User: Need something to use as a paperweight
+...
+...                                                             LLM-Planner: {
+{                                                               inferred_query: Find object to use as a paperweight
+      id: 110,                                                      .,
+      bbox_extent: [1.2, 0.6, 0.0],                             relevant_objects: [0, 6, 7, 8, 15, 23, 29, 31],
+      bbox_center: [2.2, 2.1, 1.2],                             query_achievable: true,
+      object_tag: light fixture,                                final_relevant_objects: [6],
+      caption: a light fixture hanging from the                 explanation: The ceramic vase (id 6) could
+      ceiling                                                       potentially be used as a paperweight due to its
+}                                                                    small size and assumed weight.
+]                                                               }
+       Listing 2: Sample text entries in the 3D scene graph     Listing 4: Sample queries and raw outputs from the LLM Planner
+
+  For planning using the above text description of the scene,                 A4. E XAMPLE T EXT Q UERIES
+we instantiate the system prompt for GPT-4 as follows:
+                                                                   Here we provide some of the text queries used in our
+The input to the model is a 3D scene described in a             experiments.
+     JSON format. Each entry in the JSON describes
+    one object in the scene, with the following                    Replica Dataset Descriptive Queries: For each room, we
+    five fields:                                                randomly selected 20 ground truth annotations collected via
+1. "id": a unique object id                                     Amazon Mechanical Turk (AMT). Here is a sample from
+2. "bbox_extent": extents of the 3D bounding box
+    for the object                                              room0 and office0.
+3. "bbox_center": centroid of the 3D bounding box               office0 Descriptive Queries:
+    for the object
+4. "object_tag": a brief (but sometimes inaccurate)               1) This is a trash can against the wall next to a sofa.
+     tag categorizing the object                                  2) A chaise lounge right next to a small table.
+5. "caption": a brief caption for the object                      3) This is a television.
+Once you have parsed the JSON and are ready to                    4) This is a dropped, tiled ceiling in what appears to be a
+    answer questions about the scene, say "I'm                       classroom for children.
+    ready".                                                       5) This is a plant and it is next to the screens.
+The user will then begin to ask questions, and the                6) This is the back of a chair in front of a screen.
+    task is to answer various user queries about                  7) A small table in front of a large gray sectional couch.
+    the 3D scene. For each user question, respond                 8) This is an armless chair and it’s opposite a coffee table
+    with a JSON dictionary with the following
+    fields:                                                          by the sofa.
+1. "inferred_query": your interpretaion of the user               9) This is a plug-in and it is on the floor.
+     query in a succinct form                                    10) These are table legs and they are underneath the table.
+2. "relevant_objects": list of relevant object ids
+    for the user query (if applicable)                           11) These are chairs and they are next to a table.
+3. "query_achievable": whether or not the user-                  12) A diner style table in front of two chairs.
+    specified query is achievable using the objects              13) These are rocks and they are on the wall.
+     and descriptions provided in the 3D scene.
+4. "final_relevant_objects": A final list of                     14) This is the right panel of a lighted display screen.
+    objects relevant to the user-specified task. As              15) This is a planet and it is on the wall.
+     much as possible, sort all objects in this                  16) This is an electronic display screen showing a map, on
+    list such that the most relevant object is
+    listed first, followed by the second most                        the wall.
+    relevant, and so on.                                         17) This is a couch and it is between a table and the wall.
+5. "explanation": A brief explanation of what the                18) This is a garbage can and it is in front of the wall.
+    most relevant object(s) is(are), and how they
+    achieve the user-specified task.                             19) This is a rug and it is on the floor.
+                                                                 20) This is a table that is above the floor.
+      Listing 3: System prompt for the LLM Planner interface
+                                                                room0 Descriptive Queries:
+    Here are some example GPT-4 responses on our queries          1) This is a pillow and this is on top of a couch.
+                                                                  2) A pillow on top of a white couch.
+User: I need a quick gift. Help!
+                                                                  3) This is a couch and it is under a window.
+LLM-Planner: {                                                    4) This is a stool and it is on top of a rug.
+inferred_query: Find suitable object for a gift.,                 5) This is a side table under a lamp.
+relevant_objects: [0, 6, 7, 23, 25, 31],
+query_achievable: true,                                           6) This is a ceiling light next to the window.
+final_relevant_objects: [6],                                      7) This is an end table and it is below a lamp.
+ 8) These are books and they are on the table.                   5) Something to use to help a student understand how a
+ 9) This is a couch and it is in front of the wall.                 computer works
+10) White horizontal blinds in a well lit room.                  6) An object that is used in a sport involving rims and nets
+11) This is a striped throw pillow on the loveseat.              7) Something to keep myself from getting distracted by loud
+12) The pillow is on top of the chair.                              noises
+13) This is a window and it is next to a door.                   8) Something to help explain math proofs to a student
+14) This is a hurricane candle and it is on top of a cabinet.    9) Something I can use to protect myself from the harsh
+15) This is a vase and it is on top of the table.                   winter in Canada
+16) This is a vent in the ceiling.                              10) Something fun to pass the time with
+17) This is a fish and it is on top of a cabinet.               REAL Lab Negation Queries:
+18) This is a window behind a chair.
+                                                                 1) A toy for someone who dislikes basketball
+19) This is a trash can against a wall.
+                                                                 2) Shoes that you wouldn’t wear to something formal
+20) Two cream colored cushioned chairs with blue pillows
+                                                                 3) Something to protect me from the rain that’s not an
+    adjacent to each other.
+                                                                    umbrella
+Replica Dataset Affordance Queries for Office Scenes:            4) Shoes that are not red and white
+ 1) Something to watch the news on                               5) Something to make a cape with that’s not green
+ 2) Something to tell the time                                   6) Something to drink other than soda
+ 3) Something comfortable to sit on                              7) Something to use for exercise other than weights
+ 4) Something to dispose of wastepaper in                        8) Something to wear unrelated to space or science
+ 5) Something to add light into the room                         9) Something light to store belongings, not a backpack
+Replica Dataset Affordance Queries for Room Scenes:             10) Something to play with that’s not a puzzle or colorful
+ 1) Somewhere to store decorative cups
+ 2) Something to add light into the room                                     A5. NAVIGATION E XPERIMENTS
+ 3) Somewhere to set food for dinner
+                                                                   For our navigation experiments with the Jackal robot. Our
+ 4) Something I can open with my keys
+                                                                robot is equipped with a VLP-16 lidar and a foward-facing
+ 5) Somewhere to sit upright for a work call
+                                                                Realsense D435i camera. We begin by building a pointcloud
+Replica Dataset Negation Queries for Office Scenes:             of the REAL Lab using the onboard VLP-16 and Open3d
+ 1) Something to sit on other than a chair                      SLAM [68]. The initial Jackal pointcloud does not include
+ 2) Something very heavy, unlike a clock                        task-relevant objects and is downprojected to a 2D costmap
+ 3) Something rigid, unlike a cushion                           for navigation using the base Jackal ROS stack.
+ 4) Something small, unlike a couch                                We then stage two separate scenes with different objects:
+ 5) Something light, unlike a table                             one for object search and another for traversability estima-
+Replica Dataset Negation Queries for Room Scenes:               tion. In both cases, we map the scene with an Azure Kinect
+ 1) Something small, unlike a cabinet                           Camera and rely on RTAB-Map [69] to obtain camera poses
+ 2) Something light, unlike a table                             and the scene point cloud. We proceed to build a Concept-
+ 3) Something soft, unlike a table                              Graphs representation and register the scene point cloud with
+ 4) Something not transparent, unlike a window                  the initial Jackal map. For our navigation experiments, we
+ 5) Something rigid, unlike a rug                               only use the objects OT .
+REAL Lab Scan Descriptive queries:                                 For object search queries, we use the LLM Planner de-
+                                                                scribed in Section A3 as part of a simple state machine. The
+ 1) A pair of red and white sneakers
+                                                                robot first attempts to go look at the 3D coordinates of the
+ 2) A NASA t-shirt
+                                                                most relevant object identified in OT by the LLM Planner.
+ 3) A Rubik’s cube
+                                                                We then pass the onboard camera image to LLaVA [55] and
+ 4) A basketball
+                                                                ask if the target object is in view. If not, we remove the
+ 5) A toy car
+                                                                target object from the scene graph and ask the LLM Planner
+ 6) A backpack
+                                                                to provide a new likely location for the object in the scene
+ 7) An office chair
+                                                                with the following GPT-4 system prompt:
+ 8) A pair of headphones
+ 9) A yellow jacket                                             The object described as ‘description’ is not in the
+                                                                scene. Perhaps someone has moved it, or put it
+10) A laundry bag                                               away. Let’s try to find the object by visiting the
+REAL Lab Affordance Queries:                                    likely places, storage or containers that are
+                                                                appropriate for the missing object (eg: a a cabinet
+ 1) Something to use to disassemble or take apart a laptop      for a wineglass, or closet for a broom). The new
+ 2) Something to use for cooling a CPU                          query is: find a likely container or storage space
+ 3) Something to use for carrying books day to day              where someone typically would have moved the object
+                                                                described as ‘description’?
+ 4) Something to use for temporarily securing a broken
+                                                                     Listing 5: GPT system prompt for object localization.
+    zipper
+   For traversability estimation, we task GPT to classify a                     [8] J. McCormac, A. Handa, A. Davison, and S. Leutenegger, “Seman-
+given object as traversable or non-traversable based on its                         ticfusion: Dense 3d semantic mapping with convolutional neural net-
+                                                                                    works,” in IEEE International Conference on Robotics and automation
+description and possible tags. The system prompt is:                                (ICRA). IEEE, 2017, pp. 4628–4635. 2
+You are a wheeled robot that can push a maximum of                              [9] M. Runz, M. Buffier, and L. Agapito, “Maskfusion: Real-time recogni-
+5 pounds or 2.27 kg. Can you traverse through or                                    tion, tracking and reconstruction of multiple moving objects,” in IEEE
+push an object identified as ‘description’ with                                     International Symposium on Mixed and Augmented Reality (ISMAR).
+possible tags ‘possible tags’? Specifically, is it                                  IEEE, 2018, pp. 10–20. 2
+possible for you to push the object out of its path                            [10] J. McCormac, R. Clark, M. Bloesch, A. Davison, and S. Leutenegger,
+without damaging yourself?                                                          “Fusion++: Volumetric object-level slam,” in international conference
+  Listing 6: GPT-4 system prompt for traversability estimation.                     on 3D vision (3DV). IEEE, 2018, pp. 32–41. 2
+                                                                               [11] G. Narita, T. Seno, T. Ishikawa, and Y. Kaji, “Panopticfusion: Online
+                                                                                    volumetric semantic mapping at the level of stuff and things,” in 2019
+   We then take the pointclouds of each non-traversable                             IEEE/RSJ International Conference on Intelligent Robots and Systems
+objects and downproject them in the Jackal costmap before                           (IROS). IEEE, 2019, pp. 4205–4212. 2
+launching the navigation episode. The goal is provided in                      [12] J. Qian, V. Chatrath, J. Yang, J. Servos, A. P. Schoellig, and S. L.
+                                                                                    Waslander, “POCD: probabilistic object-level change detection and
+this case as a specific pose in the room.                                           volumetric mapping in semi-static scenes,” in Robotics Science and
+   For all experiments in this section, we run a local instance                     Systems, K. Hauser, D. A. Shell, and S. Huang, Eds., 2022. 2
+of LLaVA offboard on a desktop when needed and otherwise                       [13] J. Qian, V. Chatrath, J. Servos, A. Mavrinac, W. Burgard, S. L.
+                                                                                    Waslander, and A. P. Schoellig, “POV-SLAM: probabilistic object-
+use the GPT-4 API for LLM queries.                                                  aware variational SLAM in semi-static environments,” in Robotics
+                                                                                    Science and Systems, K. E. Bekris, K. Hauser, S. L. Herbert, and
+                         A6. L IMITATIONS                                           J. Yu, Eds., 2023. 2
+                                                                               [14] K. Li, D. DeTone, Y. F. S. Chen, M. Vo, I. Reid, H. Rezatofighi,
+   As indicated in Sec. III-H, there are a few failure modes                        C. Sweeney, J. Straub, and R. Newcombe, “ODAM: Object detection,
+of ConceptGraphs that remain to be addressed in subsequent                          association, and mapping using posed rgb video,” in Proceedings of
+                                                                                    International Conference on Computer Vision, 2021. 2
+work. In particular, the LLaVA-7B [55] model used for node                     [15] M. Zins, G. Simon, and M.-O. Berger, “OA-SLAM: Leveraging
+captioning misclassifies a non-negligible number of small                           objects for camera relocalization in visual slam,” in IEEE International
+objects as toothbrushes or pairs of scissors. We believe that                       Symposium on Mixed and Augmented Reality (ISMAR). IEEE, 2022,
+                                                                                    pp. 720–728. 2
+using more performant vision-language models, including                        [16] K. Liu, F. Zhan, J. Zhang, M. Xu, Y. Yu, A. E. Saddik, C. Theobalt,
+instruction-finetuned variants of LLaVA [70] can alleviate                          E. Xing, and S. Lu, “3d open-vocabulary segmentation with foundation
+this issue to a large extent. This will, in turn, improve the                       models,” arXiv preprint arXiv:2305.14093, 2023. 2
+node and edge precisions of 3D scene graphs beyond what                        [17] K. M. Jatavallabhula, A. Kuwajerwala, Q. Gu, M. Omama, G. Iyer,
+                                                                                    S. Saryazdi, T. Chen, A. Maalouf, S. Li, N. V. Keetha, A. Tewari,
+we report in Table I.                                                               J. B. Tenenbaum, C. M. de Melo, K. M. Krishna, L. Paull, F. Shkurti,
+   In this work, we do not explicitly focus on improving                            and A. Torralba, “ConceptFusion: Open-set multimodal 3d mapping,”
+LLM-based planning over 3D scene graphs. We refer the                               in Robotics: Science and Systems, 2023. 2, 4, 5
+                                                                               [18] S. Peng, K. Genova, C. Jiang, A. Tagliasacchi, M. Pollefeys,
+interested reader to concurrent work, SayPlan [52], for                             T. Funkhouser et al., “Openscene: 3d scene understanding with
+insights into how one might leverage the hierarchy inherent                         open vocabularies,” in Proceedings of the IEEE/CVF Conference on
+in 3D scene graphs, for efficient planning.                                         Computer Vision and Pattern Recognition, 2023, pp. 815–824. 2
+                                                                               [19] R. Ding, J. Yang, C. Xue, W. Zhang, S. Bai, and X. Qi, “Lowis3d:
+                                                                                    Language-driven open-world instance-level 3d scene understanding,”
+                             R EFERENCES                                            arXiv preprint arXiv:2308.00353, 2023. 2
+                                                                               [20] R. Ding, J. Yang, C. Xue, W. Zhang, S. Bai, and X. Qi, “PLA:
+ [1] R. A. Newcombe, S. Izadi, O. Hilliges, D. Molyneaux, D. Kim,
+                                                                                    Language-driven open-vocabulary 3d scene understanding,” in Pro-
+     A. J. Davison, P. Kohi, J. Shotton, S. Hodges, and A. Fitzgibbon,
+                                                                                    ceedings of Computer Vision and Pattern Recognition, 2023. 2
+     “Kinectfusion: Real-time dense surface mapping and tracking,” in
+     IEEE international symposium on mixed and augmented reality.              [21] J. Zhang, R. Dong, and K. Ma, “CLIP-FO3D: Learning free open-
+     IEEE, 2011, pp. 127–136. 2                                                     world 3d scene representations from 2d dense clip,” arXiv preprint
+                                                                                    arXiv:2303.04748, 2023. 2
+ [2] T. Whelan, S. Leutenegger, R. Salas-Moreno, B. Glocker, and A. Davi-
+     son, “Elasticfusion: Dense slam without a pose graph,” in Robotics        [22] V. Tschernezki, I. Laina, D. Larlus, and A. Vedaldi, “Neural feature
+     Science and Systems, 2015. 2                                                   fusion fields: 3d distillation of self-supervised 2d image representa-
+ [3] B. Wen, J. Tremblay, V. Blukis, S. Tyree, T. Müller, A. Evans, D. Fox,        tions,” in International Conference on 3D Vision (3DV). IEEE, 2022.
+     J. Kautz, and S. Birchfield, “BundleSDF: Neural 6-dof tracking and 3d          2
+     reconstruction of unknown objects,” in Proceedings of the IEEE/CVF        [23] S. Kobayashi, E. Matsumoto, and V. Sitzmann, “Decomposing nerf for
+     Conference on Computer Vision and Pattern Recognition, 2023, pp.               editing via feature field distillation,” Neural Information Processing
+     606–617. 2                                                                     Systems, vol. 35, pp. 23 311–23 330, 2022. 2
+ [4] E. Sucar, S. Liu, J. Ortiz, and A. J. Davison, “iMAP: Implicit map-       [24] N. M. M. Shafiullah, C. Paxton, L. Pinto, S. Chintala, and A. Szlam,
+     ping and positioning in real-time,” in Proceedings of the IEEE/CVF             “Clip-fields: Weakly supervised semantic fields for robotic memory,”
+     International Conference on Computer Vision, 2021, pp. 6229–6238.              in Robotics: Science and Systems, K. E. Bekris, K. Hauser, S. L.
+     2                                                                              Herbert, and J. Yu, Eds., 2023. 2
+ [5] Z. Zhu, S. Peng, V. Larsson, W. Xu, H. Bao, Z. Cui, M. R. Oswald, and     [25] N. Tsagkas, O. Mac Aodha, and C. X. Lu, “Vl-fields: Towards
+     M. Pollefeys, “Nice-slam: Neural implicit scalable encoding for slam,”         language-grounded neural implicit spatial representations,” arXiv
+     in Proceedings of the IEEE/CVF Conference on Computer Vision and               preprint arXiv:2305.12427, 2023. 2
+     Pattern Recognition, 2022, pp. 12 786–12 796. 2                           [26] J. Kerr, C. M. Kim, K. Goldberg, A. Kanazawa, and M. Tancik,
+ [6] J. L. Schonberger and J.-M. Frahm, “Structure-from-motion revisited,”          “LERF: Language embedded radiance fields,” in International Con-
+     in Proceedings of the IEEE conference on computer vision and pattern           ference on Computer Vision (ICCV), 2023. 2
+     recognition, 2016, pp. 4104–4113. 2                                       [27] C. Huang, O. Mees, A. Zeng, and W. Burgard, “Audio visual language
+ [7] J. L. Schönberger, E. Zheng, J.-M. Frahm, and M. Pollefeys, “Pixel-           maps for robot navigation,” arXiv preprint arXiv:2303.07522, 2023. 2
+     wise view selection for unstructured multi-view stereo,” in European      [28] W. Shen, G. Yang, A. Yu, J. Wong, L. P. Kaelbling, and
+     Conference on Computer Vision. Springer, 2016, pp. 501–518. 2                  P. Isola, “Distilled feature fields enable few-shot manipulation,”
+     in International Conference on Robot Learning, 2023. [Online].                   fusion: Incremental 3d scene graph prediction from rgb-d sequences,”
+     Available: https://openreview.net/forum?id=Rb0nGIt kh5 2                         in Proceedings of Computer Vision and Pattern Recognition, 2021. 2
+[29] F. Engelmann, F. Manhardt, M. Niemeyer, K. Tateno, M. Pollefeys,            [51] C. Agia, K. M. Jatavallabhula, M. Khodeir, O. Miksik, V. Vineet,
+     and F. Tombari, “Open-set 3d scene segmentation with rendered novel              M. Mukadam, L. Paull, and F. Shkurti, “Taskography: Evaluating robot
+     views,” 2023. 2                                                                  task planning over large 3d scene graphs,” in International Conference
+[30] K. Mazur, E. Sucar, and A. J. Davison, “Feature-realistic neural fusion          on Robot Learning. PMLR, 2022. 2
+     for real-time, open set scene understanding,” in IEEE International         [52] K. Rana, J. Abou-Chakra, S. Garg, J. Haviland, I. Reid, and
+     Conference on Robotics and Automation (ICRA). IEEE, 2023. 2                      N. Suenderhauf, “Sayplan: Grounding large language models using
+[31] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal,                3d scene graphs for scalable task planning,” in International
+     G. Sastry, A. Askell, P. Mishkin, J. Clark et al., “Learning transferable        Conference on Robot Learning, 2023. [Online]. Available: https:
+     visual models from natural language supervision,” in International               //openreview.net/forum?id=wMpOMO0Ss7a 2, 4, 10
+     Conference on Machine Learning. PMLR, 2021. 2, 3, 4                         [53] M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khali-
+[32] OpenAI, “Gpt-4 technical report,” arXiv preprint arXiv:2303.08774,               dov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby et al., “Dinov2:
+     2023. 2, 4                                                                       Learning robust visual features without supervision,” arXiv preprint
+[33] A. Kirillov, E. Mintun, N. Ravi, H. Mao, C. Rolland, L. Gustafson,               arXiv:2304.07193, 2023. 2, 3
+     T. Xiao, S. Whitehead, A. C. Berg, W.-Y. Lo et al., “Segment any-           [54] Y. Zhang, X. Huang, J. Ma, Z. Li, Z. Luo, Y. Xie, Y. Qin, T. Luo,
+     thing,” Proceedings of International Conference on Computer Vision,              Y. Li, S. Liu et al., “Recognize anything: A strong image tagging
+     2023. 2, 4, 5                                                                    model,” arXiv preprint arXiv:2306.03514, 2023. 2, 4
+                                                                                 [55] H. Liu, C. Li, Q. Wu, and Y. J. Lee, “Visual instruction tuning,” arXiv
+[34] S. Liu, Z. Zeng, T. Ren, F. Li, H. Zhang, J. Yang, C. Li,
+                                                                                      preprint arXiv:2304.08485, 2023. 2, 4, 5, 6, 7, 9, 10
+     J. Yang, H. Su, J. Zhu et al., “Grounding dino: Marrying dino with
+                                                                                 [56] J. Straub, T. Whelan, L. Ma, Y. Chen, E. Wijmans, S. Green,
+     grounded pre-training for open-set object detection,” arXiv preprint
+                                                                                      J. J. Engel, R. Mur-Artal, C. Ren, S. Verma, A. Clarkson, M. Yan,
+     arXiv:2303.05499, 2023. 2, 4
+                                                                                      B. Budge, Y. Yan, X. Pan, J. Yon, Y. Zou, K. Leon, N. Carter,
+[35] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer,
+                                                                                      J. Briales, T. Gillingham, E. Mueggler, L. Pesqueira, M. Savva,
+     “High-resolution image synthesis with latent diffusion models,” in
+                                                                                      D. Batra, H. M. Strasdat, R. D. Nardi, M. Goesele, S. Lovegrove,
+     Proceedings of the IEEE/CVF conference on computer vision and
+                                                                                      and R. Newcombe, “The Replica dataset: A digital replica of indoor
+     pattern recognition, 2022, pp. 10 684–10 695. 2
+                                                                                      spaces,” arXiv preprint arXiv:1906.05797, 2019. 4, 5, 7
+[36] Y. Hong, Y. Du, C. Lin, J. Tenenbaum, and C. Gan, “3d concept               [57] T. Lüddecke and A. Ecker, “Image segmentation using text and image
+     grounding on neural fields,” Neural Information Processing Systems,              prompts,” in Proceedings of the IEEE/CVF Conference on Computer
+     2022. 2                                                                          Vision and Pattern Recognition, 2022, pp. 7086–7096. 5
+[37] Y. Hong, C. Lin, Y. Du, Z. Chen, J. B. Tenenbaum, and C. Gan,               [58] B. Li, K. Q. Weinberger, S. Belongie, V. Koltun, and R. Ranftl,
+     “3d concept learning and reasoning from multi-view images,” in                   “Language-driven semantic segmentation,” in International Confer-
+     Proceedings of Computer Vision and Pattern Recognition, 2023. 2                  ence on Learning Representations, 2022. 5
+[38] Y. Hong, H. Zhen, P. Chen, S. Zheng, Y. Du, Z. Chen, and C. Gan,            [59] G. Ghiasi, X. Gu, Y. Cui, and T.-Y. Lin, “Scaling open-vocabulary
+     “3d-llm: Injecting the 3d world into large language models,” Neural              image segmentation with image-level labels,” in European Conference
+     Information Processing Systems, 2023. 2                                          on Computer Vision. Springer, 2022, pp. 540–557. 5
+[39] M. Shridhar, L. Manuelli, and D. Fox, “CLIPort: What and where              [60] C. Zhou, C. C. Loy, and B. Dai, “Extract free dense labels from clip,”
+     pathways for robotic manipulation,” in Conference on Robot Learning,             in European Conference on Computer Vision (ECCV), 2022. 5
+     vol. 164. PMLR, 2021, pp. 894–906. 2                                        [61] Y. Du, S. Li, and I. Mordatch, “Compositional visual generation with
+[40] S. Sharma, A. Rashid, C. M. Kim, J. Kerr, L. Y. Chen, A. Kanazawa,               energy based models,” in Neural Information Processing Systems,
+     and K. Goldberg, “Language embedded radiance fields for zero-                    2020. 5
+     shot task-oriented grasping,” in International Conference on Robot          [62] S. Levine and D. Shah, “Learning robotic navigation from experience:
+     Learning, 2023. [Online]. Available: https://openreview.net/forum?id=            principles, methods and recent results,” Philosophical Transactions of
+     k-Fg8JDQmc 2                                                                     the Royal Society B, vol. 378, no. 1869, p. 20210447, 2023. 5
+[41] S. Y. Gadre, M. Wortsman, G. Ilharco, L. Schmidt, and S. Song,              [63] E. Kolve, R. Mottaghi, W. Han, E. VanderBilt, L. Weihs, A. Herrasti,
+     “Clip on wheels: Zero-shot object navigation as object localization              M. Deitke, K. Ehsani, D. Gordon, Y. Zhu et al., “Ai2-thor: An interac-
+     and exploration,” arXiv preprint arXiv:2203.10421, 2022. 2                       tive 3d environment for visual ai,” arXiv preprint arXiv:1712.05474,
+[42] D. Shah, B. Osiński, S. Levine et al., “Lm-nav: Robotic navigation              2017. 5
+     with large pre-trained models of language, vision, and action,” in          [64] M. Deitke, E. VanderBilt, A. Herrasti, L. Weihs, K. Ehsani, J. Salvador,
+     International Conference on Robot Learning. PMLR, 2023. 2                        W. Han, E. Kolve, A. Kembhavi, and R. Mottaghi, “Procthor: Large-
+[43] M. Fisher, M. Savva, and P. Hanrahan, “Characterizing structural                 scale embodied ai using procedural generation,” Advances in Neural
+     relationships in scenes using graph kernels,” ACM Trans. Graph.,                 Information Processing Systems, vol. 35, pp. 5982–5994, 2022. 5
+     vol. 30, no. 4, p. 34, 2011. 2                                              [65] A. Takmaz, E. Fedele, R. W. Sumner, M. Pollefeys, F. Tombari, and
+[44] P. Gay, J. Stuart, and A. Del Bue, “Visual graphs from motion                    F. Engelmann, “Openmask3d: Open-vocabulary 3d instance segmen-
+     (vgfm): Scene understanding with object geometry reasoning,” in                  tation,” arXiv preprint arXiv:2306.13631, 2023. 6
+     Asian Conference on Computer Vision. Springer, 2019. 2                      [66] S. Lu, H. Chang, E. P. Jing, A. Boularias, and K. Bekris, “OVIR-3d:
+[45] I. Armeni, Z.-Y. He, J. Gwak, A. R. Zamir, M. Fischer, J. Malik, and             Open-vocabulary 3d instance retrieval without training on 3d data,”
+     S. Savarese, “3d scene graph: A structure for unified semantics, 3d              in International Conference on Robot Learning, 2023. [Online].
+     space, and camera,” in Proceedings of International Conference on                Available: https://openreview.net/forum?id=gVBvtRqU1 6
+     Computer Vision, October 2019. 2                                            [67] H. Chang, K. Boyalakuntla, S. Lu, S. Cai, E. P. Jing, S. Keskar,
+[46] U.-H. Kim, J.-M. Park, T.-J. Song, and J.-H. Kim, “3-d scene graph:              S. Geng, A. Abbas, L. Zhou, K. Bekris, and A. Boularious,
+     A sparse and semantic representation of physical environments for                “Context-aware entity grounding with open-vocabulary 3d scene
+     intelligent agents,” IEEE transactions on cybernetics, vol. 50, no. 12,          graphs,” in International Conference on Robot Learning, 2023.
+     pp. 4921–4933, 2019. 2                                                           [Online]. Available: https://openreview.net/forum?id=cjEI5qXoT0 6
+[47] J. Wald, H. Dhamo, N. Navab, and F. Tombari, “Learning 3d semantic          [68] E. Jelavic, J. Nubert, and M. Hutter, “Open3d slam: Point cloud based
+     scene graphs from 3d indoor reconstructions,” in Proceedings of                  mapping and localization for education,” in Robotic Perception and
+     Computer Vision and Pattern Recognition, 2020. 2                                 Mapping: Emerging Techniques, ICRA 2022 Workshop. ETH Zurich,
+                                                                                      Robotic Systems Lab, 2022, p. 24. 9
+[48] A. Rosinol, A. Violette, M. Abate, N. Hughes, Y. Chang, J. Shi,
+                                                                                 [69] M. Labbé and F. Michaud, “Rtab-map as an open-source lidar and
+     A. Gupta, and L. Carlone, “Kimera: From slam to spatial perception
+                                                                                      visual simultaneous localization and mapping library for large-scale
+     with 3d dynamic scene graphs,” The International Journal of Robotics
+                                                                                      and long-term online operation,” Journal of Field Robotics, vol. 36,
+     Research, vol. 40, no. 12-14, pp. 1510–1546, 2021. 2
+                                                                                      no. 2, pp. 416–446, 2019. 9
+[49] N. Hughes, Y. Chang, and L. Carlone, “Hydra: A real-time spatial            [70] Z. Sun, S. Shen, S. Cao, H. Liu, C. Li, Y. Shen, C. Gan, L.-Y. Gui,
+     perception system for 3d scene graph construction and optimization,”             Y.-X. Wang, Y. Yang, K. Keutzer, and T. Darrell, “Aligning large
+     arXiv preprint arXiv:2201.13360, 2022. 2                                         multimodal models with factually augmented rlhf,” 2023. 10
+[50] S.-C. Wu, J. Wald, K. Tateno, N. Navab, and F. Tombari, “Scenegraph-
+

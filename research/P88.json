@@ -1,0 +1,26 @@
+{
+  "id": "P88",
+  "slug": "MRO_GWM",
+  "arxiv_id": "2606.01950",
+  "family": "spatial",
+  "source_url": "https://arxiv.org/abs/2606.01950",
+  "accessed": "2026-11-11",
+  "title": "Learning Action-Conditional and Object-Centric Gaussian Splatting World Models for Rigid Objects",
+  "authors": [
+    "Kreber, Jens U.",
+    "Mack, Lukas",
+    "Stueckler, Joerg"
+  ],
+  "publication_date": "2026/06/01",
+  "submitted_date": "2026/10/26",
+  "abstract": " World models enable intelligent agents to predict the consequences of their actions on the environment. In this paper, we propose Multi Rigid Object Gaussian World Model (MRO-GWM), a novel model that learns action-conditional dynamics of rigid objects in 3D. Using object-centric Gaussians, we can represent arbitrary object shapes and multi-object scenes. We develop a novel temporal-spatial transformer architecture that predicts future rigid body motion from a history of object Gaussians and future actions. Objects are represented by Gaussians in an object-centric frame, which allows to describe object motion as a rigid body transformation. Our model is trained on reconstructions from multiple viewpoints, which requires the model to also handle partial observations of objects due to occlusions. We analyze prediction performance of our approach on synthetic datasets composed of typical household objects with multi-object dynamics and interactions by a robot end effector. We also evaluate our model in model-predictive control for non-prehensile manipulation in simulation and for image-based tracking and prediction of object motion in simulated and real-world scenes.",
+  "submission_history": "Submission history From: Jens Ulrich Kreber [ view email ] [v1] Mon, 1 Jun 2026 09:12:07 UTC (3,233 KB) [v2] Mon, 26 Oct 2026 16:21:46 UTC (3,805 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2606.01950v2",
+  "local_pdf": "papers/P88_MRO_GWM_2606.01950v2.pdf",
+  "sha256": "c0edf30fbb0390c0be420af7f63e3aea9955b84b8ef38f43b907b9f3a224bbd7",
+  "bytes": 4170791,
+  "pages": 8,
+  "text_file": "research/P88_MRO_GWM.txt",
+  "status": "downloaded_and_text_extracted"
+}

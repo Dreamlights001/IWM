@@ -1,0 +1,30 @@
+{
+  "id": "P47",
+  "slug": "GaussianFluent",
+  "arxiv_id": "2601.09265",
+  "family": "cutting",
+  "source_url": "https://arxiv.org/abs/2601.09265",
+  "accessed": "2026-11-09",
+  "title": "GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials",
+  "authors": [
+    "Huang, Bei",
+    "Chen, Yixin",
+    "Lu, Ruijie",
+    "Zeng, Gang",
+    "Zha, Hongbin",
+    "Pei, Yuru",
+    "Huang, Siyuan"
+  ],
+  "publication_date": "2026/01/14",
+  "submitted_date": "2026/01/14",
+  "abstract": " 3D Gaussian Splatting (3DGS) has emerged as a prominent 3D representation for high-fidelity and real-time rendering. Prior work has coupled physics simulation with Gaussians, but predominantly targets soft, deformable materials, leaving brittle fracture largely unresolved. This stems from two key obstacles: the lack of volumetric interiors with coherent textures in GS representation, and the absence of fracture-aware simulation methods for Gaussians. To address these challenges, we introduce GaussianFluent, a unified framework for realistic simulation and rendering of dynamic object states. First, it synthesizes photorealistic interiors by densifying internal Gaussians guided by generative models. Second, it integrates an optimized Continuum Damage Material Point Method (CD-MPM) to enable brittle fracture simulation at remarkably high speed. Our approach handles complex scenarios including mixed-material objects and multi-stage fracture propagation, achieving results infeasible with previous methods. Experiments clearly demonstrate GaussianFluent's capability for photo-realistic, real-time rendering with structurally consistent interiors, highlighting its potential for downstream application, such as VR and Robotics.",
+  "submission_history": "Submission history From: Bei Huang [ view email ] [v1] Wed, 14 Jan 2026 07:59:52 UTC (13,962 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2601.09265v1",
+  "local_pdf": "papers/P47_GaussianFluent_2601.09265v1.pdf",
+  "sha256": "246a4f8c95e0b469e35d12f06ce6d80e084382c29e900b56d17ebb1eecc9749b",
+  "bytes": 15152730,
+  "pages": 16,
+  "text_file": "research/P47_GaussianFluent.txt",
+  "status": "downloaded_and_text_extracted"
+}

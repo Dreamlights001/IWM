@@ -1,0 +1,583 @@
+                                              Augmenting Physical Simulators with Stochastic Neural Networks:
+                                                       Case Study of Planar Pushing and Bouncing
+                                                                           Anurag Ajay1 , Jiajun Wu1 , Nima Fazeli2 , Maria Bauza2 ,
+                                                                        Leslie P. Kaelbling1 , Joshua B. Tenenbaum1 , Alberto Rodriguez2
+
+                                           Abstract— An efficient, generalizable physical simulator with
+                                        universal uncertainty estimates has wide applications in robot
+                                        state estimation, planning, and control. In this paper, we build
+                                        such a simulator for two scenarios, planar pushing and ball
+arXiv:1808.03246v1 [cs.RO] 9 Aug 2018
+
+
+
+
+                                        bouncing, by augmenting an analytical rigid-body simulator
+                                        with a neural network that learns to model uncertainty as
+                                        residuals. Combining symbolic, deterministic simulators with
+                                        learnable, stochastic neural nets provides us with expressiveness,
+                                        efficiency, and generalizability simultaneously. Our model out-
+                                        performs both purely analytical and purely learned simulators
+                                        consistently on real, standard benchmarks. Compared with
+                                        methods that model uncertainty using Gaussian processes, our
+                                        model runs much faster, generalizes better to new object shapes,
+                                        and is able to characterize the complex distribution of object
+                                        trajectories.                                                                 Fig. 1: The motion of an object being pushed appears stochastic
+                                                                                                                      and possibly multi-modal due to imperfections in contact surfaces,
+                                                                 I. I NTRODUCTION                                     non-uniform coefficient of friction, stick/slip transitions, and micro
+                                                                                                                      surface interactions. In this study, we propose to augment analytical
+                                           Simulators are an essential for the development of robot                   models to more accurately predict such outcomes while reasoning
+                                        systems. An important class of systems in robotics is well                    about uncertainty.
+                                        approximated by rigid-body dynamics; relatively mature, fast,                 namely decoupled conditional variational recurrent neural nets,
+                                        and general-purpose simulators have been developed for                        to learn the residual errors made by the analytical models.
+                                        these systems. These simulators (e.g., ODE [1], Bullet [2],                   Once the neural networks are trained, they can correct model
+                                        MuJoco [3]) rely on approximate and efficient dynamics                        predictions and provide distributions over possible outcomes.
+                                        models and do not reason about uncertainty explicitly.                           We demonstrate the efficacy of the data-augmented stochas-
+                                           These simulators are an important tool, yet their practi-                  tic simulation framework in two cases: 1) a toy bouncing ball
+                                        cality has been limited due to discrepancies between their                    problem, and 2) planar pushing with a single point pusher
+                                        predictions and real-world observations. A major source of                    using the empirical dataset from Yu et al. [5]. First, we use
+                                        mismatches is the contact models used in these simulators.                    the toy problem to illustrate the implementation and details
+                                        Contact is a complex physical interaction with near impulsive                 of the proposed model in simulation. We then move to the
+                                        forces over a small duration of time that involves local                      experimental planar pushing dataset to demonstrate the ability
+                                        deformations and vibrations. Matters are complicated by the                   of the approaches to capture real-world data. We show that
+                                        sensitivity of contact outcomes to initial conditions. These                  the data-augmented model outperforms its purely analytical
+                                        models are coarse approximations to contact, and recent                       and purely data-driven counterparts. Further, we demonstrate
+                                        studies ([4], [5], [6]) have shown the discrepancies between                  that this approach is data-efficient, as learning residuals is
+                                        their predictions and real-world data. Further, Fazeli et al. [6]             an easier and better formulated problem than learning full
+                                        showed that there exist real-world contact outcomes which                     motion models. Experiments also suggest that the learned
+                                        the models are unable to predict for any choice of their                      residual model generalizes better to different shapes than the
+                                        parameters. This suggests that generating uncertainty by                      pure learning-based dynamics model. The data-augmented
+                                        defining distributions over contact parameters does not yield                 residual model can reason about uncertainty, which plays an
+                                        a sufficiently rich and descriptive distribution over outcomes.               important role in planning and control.
+                                           In this study, we provide a framework for augmenting
+                                        analytical motion models with empirical data that has higher                                        II. R ELATED W ORK
+                                        accuracy while capturing uncertainty in predictions. We                       A. Models for Planar Pushing
+                                        achieve this by using a novel type of recurrent neural networks,
+                                                                                                                        Planar pushing is an important instance of planar manip-
+                                          1 A. Ajay, J. Wu, L. P. Kaelbling, and J. B. Tenenbaum are with the         ulation, in which the robot moves objects on a horizontal
+                                        Computer Science and Artificial Intelligence Laboratory at Massachusetts      surface through a set of pushes, in particular for objects that
+                                        Institute of Technology, Cambridge, MA, USA                                   are too heavy or too large to be picked up by the robot. To
+                                           2 N. Fazeli, M. Bauza, and A. Rodriguez are with the Department of
+                                        Mechanical Engineering at Massachusetts Institute of Technology, Cambridge,   model planar pushing, Goyal et al. [7] proposed the notion
+                                        MA, USA                                                                       of “Limit Surfaces” (LS) as an invertible mapping between
+a push and a consistent set of friction forces and object           the frictional interaction between an object and a support
+motions. Given the object’s current pose and force applied          surface, by directly approximating the mapping between
+to it, the LS predicts the subsequent motion assuming quasi-        frictional wrench and slipping twist. Later, Zhou et al. [15]
+static motion. The LS assumes a pressure distribution over          extended the model to simulate parametric variability in planar
+the contact patch and Coloumb friction law; it integrates over      pushing and grasping.
+all possible instantaneous centers of rotation for the object          Byravan and Fox [16] showed how to design a neural
+to yield the mapping.                                               network to predict rigid-body motions in a planar pushing
+   In general, the LS does not have a closed form solution;         scenario. In this study, as a robot pushes an object, the neural
+however, Howe and Cutkosky [8] showed that the LS                   network differentiates between the object and the table. The
+can be approximated by an ellipsoid for uniform pressure            neural network makes predictions by explicitly predicting
+distributions, constant friction coefficient, and quasi-static      SE(3) transformations and jointly learning the full motion
+motions. Lynch et al. [9] used the ellipsoidal LS to develop a      model and the observation model. This approach is still
+motion model to predict object motion given pusher motion.          deterministic and does not use any more physics knowledge.
+The ellipsoidal LS has been used for planar push control by         C. Uncertainty Modeling
+Hogan and Rodriguez [10] and for shape reconstruction by
+Yu et al. [11]. In this study we also use the model proposed           Reasoning about the uncertainty in actions and motions
+by Lynch et al. [9] as our analytical motion model.                 is a powerful tool in planning and control [17], [18],
+                                                                    [19], [20]. In the context of planar manipulation, Bauza
+B. Learning Contact Dynamics                                        and Rodriguez [20] used Gaussian processes to learn the
+   Recently, researchers have looked towards data-driven            motion model of planar shapes and to propagate uncertainty
+techniques to complement existing analytical models and/or          using the GP-SUM algorithm. The GP-SUM algorithm is
+learn dynamics directly from data. The work by Kloss et             a hybrid Bayes and particle filter; it exploits the Gaussian
+al. [12] is the closest to ours, where the authors trained a        structure of the motion model to efficiently approximate the
+neural network that provides input to an analytical model. In       distribution over outcomes as a mixture of Gaussians. Bauza
+this framework, the output of the analytical model is used          and Rodriguez [20] showed that pushing can exhibit multi-
+as the prediction; the neural network learns the best input         modality and their approach is able to capture it. We use
+parameters to maximize the performance of the analytical            the model and algorithm from [20] as benchmarks for our
+model. A benefit of this approach is that the model predictions     approach and compare the two on the MIT push dataset [5].
+are always feasible because of the analytical model, but the           A practical example of using the knowledge of uncertainty
+approach is deterministic, and relies on the expressiveness of      in planar manipulation was introduced by Zhou et al. [21].
+the analytical model.                                               They proposed a probabilistic algorithm that generates se-
+   In the planar pushing case, these models may be sufficiently     quential actions to iteratively reduce uncertainty of objects
+expressive to span the full range of outcomes, but this is not      in the plane, before grasping it with a parallel jaw gripper.
+always the case in other contact interactions as shown by                                III. F ORMULATION
+Fazeli et al. [6]. Further, the models in [12] only make single-
+                                                                       In this section we provide the details of our proposed data-
+step predictions—an approach that may not work well for
+                                                                    augmented stochastic simulation framework. The simulation
+long-horizon predictions due to compounding errors at each
+                                                                    framework has two components: an analytical model and a
+time step. In our paper, we use the analytical model as an
+                                                                    data-driven residual model. We first define each component;
+approximation to the push outcomes, and learn a residual
+                                                                    we then provide a detailed exposition of the data-driven
+model that makes corrections to its output. We are thus not
+                                                                    residual model and its role as a method to improve simulation
+limited by the model’s expressivity, as the neural network can
+                                                                    accuracy and to maintain a belief over states.
+make corrections outside the predictive range of the models.
+                                                                       Let S represent the state space, A represent the action
+Further, we learn a stochastic recurrent network that makes
+                                                                    space, and (s, a, s0 ) represent a state-action-state tuple, where
+long-horizon predictions in the form of a distribution over
+                                                                    s, s0 ∈ S, a ∈ A, and s0 is the state obtained after applying
+possible outcomes. We believe reasoning about the degree of
+                                                                    action a in state s. A dynamics model is a function f :
+confidence in outcome prediction can be used effectively in
+                                                                    S × A → S that predicts the next state given the current
+planning and control.
+                                                                    action and state: f (s, a) ≈ s0 , s, s0 ∈ S, a ∈ A.
+   Fazeli et al. [13] also proposed to learn a residual model for
+                                                                       We distinguish between two classes of dynamic models:
+prediction of empirical planar impacts. The residual learner
+                                                                    physics-based analytical models and data-driven models.
+in their paper is a Gaussian process and achieves significant
+improvement over the analytical contact models in terms of its      A. Physics-Based Analytical Models
+prediction accuracy. Gaussian processes are however limited            These models are constructed from the laws of physics,
+to Gaussian predictive distributions and are computationally        domain knowledge, and convenient approximations often
+slower, compared with neural networks. Further, the authors         made for mathematical tractability. In this paper, we also refer
+also did not study the effect of making long-term predictions,      to them as Physics Engines and use the terms interchangeably,
+as their focus is on individual impact prediction accuracy.         though in practice physics engines may not be faithfully
+Zhou et al. [14] supplied a data-efficient approach to model        implementing the mathematical models. Generally, these
+    𝑠"#$               𝑠"#$                               𝑠"#$                                𝑠"#$                                  𝑃(𝑠"#$)
+
+
+                                                         Learned                             Learned                                   Learned
+   Physics                                𝑠̅ "#$                           𝑠̅ "#$                                     𝑠̅ "#$
+                     Learned
+   Engine
+
+                                         Physics                          Physics                                    Physics
+                                         Engine                           Engine                                     Engine
+
+     𝑠"                  𝑠"                                𝑠"                                  𝑠"                                        𝑠"
+
+     (a)                (b)                        (c)                                 (d)                                       (e)
+Fig. 2: Model classes: (a) physics-based analytical models; (b) data-driven models; (c) data-augmented residual models; (d) recurrent
+data-augmented residual models; and (e) stochastic recurrent data-augmented residual models.
+models work well close to their assumptions and in structured           residual model refines the physics engine’s guess using the
+environments, but their performance degrades as we move                 current state and action.
+away from their nominal working conditions. Further, finding            D. Recurrent Data-Augmented Residual Models
+tractable models for complex tasks is difficult and requires               Planning and control require long-horizon predictions of
+extensive domain specific expertise. For the rest of this paper,        future states of the world, given actions taken by an agent
+let fp : S × A → S represent the analytical model.                      using dynamic models. No matter how accurate the model is,
+B. Data-Driven Models                                                   it will have some error which will compound over a sequence
+   Rather than being hand engineered, these models are                  of time steps. Moreover, the data-driven and data-augmented
+learned using data collected from the real world. They can be           models are trained using data from real world trajectories.
+either parametric (e.g., neural networks) or non-parametric             While simulating the future, these dynamics models will
+(e.g., Gaussian processes). For the purpose of discussion, let’s        recursively use their own prediction as input for the next
+assume a parametric model represented by fθ : S × A → S,                time step. As there will be error in their predictions at
+where θ is the parameter vector. The model is learned using             each time step, the input data given during simulation phase
+data collected from the real world; for example, the robot              will have a different distribution than the input data during
+may take actions according to a fixed pushing policy and                the training phase. This creates data distribution mismatch
+collect (s, a, s0 ) tuples that represent the states of the object      between training and test (or simulation) phases for both data-
+being pushed and the motion of the pusher. After collecting             augmented residual models and purely data-driven models.
+                           −1
+data {(st , at , st+1 )}Tt=0  , we solve the following optimization        To address this problem, we propose to use a recurrent
+problem to obtain optimal parameters for the model:                     data-augmented residual model, trained to predict the entire
+                         T −1                                           trajectory based on an initial state and an action sequence.
+                         X
+       θ∗ = arg min            kfθ (st , at ) − st+1 k22 + λkθk22 (1)   The recurrent data-augmented residual model consists of two
+                 θ     t=0                                              components: a physics engine and a recurrent data-augmented
+where λ is a constant for regularization. After obtaining θ∗ ,          residual model. The physics engine takes in the initial state
+we use fθ∗ as the representation of our motion model. While             and a sequence of actions at every time step; it generates
+this approach requires no hand-engineering and directly learns          an entire trajectory which serves as a good initial guess for
+from the data without making any assumptions, it does not               the recurrent residual model. The residual model takes the
+make use of any domain knowledge, and consequently may                  initial state, a sequence of actions, and the trajectory predicted
+require many examples to learn.                                         by the physics engine; it then predicts the next state. If frR
+                                                                        represents the data-augmented recurrent residual model, fp
+C. Data-Augmented Residual Models
+                                                                        represents its physics engine, and fθR represents its residual
+   We leverage advantages of both model classes and develop             component, we have
+a new hybrid class of models, which we call data-augmented
+residual models, by combining a physics engine with a                     frR (s̄t , ŝt , at ) = fθR (fp (s̄t , at ), ŝt , at ) = ŝt+1 ≈ st+1 , (2)
+data-driven model. In this modeling framework, the data-                                fp (s̄t , at ) = s̄t+1 ,   s̄0 = ŝ0 = s0 ,               (3)
+driven part of the model takes the current state-action pairs                            −1
+and the predictions made by the physics engine as input,                where    (ŝt )Tt=0
+                                                                                         is the predicted trajectory. The model is
+and effectively learns the discrepancy between analytical               fully P
+                                                                              differentiable and can be trained by minimizing
+                                                                                T −1
+model predictions and real-world data (i.e. the residual). If fr        minθ t=0 kŝt − st k22 + λkθk22 .
+represents the data-augmented residual model, fp represents             E. Stochastic Recurrent Data-Augmented Residual Models
+its physics engine, and fθ represents its residual component,              No model is perfect, therefore the ability to provide a
+we have fr (s, a) = fθ (fp (s, a), s, a) ≈ s0 . Intuitively, the        measure of uncertainty over possible future states is an
+important capability, allowing better informed planning and                          1) Variational Recurrent Neural Networks: VRNNs are
+control. To this end, we formulate a stochastic model. Let                        recurrent generative models used for modeling multi-modal
+frR represents stochastic data-augmented recurrent residual                       trajectories. It has three interconnected components: priors,
+model, we have                                                                    an encoder, and a decoder. Suppose we represent a given
+                                                                                  trajectory as {xt }Tt=0 . During training, the encoder takes the
+    frR (s̄t , ŝt , at ) = fθR (fp (s̄t , at ), ŝt , at ) = P̂st+1 (·),   (4)
+                                                                                  trajectory as input and infers latent random variables {zt } as
+                fp (s̄t , at ) = s̄t+1 ,     s̄0 = ŝ0 = s0 ,               (5)
+                                                                                                       P (zt |xt ) ∼ N (µz,t , σz,t ),               (6)
+                  −1
+where {P̂st (·)}Tt=0 is the predicted trajectory distribution.                                      [µz,t , σz,t ] = ϕenc (ϕx (xt ), ht−1 ),         (7)
+The model is also  PTdifferentiable and can be trained by
+                      −1
+minimizing minθ t=0 log P̂st (st |θ) + λkθk22 .                                   where ϕenc represents the encoder, ϕx is a function that
+                                                                                  extracts features of xt , and h is the hidden vector in the GRU.
+                             IV. M ETHODS                                         We then sample the latent random variable from the above
+                                                                                  distribution using a reparameterization trick [24], formulated
+   We now present how we realize the stochastic recurrent
+                                                                                  as zt = µz,t + t × σz,t , t ∼ N (0, I). After that, the
+data-augmented residual model by providing an overview of
+                                                                                  decoder uses the sampled latent variable zt to reconstruct the
+the components and the way they are connected.
+                                                                                  trajectory, following P (xt |zt ) ∼ N (µx,t , σx,t ), where
+A. The Analytical Push Motion Model
+                                                                                                    [µx,t , σx,t ] = ϕdec (ϕz (zt ), ht−1 ).         (8)
+   As mentioned in Sec. II, we use the model proposed in [9]                               dec                            z
+                                                                                  Here, ϕ is the decoder and ϕ is a feature extractor for zt .
+as our analytical pushing motion model (physics engine). The
+motion model takes the current configuration of the object and                       In a VAE, we enforce the distribution of the latent vector
+the pusher motion, and returns the predicted object motion at                     {zt } to be close to a prior distribution [24]. In VRNN, the
+each time step. To make predictions, the motion model first                       prior ϕprior is learned and follows the distribution
+computes a motion cone for the current pusher velocity and                                                 where [µ0,t , σ0,t ] = ϕprior (ht−1 ).
+                                                                                  P (zt ) ∼ N (µ0,t , σ0,t ),
+object configuration. Next, depending on whether the pusher                                                                                   (9)
+velocity lies inside or outside of the cone, the model identifies                 Finally, the RNN f RNN updates its state as
+the contact as sticking or sliding respectively. Finally the
+model computes the object motion using the sticking/sliding                                        ht = f RNN (ϕx (xt ), ϕz (zt ), ht−1 ).          (10)
+classification and the ellipsoidal LS.
+                                                                                  VRNN is trained by minimizing
+   In the experimental setup of the planar push dataset [5], the
+                                                                                     T
+time history of object and robot pusher motion are recorded.                         X
+We can compute the analytical model predictions using the                              DKL (N (µz,t , σz,t ||N (µ0,t , σ0,t ))
+current configuration of the object and robot pusher motion.                         t=1
+                                                                                                   T     L
+In doing this, we observe discrepancies between the model                                      1 XX
+                                                                                           −             P (xt |µz,t + i,t × σz,t ) + λkθk22 ,     (11)
+prediction and the measured data. The discrepancy is due in                                    L t=1 i=1
+part to the ellipsoidal approximation, and in part to variations
+in coefficients of friction across the surface, micro-interactions                where i,t ∼ N (0, I), λ is a regularization constant, and θ is
+between the object and surface, and potentially anisotropic                       a vector containing all the parameters in our model. Once the
+frictional properties. The latter effects are impractical to model                VRNN is trained, we use the prior to sample latent random
+analytically and difficult to predict ahead of time.                              variables and use them to generate trajectories.
+                                                                                     2) Conditional VRNNs: We want a VRNN to be condi-
+B. Stochastic Neural Networks
+                                                                                  tioned on a sequence {ut }Tt=0 (e.g., the control inputs). To
+   We implement our recurrent data-augmented residual model                       this end, the posterior distribution of zt (Eqn. 6) is now
+as a GRU [22], a widely used recurrent network for modeling                       P (zt |xt , ut ) ∼ N (µz,t , σz,t ), where
+long-term correlations. The model is however deterministic.
+The simplest way to incorporate stochasticity is to model                                      [µz,t , σz,t ] = ϕenc (ϕx (xt ), ϕu (ut ), ht−1 ).   (12)
+Pst (.) in Eqn. 4 as a Gaussian distribution, i.e., P̂st (.) =
+                                                                                     The prior distribution (Eqn. 9) also becomes conditional
+N (µ̂st , σ̂st ). However, this limits our model’s ability to
+                                                                                  P (zt |ut ) ∼ N (µ0,t , σ0,t ), where
+characterize complex distributions in real world.
+   Chung et al. [23] proposed to incorporate variational                                            [µ0,t , σ0,t ] = ϕprior (ϕu (ut ), ht−1 )       (13)
+autoencoders [24] into recurrent nets and named their model
+                                                                                  And the state update equation (Eqn. 10) becomes
+variational RNNs (VRNNs). A VRNN supports modeling
+highly complex distributions over time. Their model however                                    ht = f RNN (ϕx (xt ), ϕz (zt ), ϕu (ut ), ht−1 ).    (14)
+cannot be conditioned on additional inputs such as control
+variables (e.g. push forces). We instead embed a conditional                         Here, the decoder (Eqn. 8) does not depend on {ut }Tt=0
+variational autoencoder into our GRU. It therefore becomes                        because the latent vectors {zt }Tt=0 already have the capacity
+a variant of VRNNs, namely Conditional VRNNs.                                     to contain all information about the control sequence {ut }Tt=0 .
+ 𝑢 "%&                𝑧"           𝑢 "%&             𝑧"                 𝑢 "%&          𝑧"         𝑢 "%&              𝑧"       𝑢 "%&            𝑧"
+
+
+
+
+ ℎ"%&                 ℎ"           ℎ"%&             ℎ"                  ℎ"%&          ℎ"          ℎ"%&            ℎ"          ℎ"%&             ℎ"
+
+
+
+
+                      𝑥"                            𝑥"                                𝑥"                          𝑥"                           𝑥"
+
+         (a) Prior                   (b) Generation                       (c) Recurrence             (d) Inference               (e) Overall
+Fig. 3: Illustrations for conditional VRNNs: (a) the prior model of the latent representation zt ; (b) the generation model for xt ; (c) the
+recurrence model for ht ; (d) the inference model for zt ; and (e) the overall conditional VRNN design.
+   3) Decoupled Conditional VRNNs: In our experiments,
+we predict trajectories whose length varies from 100 to 1000.
+Because training and evaluating a VRNN becomes slower
+with these long trajectories, we propose an approximation to
+conditional VRNNs, which we call Decoupled Conditional
+VRNNs. A conditional VRNN is slow, because updates in a
+RNN have temporal dependence. However, we observe that
+the encoding, decoding, and prior networks are not inter-                           Fig. 4: The two scenarios: ball bouncing and planar pushing.
+dependent: for example, the encoder only needs t to sample
+zt internally; it does not take signals from the decoding and                     which leads to different coefficients of restitution. Here we
+the prior networks. Thus, in DCVRNNs, we disentangle the                          simulate the process using PyBullet. Specifically, we choose a
+model into three recurrent neural nets, one each for priors,                      height randomly from [4m, 5m] and a coefficient of restitution
+the encoder, and the decoder. Specifically, we first have the                     for ball-ground interaction from N (0.5, 0.1). We then drop
+Gaussian noises sampled as t ∼ N (0, I). Then the equation                       a ball of radius 0.5m from the sampled height, and record
+for the encoder becomes P (zt |xt , ut ) ∼ N (µz,t , σz,t ), where                its height and vertical velocity for 400 time steps with a
+                                                                                  sampling frequency of 60Hz. For our physics engine, we
+                           RNN
+    ht , [µz,t , σz,t ] = fenc (ϕx (xt ), ϕu (ut ), t , ht−1 ).           (15)   create another PyBullet environment but fix the coefficient of
+                                                                                  restitution to 0.65. We want our physics engine to produce
+The decoder is now P (xt |zt ) ∼ N (µx,t , σx,t ), where
+                                                                                  trajectories that are different from our training data, but serve
+                                      RNN
+               ht , [µx,t , σx,t ] = fdec (ϕz (zt ), ht−1 ).               (16)   as a good initial guess.
+                                                                                  Metrics. We use three metrics for evaluation. The first two
+The prior is now P (zt |ut ) ∼ N (µ0,t , σ0,t ), where
+                                                                                  are the average error in object height reported as a percentage
+                                    RNN
+             ht , [µ0,t , σ0,t ] = fprior (ϕu (ut ), t , ht−1 ).          (17)   (trans) and in absolute values with meters as unit (pos). The
+                                                                                  third is the average error on the object’s vertical velocity (vel)
+The loss function remains unchanged.                                              in metres per second.
+   We use a DCVRNN as our stochastic data-augmented
+                                                                                  Methods. We compare with three baselines. The first is just
+residual model by having
+                                                                                  the average translation and rotation over the dataset. This
+   xt = st ,         ut = [s0 , at , st+1
+                                       ˆ ],   ŝt+1 = fp (ŝt , at ),      (18)   is equal to the error of always predicting zero movement,
+                                                                                  and we therefore name it Zero. The second (Physics) is the
+where st represents the state at time t, at represents the action                 full deterministic, analytical model described above. The
+at time t, fp represents the physics engine, and ŝt represents                   third (Neural) is to use the stochastic neural network alone
+the state predicted by the physics engine.                                        without the simulator. Our full model (Hybrid) combines the
+                             V. E XPERIMENTS                                      simulator’s and the network’s predictions. For the stochastic
+                                                                                  Hybrid and Neural models, we sample 10 trajectories for
+   We study two scenarios: ball bouncing and planar pushing.                      each input and take their mean as our prediction.
+We first generate synthetic data of ball bouncing and use
+                                                                                  Setup. We implement our network in PyTorch. We train
+them as an illustrative example to demonstrate the efficacy
+                                                                                  our network using the loss function in Eqn. 11. We use the
+of our model. We then evaluate our model on the MIT Push
+                                                                                  ADAM optimizer [25] with a learning rate of 10−3 , a decay
+dataset [5] and compare it with baselines and state-of-the-art
+                                                                                  of 0.5 every 2,500 iteration for a total of 10,000 iteration, and
+motion models. We further present analyses on how well our
+                                                                                  a batch size of 100. Our training set contains 800 trajectories,
+model generalizes across shapes and materials.
+                                                                                  while our test set has 100. For this experiment, ϕx , ϕu , ϕz
+A. Experiments with Bouncing Balls                                                are all identity functions. fencRNN        RNN
+                                                                                                                       and fprior are both GRUs
+Data. When a ball bounces against the ground, it may reach                        with 2 hidden layers and a hidden size of 16, followed by a
+different heights due to the irregularities in the ground surface                 linear layer of hidden size 4 for mean, and another parallel
+                                                Train                                                         Test
+                                  −2                                                           −2
+          Models      loss (×10        )   trans (%)     pos (mm)    rot (deg)     loss (×10        )   trans (%)    pos (mm)     rot (deg)
+          Zero            N/A                N/A              N/A      N/A             N/A               99.99           359.44        49.46
+          Physics         N/A                N/A              N/A      N/A             N/A                1.93            6.91         7.71
+          Neural          0.41               0.72             2.42     1.85            0.68               0.84            2.81          2.48
+          Hybrid          0.36               0.54             1.86     1.73            0.47               0.60            2.04          2.03
+
+TABLE I: Our hybrid model achieves the best performance in both position and rotation estimation for rect1, compared with methods
+that rely on physics engines or neural nets alone. Here we show results on both training and test sets, as well as the optimization losses.
+These numbers suggest that our Hybrid model is overfitting to the training set less than the pure Neural model. As we focus on long-term
+prediction, we include the Zero baseline to show the scale and the challenging nature of the problem.
+        Models      trans (%)     pos (m)      velocity (m/s2 )                   Materials     Models       trans (%)       pos (mm)      rot (deg)
+        Zero         100.00         0.64               1.60                                     Zero             99.99        339.12           48.36
+        Physics       27.41         0.16               1.06                                     Physics           2.51         5.49            10.38
+                                                                                  plywood
+        Neural        9.16         0.058               0.43                                     Neural           0.92          3.43            2.16
+        Hybrid        2.42         0.016               0.14                                     Hybrid            0.77         2.16             1.65
+
+TABLE II: Our hybrid model achieves the best performance in both                                Zero             99.99        357.98           52.67
+position and velocity estimation of the ball, compared with methods                             Physics           1.89         5.78            12.07
+                                                                                  delrin
+that rely on physics engines or neural nets alone.                                              Neural           0.81          2.81            2.50
+                                                                                                Hybrid            0.62         2.09             2.19
+linear layer of hidden size 4 with softplus activation for
+                      RNN                                                     TABLE III: Our Hybrid model performs well consistently across
+standard deviation. fdec   is a GRU with 2 hidden layers and                  object materials. Here for the rectangle made of plywood and delrin,
+a hidden size of 16, followed by a linear layer of hidden size                our model again outperforms all other baseline models.
+2 for mean, and another parallel linear layer of hidden size 2
+with softplus activation for standard deviation. The decoder’s                compare with the same baselines as in the ball experiment,
+standard deviation is kept fixed to identity.                                 except that the physics engine is now the analytical model
+Results. Table II suggests that our model is able to                          described in Sec. IV-A.
+outperform the baselines on the synthetic dataset. The Physics                Setup. For experiments on MIT push dataset, ϕx and ϕu
+baseline, designed to be deterministic, is not performing very                consist of two bilinear layers with hidden sizes as 32 and
+well as expected. However, with the help of the physics                       16 respectively and both followed by tanH activation. ϕz
+engine, our Hybrid model achieves much better performance                     is a single linear layer with hidden size 16 followed by
+                                                                                                   RNN        RNN
+compared to the Neural model, which learns everything from                    tanH activation. fenc     and fprior  are both GRUs with 2
+scratch. The intuition is that learning from a good guess                     hidden layers and a hidden size of 16, followed by a linear
+makes the learning problem significantly easier.                              layer of hidden size 16 for mean, and another parallel linear
+                                                                              layer of hidden size 16 with softplus activation for standard
+B. Experiments on Planar Pushing                                                           RNN
+                                                                              deviation. fdec   is a GRU with 2 hidden layers and a hidden
+Data. We use the MIT Push dataset [5] for the scenario of                     size of 16, followed by a linear layer of hidden size 4 for
+planar pushing, which contains object pose and force record-                  mean, and another parallel linear layer of hidden size 4
+ings from real robot experiments. For uncertainty modeling                    with softplus activation for standard deviation. We again use
+in particular, we use the straight-line push experiment which                 ADAM optimizer [25] with a learning rate of 10−3 and a
+was repeated 2,000 times. In this experiment, the object shape                weight decay of 0.5 every 5,000 iteration for a total of 50,000
+is a rectangle, the contact location is half way in between the               iteration. Our training set contains 6,500 trajectories, while
+block’s center and edge, the contact is made perpendicular                    our test set contains 628 trajectories.
+to the edge, the speed of the pusher is set to 20 mm/s with                   Results. Table I shows the main results on the MIT Push
+no acceleration, and the total pusher displacement is 15cm.                   data-set, using the rect1 object, a 837g square with a side
+   Part of the uncertainty comes of measurement noise, which                  length of 9cm, on the ABS surface. Our full model (Hybrid)
+we want to minimize. The object in the experiments is                         significantly outperforms the baseline methods that rely only
+instrumented with reflective markers and tracked with Vicon                   on physics engines or neural nets. Here we list results on
+motion tracking system. Vicon, when correctly calibrated, has                 both training and test sets. A pure neural net–based approach
+1mm or better accuracy with a unimodal distribution of noise,                 achieves a relatively low error on the training set, close to
+well approximated by a Gaussian. Because of its high fidelity,                our Hybrid model. However, it generalizes much worse to
+our model can focus on learning the uncertain in dynamics.                    the test set. Its prediction errors are much higher for both
+Metrics and methods. We use three metrics for evaluation,                     position estimation (2.81 vs. 2.04) and rotation estimation
+following Kloss et al. [12]. The first two are the average                    (2.48 vs. 2.03).
+Euclidean distance between the predicted and the ground                          Our formulation is not constrained by the object’s material.
+truth object reported as a percentage relative to the initial                 Table III shows results on objects made of two other
+pose (trans) and as absolute values (pos) in millimeters. The                 materials: plywood and delrin. Our Hybrid model consistently
+third is the average error of object rotation (rot) in degree. We             outperforms the baselines.
+             4                                                       15                                                                   10
+                                                neural                                                              neural                                                         neural
+                                                hybrid                                                              hybrid                                                         hybrid
+             3                                                                                                                             8
+                                                                     10
+
+
+
+
+                                                          pos (mm)
+ trans (%)
+
+
+
+
+                                                                                                                              rot (deg)
+                                                                                                                                           6
+             2
+                                                                                                                                           4
+                                                                      5
+             1
+                                                                                                                                           2
+
+             0                                                        0                                                                    0
+             100   200     400      1K    2K    4K   7K               100   200     400     1K               2K     4K   7K                100    200     400        1K      2K    4K     7K
+                          # Training Examples                                      # Training Examples                                                   # Training Examples
+                         (a) translation (%)                                      (b) position (mm)                                                     (c) rotation (deg)
+Fig. 5: Prediction errors vs. training data size. Our hybrid model not only performs better, but also requires much less data to achieve a
+given level of performance. In contrast, purely using purely data-driven models requires a larger training set and is not performing as well.
+    Our hybrid model is also more sample-efficient. As shown                                                      10-3
+                                                                                                            15
+in Fig. 5, compared with the Neural model, our Hybrid model                                                                                                               GP-SUM
+not only has higher prediction accuracies, but also achieves                                                                                                              Ours (Hybrid)
+                                                                                                            10
+such accuracies much faster. Our model converges with as                                                                                                                  Ground Truth
+
+
+
+
+                                                                                             Position (y)
+little as 2,500 training examples; in contrast, even with 6,500
+training examples, purely data-driven models are not able to                                                 5
+achieve performance comparable to ours.
+    Our model captures the uncertainty of the object motion                                                  0
+well. To evaluate this, from the repeated pushes, we collect the
+ground truth distribution of the position of the object (rect1)                                             -5
+after being pushed for one second. We then sample 2,000                                                      0.01                     0.015                        0.02                  0.025
+points from the state-of-the-art stochastic motion modeling                                                                                      Position (x)
+approach—GP-SUM [20]. We also sample 2,000 trajectories
+                                                                                                                                                     GP-SUM [20]             Ours (Hybrid)
+from our Hybrid model. We present qualitative and quantita-
+tive results in Fig. 6. Compared with GP-SUM, our model                                             Chamfer Distance (×10−4 )                               6.80                  2.77
+can better capture the underlying uncertainty. Quantitatively,                               Fig. 6: Our Hybrid model captures the distribution of possible push
+we compute the Chamfer distance [26] between each model’s                                    outcomes. Measured in Chamfer distance, our model achieves a
+output distribution S and the ground truth distribution T ,                                  lower error compared with GP-SUM [20].
+defined as                                                                                   quality of the physics model; when it no longer holds, our
+                          1 X                   1 X                                          model’s generalization power may be limited.
+ CD(S, T ) =                     minkp − qk2 +          minkp − qk2 . (19)
+                         |S| p∈S q∈T           |T | q∈T p∈S
+                                                                                                                     VI. D ISCUSSION AND C ONCLUSION
+Our model achieves a lower error compared to GP-SUM.
+                                                                                               We have proposed a simulation framework using a data-
+C. Generalization Power                                                                     augmented residual motion model. Our underlying philosophy
+   We want our prediction models to generalize to real-                                     is to first exploit analytical models to model real-world data
+world objects, which can be of any shape and material. In                                   as much as possible, and then to learn the remaining residuals.
+this section, we evaluate how our model and the baselines                                   This residual learning formulation adapts the model to specific
+generalize to new object materials and shapes.                                              real-world scenarios, with little need for domain specific
+   For materials, we evaluate our models predictive abilities on                            knowledge or hand-crafting. In this study, we have demon-
+different surfaces. We consider the push data-set on plywood,                               strated its efficacy in predicting real-world planar pushing
+polyurethane, and delrin. Figs. 7a and 7b summarize the                                     and its generalization power across shapes and materials. The
+results of our Hybrid model and of the Physics and Neural                                   particular choice of our residual learner enables accurate long-
+baselines. Our model has lower generalization errors in both                                term predictions and generates complex posterior distributions
+position and rotation prediction.                                                           over future states. The improved accuracy may be attributed to
+   For shapes, we evaluate our model’s predictions on a new                                 the model’s implicitly learning of the details in object-surface
+object—rect2, a 1045g rectangle with side lengths of 9cm and                                frictional interactions, so that it can account for variations in
+11.26cm. Fig. 7c suggests that our model also generalizes                                   the coefficient of friction and potentially anisotropic friction.
+better than the Physics and the Neural baselines on both                                       One may be tempted to do away with the analytic model
+position and rotation estimation.                                                           entirely and rely on a purely data-driven approach. This
+   We hypothesize that our model generalizes better across                                  approach results in learning the full motion model from
+shapes and materials because it learns residuals—errors of                                  scratch with no priors. Aside from being more data-hungry,
+the physics models that are supposed to be similar across                                   this approach does not generalize well to other shapes and
+various regimes. This assumption critically depends on the                                  materials. Starting from a good initial guess to the trajectory,
+           14                                                             12
+                                                    Physics                                                                 Physics                  Physics
+           12                                       Neural                                                                  Neural            15     Neural
+                                                                          10
+                                                    Hybrid                                                                  Hybrid                   Hybrid
+           10
+                                                                           8
+Pos (mm)
+
+
+
+
+                                                              rot (deg)
+            8
+
+
+
+
+                                                                                                                                      Error
+                                                                                                                                              10
+                                                                           6
+            6
+                                                                           4
+            4                                                                                                                                  5
+            2                                                              2
+
+            0                                                              0                                                                   0
+                plywood   polyurethane   delrin   average                      plywood   polyurethane    delrin       average                      pos (mm)    rot (deg)
+
+    (a) Position prediction on different materials        (b) Rotation prediction on different materials      (c) Shape generalization
+Fig. 7: Our method generalizes well to different materials and to a new shape (rect2 in the push dataset). The error bars show our hybrid
+model achieves a consistently lower generalization error for both position and rotation prediction, compared with baseline methods.
+the residual model has less to learn and generalizes better.                               [7] S. Goyal, A. Ruina, and J. Papadopoulos, “Planar Sliding with Dry
+   No model will ever be perfect; therefore, our model’s ability                               Friction Part 1 . Limit Surface and Moment Function,” Wear, vol. 143,
+                                                                                               pp. 307–330, 1991.
+in reasoning about possible outcomes can be a powerful tool                                [8] R. D. Howe and M. R. Cutkosky, “Practical force-motion models for
+in planning and control. For example, in the context of the                                    sliding manipulation,” Int. J. Robotics Res., vol. 15, no. 6, pp. 557–572,
+planar pushing task, identifying a predictable push can lead                                   1996.
+                                                                                           [9] K. M. Lynch, H. Maekawa, and K. Tanie, “Manipulation and active
+the planner to exploit this property.                                                          sensing by pushing using tactile feedback.” in IEEE/RSJ International
+   While the data-augmented residual model is more accurate                                    Conference on Intelligent Robots and Systems (IROS), 1992.
+and reasons about uncertainty, it does have certain drawbacks.                            [10] F. Hogan and A. Rodriguez, “Feedback Control of the Pusher-Slider
+                                                                                               System: A Story of Hybrid and Underactuated Contact Dynamics,” in
+Given that the residual model is data-driven, it can predict                                   Workshop on Algorithmic Foundation of Robotics (WAFR), 2016.
+outcomes that are physically impossible, because there is                                 [11] K.-T. Yu, J. Leonard, and A. Rodriguez, “Shape and pose recovery from
+no mechanism to enforce basic physics principles (e.g., the                                    planar pushing,” in IEEE/RSJ International Conference on Intelligent
+                                                                                               Robots and Systems (IROS). IEEE, 2015, pp. 1208–1215.
+conservation of energy) at the output level. In practice,                                 [12] A. Kloss, S. Schaal, and J. Bohg, “Combining learned and analytical
+however, these implausible outcomes would not appear if we                                     models for predicting action effects,” arXiv:1710.04102, 2017.
+can have the model sufficiently trained.                                                  [13] N. Fazeli, S. Zapolsky, E. Drumwright, and A. Rodriguez, “Learning
+                                                                                               data-efficient rigid-body contact models: Case study of planar impact,”
+   The simulation framework only requires a coarse domain-                                     in Conference on Robot Learning (CoRL), 2017, pp. 388–397.
+specific analytical motion model to be applied to other robotic                           [14] J. Zhou, R. Paolini, A. Bagnell, and M. T. Mason, “A convex polynomial
+tasks. For future work, we plan on applying the framework                                      force-motion model for planar sliding: Identification and application,”
+                                                                                               in IEEE International Conference on Robotics and Automation (ICRA),
+to more difficult modeling tasks. In this paper’s experimental                                 2016, pp. 372–377.
+setup, we have assumed access to the noisy full state space; an                           [15] J. Zhou, A. Bagnell, and M. T. Mason, “A fast stochastic contact model
+interesting extension would be to learn an observation model                                   for planar pushing and grasping: Theory and experimental validation,”
+                                                                                               in Robotics: Science and Systems (RSS), 2017.
+along with the residual model to simultaneously perform state                             [16] A. Byravan and D. Fox, “Se3-nets: Learning rigid body motion using
+estimation and prediction.                                                                     deep neural networks,” in IEEE International Conference on Robotics
+Acknowledgement This work is supported by NSF #1420316,                                        and Automation (ICRA). IEEE, 2017, pp. 173–180.
+                                                                                          [17] M. Bauza and A. Rodriguez, “A probabilistic data-driven model for
+#1523767, and #1723381, AFOSR grant FA9550-17-1-0165,                                          planar pushing,” in IEEE International Conference on Robotics and
+ONR MURI N00014-16-1-2007, Toyota Research Institute,                                          Automation (ICRA), 2017.
+Honda Research, Facebook, and Draper Laboratory. Any                                      [18] M. Babaeizadeh, C. Finn, D. Erhan, R. H. Campbell, and S. Levine,
+                                                                                               “Stochastic variational video prediction,” arXiv:1710.11252, 2017.
+opinions, findings, and conclusions or recommendations                                    [19] T. Xue, J. Wu, K. Bouman, and B. Freeman, “Visual dynamics:
+expressed in this material are those of the authors and do not                                 Probabilistic future frame synthesis via cross convolutional networks,”
+necessarily reflect the views of our sponsors.                                                 in Neural Information Processing Systems (NIPS), 2016, pp. 91–99.
+                                                                                          [20] M. Bauza and A. Rodriguez, “GP-SUM. gaussian processes filtering
+                                                                                               of non-gaussian beliefs,” arXiv preprint arXiv:1709.08120, 2017.
+                                   R EFERENCES                                            [21] J. Zhou, R. Paolini, A. M. Johnson, J. A. Bagnell, and M. T. Mason, “A
+ [1] R. Smith, “Open Dynamics Engine (ODE),” 2006.                                             probabilistic planning framework for planar grasping under uncertainty,”
+ [2] E. Coumans, “Bullet physics engine,” Open Source Software:                                IEEE Robotics and Automation Letters, vol. 2, no. 4, pp. 2111–2118,
+     http://bulletphysics. org, 2010.                                                          2017.
+ [3] E. Todorov, T. Erez, and Y. Tassa, “Mujoco: A physics engine for model-              [22] K. Cho, B. V. Merriënboer, D. Bahdanau, and Y. Bengio, “On the
+     based control,” in IEEE/RSJ International Conference on Intelligent                       properties of neural machine translation: Encoder-decoder approaches,”
+     Robots and Systems (IROS). IEEE, 2012, pp. 5026–5033.                                     arXiv:1409.1259, 2014.
+ [4] R. Kolbert, N. Chavan Dafle, and A. Rodriguez, “Experimental Valida-                 [23] J. Chung, K. Kastner, L. Dinh, K. Goel, A. C. Courville, and Y. Bengio,
+     tion of Contact Dynamics for In-Hand Manipulation,” in International                      “A recurrent latent variable model for sequential data,” in Neural
+     Symposium on Experimental Robotics (ISER), 2016.                                          Information Processing Systems (NIPS), 2015.
+ [5] K.-T. Yu, M. Bauza, N. Fazeli, and A. Rodriguez, “More than a                        [24] D. P. Kingma and M. Welling, “Auto-encoding variational bayes,” in
+     million ways to be pushed. a high-fidelity experimental dataset of                        International Conference on Learning Representations (ICLR), 2014.
+     planar pushing,” in IEEE/RSJ International Conference on Intelligent                 [25] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+     Robots and Systems (IROS), 2016.                                                          in International Conference on Learning Representations (ICLR), 2015.
+ [6] N. Fazeli, S. Zapolsky, E. Drumwright, and A. Rodriguez, “Fundamen-                  [26] H. G. Barrow, J. M. Tenenbaum, R. C. Bolles, and H. C. Wolf,
+     tal limitations in performance and interpretability of common planar                      “Parametric correspondence and chamfer matching: Two new techniques
+     rigid-body contact models,” in International Symposium on Robotics                        for image matching,” in International Joint Conference on Artificial
+     Research (ISRR), 2017.                                                                    Intelligence (IJCAI), 1977.
+

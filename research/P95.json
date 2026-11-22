@@ -1,0 +1,29 @@
+{
+  "id": "P95",
+  "slug": "WorldAct",
+  "arxiv_id": "2605.15843",
+  "family": "segmentation",
+  "source_url": "https://arxiv.org/abs/2605.15843",
+  "accessed": "2026-11-11",
+  "title": "WorldAct: Activating Monolithic 3D Worlds into Interactive-Ready Object-Centric Scenes",
+  "authors": [
+    "Hu, Jichen",
+    "Guo, Jiawei",
+    "Cen, Jiazhong",
+    "Yang, Chen",
+    "Li, Sikuang",
+    "Shen, Wei"
+  ],
+  "publication_date": "2026/05/15",
+  "submitted_date": "2026/11/05",
+  "abstract": " Recent 3D world modeling systems based on generative scene synthesis, such as Marble, can create coherent and explorable 3D environments, yet their outputs are typically static monolithic assets with limited editability and physical interaction. This restricts their use in immersive content creation and embodied simulation, where generated worlds must be actively modified and manipulated. To tackle this challenge, we present WorldAct, a framework that converts static generated 3D worlds into editable and interaction-ready scenes. WorldAct uses a multimodal agent to guide scene decomposition, identify actionable objects, reconstruct geometrically aligned object-level meshes for interaction, and restore the residual background via 3D inpainting. The resulting scenes support object-level editing, collision-aware manipulation, and embodied task execution while preserving global scene coherence. Experiments show that WorldAct enables richer interaction scenarios than the original generated scenes, suggesting a practical path toward editable and interactive 3D world models. Project page: this https URL",
+  "submission_history": "Submission history From: Jichen Hu [ view email ] [v1] Fri, 15 May 2026 10:56:23 UTC (22,562 KB) [v2] Thu, 5 Nov 2026 07:15:15 UTC (28,270 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2605.15843v2",
+  "local_pdf": "papers/P95_WorldAct_2605.15843v2.pdf",
+  "sha256": "6a0b8e43e55b48a461546993ebfe925d2bd93c2e850a6df8750b8bd27ec2972c",
+  "bytes": 37556638,
+  "pages": 21,
+  "text_file": "research/P95_WorldAct.txt",
+  "status": "downloaded_and_text_extracted"
+}

@@ -1,0 +1,30 @@
+{
+  "id": "P48",
+  "slug": "Tri_Dexel_Robotic_Machining",
+  "family": "cutting",
+  "arxiv_id": "",
+  "version": "author-manuscript",
+  "title": "Coupled Dynamic Simulator With Tri-Dexel Milling Module For Robotic Machining Operations",
+  "authors": [
+    "Valentin Dambly",
+    "Édouard Rivière-Lorphèvre",
+    "Olivier Verlinden"
+  ],
+  "publication_date": "2023",
+  "submitted_date": "2023",
+  "doi": "10.1016/j.procir.2023.03.031",
+  "publication_title": "Procedia CIRP",
+  "volume": "117",
+  "page_range": "175-180",
+  "source_url": "https://doi.org/10.1016/j.procir.2023.03.031",
+  "pdf_url": "https://orbi.umons.ac.be/bitstream/20.500.12907/47947/1/PROCIR_CMMO_2023_Dambly.pdf",
+  "abstract": "A coupled robotic machining simulator links machine dynamics with dexel-based material removal, cutting-force computation and updated workpiece geometry. Experimental milling tests verify forces, deviations and geometry.",
+  "accessed": "2026-11-09",
+  "local_pdf": "papers/P48_Tri_Dexel_Robotic_Machining_author-manuscript.pdf",
+  "bytes": 3804394,
+  "sha256": "afd59d36884eabd3c0ab52b872da41efe7df5942e59a133dd0ea95de1cd99390",
+  "text_file": "research/P48_Tri_Dexel_Robotic_Machining.txt",
+  "pages": 6,
+  "submission_history": "Institutional author manuscript; bibliographic source and PDF source recorded separately.",
+  "status": "downloaded_and_text_extracted"
+}

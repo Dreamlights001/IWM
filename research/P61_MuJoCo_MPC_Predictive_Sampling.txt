@@ -1,0 +1,965 @@
+                                                                                                                                                       2022-12-27
+
+
+
+
+                                         Predictive Sampling:
+                                         Real-time Behaviour Synthesis with MuJoCo
+                                         Taylor Howell1,2 , Nimrod Gileadi2 , Saran Tunyasuvunakool2 , Kevin Zakka2,3 , Tom Erez2 and Yuval Tassa2
+                                         1 Stanford University, 2 DeepMind, 3 University of California Berkeley
+
+
+
+
+                                            We introduce MuJoCo MPC (MJPC), an open-                         like AlphaGo [Silver et al., 2016] are predicated
+                                         source, interactive application and software frame-                 on combining model-based search and learning-
+                                         work for real-time predictive control, based on                     based value and policy approximation. We believe
+                                         MuJoCo physics. MJPC allows the user to eas-                        the same could happen for robotics and control,
+                                         ily author and solve complex robotics tasks, and                    and describe our thinking on how this might hap-
+                                         currently supports three shooting-based planners:                   pen in the Discussion (Section 5). However, before
+arXiv:2212.00541v2 [cs.RO] 24 Dec 2022
+
+
+
+
+                                         derivative-based iLQG and Gradient Descent, and                     the community can rise to this challenge, a core
+                                         a simple derivative-free method we call Predictive                  problem must be overcome: Model-based optim-
+                                         Sampling. Predictive Sampling was designed as                       isation is difficult to implement, often depends on
+                                         an elementary baseline, mostly for its pedagogical                  elaborate optimisation algorithms, and is generally
+                                         value, but turned out to be surprisingly compet-                    inaccessible.
+                                         itive with the more established algorithms. This
+                                                                                                                To address this deficit, we present MJPC, an
+                                         work does not present algorithmic advances, and
+                                                                                                             open-source interactive application and software
+                                         instead, prioritises performant algorithms, simple
+                                                                                                             framework for predictive control, based on Mu-
+                                         code, and accessibility of model-based methods
+                                                                                                             JoCo physics [Todorov et al., 2012], which lets
+                                         via intuitive and interactive software. MJPC is
+                                                                                                             the user easily author and solve complex tasks us-
+                                         available at github.com/deepmind/mujoco_mpc,
+                                                                                                             ing predictive control algorithms in real time. The
+                                         a video summary can be viewed at dpmd.ai/mjpc.
+                                                                                                             tool offers implementations of standard derivative-
+                                                                                                             based algorithms: iLQG (second-order planner)
+                                                                                                             and Gradient Descent (first-order planner). Addi-
+                                         1. Introduction                                                     tionally, it introduces Predictive Sampling, a simple
+                                                                                                             zero-order, sampling-based algorithm that works
+                                              odel-base d approaches form the founda-
+                                         M     tion of classical control and robotics. Since
+                                         Kalman’s seminal work [Kalman, 1960], the state
+                                                                                                             surprisingly well and is easy to understand.
+                                                                                                                Importantly, the interactive simulation can be
+                                         along with its dynamics and observation models                      slowed down asynchronously, speeding up the plan-
+                                         has played a central role.                                          ner with respect to simulation time. This means
+                                                                                                             that behaviours can be generated on older, slower
+                                            The classical approach is being challenged by
+                                                                                                             machines, leading to a democratisation of predict-
+                                         learning-based methods, which forgo the explicit
+                                                                                                             ive control tooling.
+                                         description of the state and associated models,
+                                         letting internal representations emerge from the                       MJPC and Predictive Sampling advance our cent-
+                                         learning process [Lillicrap et al., 2015, Schulman                  ral goal of lowering the barriers to entry for pre-
+                                         et al., 2017, Salimans et al., 2017, Smith et al.,                  dictive control in robotics research. An important
+                                         2022, Rudin et al., 2022]. The flexibility afforded                 secondary goal is to accelerate research velocity.
+                                         by learned representations makes these methods                      When tweaking a parameter, a researcher should
+                                         powerful and general, but the requirement for                       not need to wait hours or minutes, but should re-
+                                         large amounts of data and computation makes                         ceive instantaneous feedback – which will measur-
+                                         them slow. In contrast, pure model-based meth-                      ably enhance their own cognitive performance [Lu
+                                         ods, like the ones described below, can synthesise                  and Dosher, 2022]. We believe that flexible, inter-
+                                         behaviour in real time [Tassa et al., 2014].                        active simulation with researcher-authored graph-
+                                                                                                             ical user interface is not just a “nice to have”, but
+                                           Since both approaches ultimately generate be-
+                                                                                                             a prerequisite for advanced robotics research.
+                                         haviour by optimising an objective, there is reason
+                                         to believe they can be effectively combined. In-
+                                         deed, well-known discrete-domain breakthroughs
+
+
+                                         Corresponding author(s): thowell@stanford.edu, tassa@deepmind.com
+                                         © 2022 DeepMind. All rights reserved
+                                                                 Predictive Sampling:
+                                                      Real-time Behaviour Synthesis with MuJoCo
+
+
+
+2. Background                                                               Algorithm 1 Predictive Control (asynchronous)
+                                                                            Agent: (repeat)
+  n this section we provide a general background
+I  on Optimal Control and Trajectory Optim-
+isation, then focus on Predictive Control and
+                                                                             1: Read the current action 𝑢 from the nominal
+                                                                                plan Π, apply it to the controlled system.
+                                                                            Planner: (repeat)
+derivative-free optimisation.
+                                                                             1: Measure the current state 𝑥 .
+                                                                             2: Using the nominal Π to warm-start, optimise
+Optimal control. Optimal Control means choos-                                   the finite-horizon objective 𝐽 .
+ing actions in order to minimise future costs (equi-                         3: Update Π.
+valently, to maximise future returns). A dynam-
+ical system with state 𝑥 ∈ R𝑛 , which takes a user-
+chosen control (or action) 𝑢 ∈ R𝑚 , evolves accord-                              which is usually solved with general-purpose
+ing to the discrete-time1 dynamics:                                              software [Wächter and Biegler, 2006, Gill
+                                                                                 et al., 2005]. They have the important benefit
+                         𝑦 = 𝑓 ( 𝑥, 𝑢) ,                            (1)          that non-physically-realisable trajectories can
+                                                                                 be represented, for example in order to clamp
+returning a new state, 𝑦 ∈ R𝑛 . The behaviour of                                 a final state, without initially knowing how to
+the system is encoded via the running cost:                                      get to it.
+                                                                               • Shooting methods like Differential Dynamic
+                            𝑐 ( 𝑥, 𝑢) ,                             (2)
+                                                                                 Programming [Jacobson and Mayne, 1970]
+a function of state and control, where explicit time-                            use only the controls 𝑢0:𝑇 as decision variables
+dependence can be realised by folding time into                                  and enforce the dynamics via forward simula-
+the state. Future costs (a.k.a cost-to-go or value),                             tion. In the shooting approach only physically-
+can be defined in several ways. The summation can                                realisable trajectories can be considered, but
+continue to infinity, leading to the average-cost or                             they benefit from the reduced search space
+discounted-cost formulations, favoured in temporal-                              and from the optimiser not having to enforce
+difference learning, which we discuss in Section                                 the dynamics. The latter benefit is especially
+5. Here we focus on the finite-horizon formulation,                              important for stiff systems like those with con-
+whereby the optimisation objective 𝐽 is given by:                                tact, where the difference between a physical
+                                                                                 and non-physical trajectory can be very small2 .
+                                      𝑇
+                                     ∑︁                                          Unlike direct methods which require dynam-
+               𝐽 ( 𝑥0:𝑇 , 𝑢0:𝑇 ) =          𝑐 ( 𝑥 𝑡 , 𝑢𝑡 ) ,        (3)          ics derivatives, shooting methods can employ
+                                     𝑡 =0                                        derivative-free optimisation, as discussed be-
+where subscripts indicated discrete-time indices.                                low.
+
+
+Trajectory optimisation. Solving the finite-                                Predictive control. The key idea of Predictive
+horizon optimal control problem (1, 3), i.e., optim-                        Control, invented in the late 60s and first pub-
+ising a fixed-length trajectory, is commonly known                          lished in [Richalet et al., 1978], is to use trajectory
+as planning or trajectory optimisation. These al-                           optimisation in real-time as the system dynamics
+gorithms [Von Stryk and Bulirsch, 1992, Betts,                              are evolving. This class of algorithm has been suc-
+1998] have a rich history reaching back to the                              cessfully deployed in numerous real-world settings
+Apollo Program [NASA, 1971, Smith and Yound,                                including: chemical and nuclear process control
+1967]. An important distinction can be made                                 [Na et al., 2003, Lopez-Negrete et al., 2013], nav-
+between two classes of algorithms:                                          igation for autonomous vehicles [Falcone et al.,
+                                                                            2007], and whole-body control of humanoid ro-
+    • Direct or simultaneous methods have both                              bots [Kuindersma et al., 2016].
+      states and controls as decision variables                               In the real-time setting, the current state 𝑥 needs
+      and enforce the dynamics (1) as constraints.                          to be estimated or measured, and the trajectory
+      These methods (e.g., Von Stryk [1993]) spe-
+                                                                               2 For example, consider the physical scenario of a free rigid
+      cify a large, sparse optimisation problem,
+                                                                            box lying flat on a plane under gravity, and then consider
+    1 The continuous-time formulation is generally equivalent,              the non-physical scenario of the same box hovering above the
+we choose discrete time for notation simplicity.                            plane or penetrating it by a few microns.
+
+
+
+                                                                                                                                          2
+                                               Predictive Sampling:
+                                    Real-time Behaviour Synthesis with MuJoCo
+
+
+
+optimiser is required to return a set of optimal or       clude: random search [Matyas, 1965], genetic
+near-optimal controls for the finite-horizon (here        algorithms [Holland, 1992], and evolutionary
+often called the receding horizon) problem, start-        strategies [Rechenberg, 1973], including CMA-ES
+ing at 𝑥 . We use Π to denote the plan, the finite-       [Hansen and Ostermeier, 2001].
+horizon policy. In the context of shooting methods
+                                                             This class of algorithms has a number of de-
+Π = 𝑢0:𝑇 , though as we discuss later, in some cases
+                                                          sirable properties. First, because derivative in-
+it can be re-parameterised, rather than using the
+                                                          formation is not required, they are well-suited for
+discrete-time control sequence directly. Predictive
+                                                          tasks with non-smooth and discontinuous dynam-
+control is best thought of in terms of two asyn-
+                                                          ics. Second, these methods are trivially parallelis-
+chronous processes, the agent and the planner, see
+                                                          able.
+Algorithm 1.
+                                                            Sampling-based methods have been used in
+  Predictive Control has the following notable
+                                                          the predictive control context, but not very
+properties:
+                                                          widely. Notable exceptions are Hämäläinen’s work
+                                                          [Hämäläinen et al., 2014, 2015], which is an early
+  • Faster computation improves performance.              precursor to MJPC, and the oeuvre of Theodorou
+    The reason for this is clear, the more optim-         including [Williams et al., 2017] and related pa-
+    isation steps the planner can take in one unit        pers. While these methods are usually considered
+    of time, the better the optimised control se-         to be sample inefficient, we explain below why,
+    quences will be.                                      specifically in the predictive control context, they
+  • Warmstarting has a large beneficial effect.           can be surprisingly competitive.
+    By reusing the plan from the previous plan-
+    ning step, the optimiser only needs to make
+    small modifications in order to correct for the       3. MuJoCo MPC (MJPC)
+    changes implied by the new state. Warm-
+    starting also leads to an amortisation of the               e introduce MJPC, an open-source interact-
+    optimisation process across multiple planning
+    steps.
+                                                          W      ive application and software framework for
+                                                          predictive control, that lets the user easily synthes-
+  • The optimisation is not required to converge,         ise behaviours for complex systems using predict-
+    only to improve, see Section 5.1.                     ive control algorithms in real time. Behaviours
+  • Tasks with a behaviour timescale much longer          are specified by simple, composable objectives that
+    than the planning horizon 𝑇 are often still           are risk-aware. The planners, including: Gradi-
+    solvable, though this property is task depend-        ent Descent, Iterative Linear Quadratic Gaussian
+    ent.                                                  (iLQG), and Predictive Sampling are implemented
+  • Predictive controllers can easily get stuck in        in C++ and extensively utilise multi-threading for
+    local minima, especially those using derivat-         parallel rollouts. The framework is asynchronous,
+    ives. This is due to the myopic nature of the         enabling simulation slow-down and emulation of a
+    optimisation, and can be addressed by ter-            faster controller, allowing this tool to run on slow
+    minating the rollout with a value function            machines. An intuitive graphical user-interface en-
+    approximation, see Section 5.3.                       ables real-time interactions with the environment
+                                                          and the ability to modify task parameters, plan-
+                                                          ner and model settings, and to instantly see the
+Derivative-free optimisation. One of the main             effects of the modifications. The tool is available
+reasons for our initial focus on shooting methods         at: https://github.com/deepmind/mujoco_mpc.
+is their ability to make use of derivative-free op-
+timisation, also known as sampling-based optimisa-
+tion [Audet and Hare, 2017]. Despite not lever-           3.1. Physics Simulation
+aging problem structure or gradient information,
+                                                          We build MJPC using the API of the open-source
+this class of algorithms can discover complex beha-
+                                                          physics engine MuJoCo [Todorov et al., 2012]. Mu-
+viours [Salimans et al., 2017, Mania et al., 2018].
+                                                          JoCo is a good infrastructure for an interactive
+   Sampling-based methods maintain a search dis-          framework for robotics algorithms for two main
+tribution over policy parameters and evaluate             reasons: first, MuJoCo supports simulating mul-
+the objective at sampled points in order to find          tiple candidate future trajectories in parallel by
+an improved solution. Popular algorithms in-              offering a thread-safe API, which maximises the
+
+
+                                                                                                              3
+                                                           Predictive Sampling:
+                                                Real-time Behaviour Synthesis with MuJoCo
+
+
+
+         1                                                            Whittle, 1981]. The final running cost 𝑐 is given
+                    𝑅 = −2
+                    𝑅 = −1
+                                                                      by:
+                    𝑅= 0
+                                                                                                                  𝑒𝑅 ·𝑙 ( 𝑥,𝑢) − 1
+                    𝑅= 1                                                        𝑐 ( 𝑥, 𝑢) = 𝜌 ( 𝑙 ( 𝑥, 𝑢); 𝑅) =                      (5)
+                    𝑅= 2                                                                                                   𝑅
+                                                                      The scalar parameter 𝑅 ∈ R denotes risk-sensitivity.
+    𝜌 0.5                                                             𝑅 = 0 (the default) is interpreted as risk-neutral,
+                                                                      𝑅 > 0 as risk-averse, and 𝑅 < 0 as risk-seeking.
+                                                                      The mapping 𝜌 (see Figure 1) has the following
+                                                                      properties:
+
+                                                                         • Defined and smooth for any 𝑅.
+         0                                                               • If 𝑅 = 0, is the identity 𝜌 ( 𝑙 ; 0) = 𝑙 (in the
+             0                       0.5                   1
+                                      𝑙                                    limit).
+                                                                         • Zero is a fixed point: 𝜌 (0; 𝑅) = 0.
+Figure 1 | Risk transformation 𝜌 ( 𝑙; 𝑅). The function                   • The derivative at 0 is 1: 𝜕𝜌 (0; 𝑅)/𝜕𝑙 = 1.
+is evaluated between 0 and 1 for different values                        • Non-negative: If 𝑙 ≥ 0 then 𝜌 ( 𝑙; 𝑅) ≥ 0.
+of the risk parameter 𝑅.                                                 • Monotonic: 𝜌 ( 𝑙; 𝑅) > 𝜌 ( 𝑧; 𝑅) if 𝑙 > 𝑧.
+                                                                         • If 𝑅 < 0 then 𝜌 is bounded: 𝜌 ( 𝑙; 𝑅) < − 1𝑅 .
+                                                                         • 𝜌 ( 𝑙; 𝑅) carries the same units as 𝑙.
+utilisation of modern multi-core CPU architectures;
+second, MuJoCo affords faster-than-realtime sim-
+ulation of high-dimensional systems with many                            Note that for negative 𝑅, the transformation
+                                                                      𝜌 creates costs that are similar to the bounded
+contacts — for example, the humanoid (a 27-DoF
+system) can be simulated 4000 times faster than                       rewards commonly used in reinforcement learn-
+realtime on a single CPU thread.                                      ing. For example, when using the quadratic norm
+                                                                      n( 𝑟 ) = 𝑟𝑇 𝑊𝑟 for some SPD matrix 𝑊 = Σ−1 and
+                                                                      a risk parameter 𝑅 = −1, we get an inverted-
+                                                                                               𝑇 −1
+3.2. Objective                                                        Gaussian cost 𝑐 = 1 − 𝑒−𝑟 Σ 𝑟 , whose minimisation
+                                                                      is equivalent to maximum-likelihood maximisation
+MJPC provides convenient utilities to easily design                   of the Gaussian. This leads to the interesting inter-
+and compose costs in order to specify an object-                      pretation of the bounded rewards commonly used
+ive (3); as well as automatically and efficiently                     in RL as risk-seeking. We do not investigate this
+compute derivatives.                                                  relationship further in this paper.
+
+Costs. We use a “base cost” of the form:                              Derivatives. MuJoCo provides a utility for com-
+                            𝑀
+                           ∑︁                                         puting finite-difference (FD) Jacobians of the dy-
+                                                                      namics, which is efficient in two ways. First, by
+                                                   
+             𝑙 ( 𝑥, 𝑢) =         𝑤𝑖 · n𝑖 𝑟𝑖 ( 𝑥, 𝑢) .          (4)
+                           𝑖=0                                        avoiding re-computation where possible, for ex-
+                                                                      ample when differencing w.r.t. controls, quantities
+This cost is a sum of 𝑀 terms, each comprising:                       that depend only on positions and velocities are
+                                                                      not recomputed. Second, because FD computa-
+  • A nonnegative weight 𝑤 ∈ R+ determining the                       tional costs scale with the dimension of the input,
+    relative importance of this term.                                 outputs can be added cheaply. MuJoCo’s step func-
+  • A twice-differentiable norm n(·) : R 𝑝 → R+ ,                     tion 𝑦, 𝑟 = 𝑓 ( 𝑥, 𝑢), computes both the next state 𝑦
+    which takes its minimum at 0 𝑝 .                                  and sensor values 𝑟 , defined in the model. Because
+  • The residual 𝑟 ∈ R 𝑝 is a vector of elements                      the FD approximation of the Jacobians,
+    that are “small when the task is solved”.                                                𝜕𝑦 𝜕𝑦 𝜕𝑟 𝜕𝑟
+                                                                                               ,  ,  , ,                             (6)
+                                                                                             𝜕𝑥 𝜕𝑢 𝜕𝑥 𝜕𝑢
+Risk sensitivity. We augment the base cost (4)                        scales like the combined dimension of 𝑥 and 𝑢,
+with a risk-aware exponential scalar transforma-                      adding more sensors 𝑟 is effectively “free”. MJPC
+tion, 𝜌 : R+ ×R → R, corresponding to the classical                   automatically and efficiently computes cost deriv-
+risk-sensitive control framework [Jacobson, 1973,                     atives as follows.
+
+
+                                                                                                                                       4
+                                                                   Predictive Sampling:
+                                                        Real-time Behaviour Synthesis with MuJoCo
+
+
+
+                                                                              Algorithm 2 iLQG
+                                                                              Require: initial state 𝑥0 , nominal plan Π = 𝑢0:𝑇
+                                                                               1: Roll out nominal trajectory from 𝑥0 using Π
+                                                                               2: Compute action improvements and feedback
+                                                                                  policy using Dynamic Programming.
+  𝑢                                                                            3: Roll out parallel line search with feedback
+                                                                                  policy (11).
+                                                                               4: Best actions are new nominal actions.
+                   Zero
+                   Linear
+                   Cubic                                                      to do this, we picked the simplest: splines. Ac-
+                   Knots
+                                                                              tion trajectories are represented as a time-indexed
+                                          𝜏
+                                                                              set of knots, or control-points, parameterised by a
+                                                                              sequence of monotonic time points 𝜏0:𝑃 and para-
+Figure 2 | Time-indexed spline representation of                              meter values 𝜃0:𝑃 , where we use the shorthand
+the controls. Parameter points (black) utilised to                            𝜃 = 𝜃0: 𝑃 . Given a query point 𝜏, the evaluation of
+construct: zero (magenta), linear (orange), and                               the spline is given by:
+cubic (blue) interpolants.
+                                                                                                                         
+                                                                                                    𝑢 = 𝑠 𝜏; ( 𝜏0: 𝑃 , 𝜃) .    (9)
+Gradients. Cost gradients are computed with:
+                                                                              We provide three spline implementations: tradi-
+                  𝜕𝑐       𝜕𝑙
+                                           𝑀
+                                          ∑︁         𝜕n𝑖 𝜕𝑟𝑖                  tional cubic Hermite splines, piecewise-linear in-
+                     = 𝑒𝑅𝑙    = 𝑒𝑅𝑙             𝑤𝑖           ,       (7a)     terpolation, and zero-order hold. See (Fig. 2) for
+                  𝜕𝑥       𝜕𝑥                        𝜕𝑟 𝜕𝑥
+                                          𝑖=0                                 an illustration.
+                                          𝑀
+                                    ∑︁ 𝜕n𝑖 𝜕𝑟𝑖
+                  𝜕𝑐       𝜕𝑙
+                     = 𝑒𝑅𝑙    = 𝑒𝑅𝑙   𝑤𝑖       .                     (7b)        The main benefit of compressed representations
+                  𝜕𝑢       𝜕𝑢            𝜕𝑟 𝜕𝑢                                like splines is that they reduce the search space.
+                                          𝑖=0
+                                                                              They also smooth the control trajectory, which is
+The norm gradients, 𝜕n/𝜕𝑟 , are computed analytic-                            often desirable. Spline functions belong to the
+ally.                                                                         class of linear bases, which includes the Fourier
+                                                                              basis and orthogonal polynomials. These are use-
+Hessians. Second-order derivatives use the                                    ful because they allow easy propagation of gradi-
+Gauss-Newton approximation, ignoring second de-                               ents from the direct representation 𝜕Π back to the
+rivatives of 𝑟 :                                                              parameter values 𝜕𝜃. In our case this amounts to
+               "𝑀                              #                              computing:
+    𝜕2 𝑐         ∑︁ 𝜕𝑟𝑖 𝑇 𝜕2 n𝑖 𝜕𝑟𝑖    𝜕𝑙 𝑇 𝜕𝑙                                                               𝜕𝑠
+         ≈𝑒 𝑅𝑙
+                   𝑤𝑖               +𝑅           , (8a)                                                         ,             (10)
+       2
+      𝜕𝑥                     2 𝜕𝑥    𝜕𝑟       𝜕𝑥       𝜕𝑥 𝜕𝑥                                                 𝜕𝜃
+                       𝑖=0
+                       "𝑀                                        #
+      𝜕2 𝑐              ∑︁      𝜕𝑟𝑖 𝑇 𝜕2 n𝑖 𝜕𝑟𝑖     𝜕𝑙 𝑇 𝜕𝑙                   which has a simple analytic formula (see code for
+                  𝑅𝑙
+           2
+             ≈𝑒              𝑤𝑖                 + 𝑅         , (8b)            details). Unlike other linear bases, splines have
+      𝜕𝑢                        𝜕𝑢 𝜕𝑟 2 𝜕𝑢          𝜕𝑢 𝜕𝑢
+                       𝑖=0
+                       "𝑀                                        #            the convenient property that bounding the values
+   𝜕2 𝑐                 ∑︁      𝜕𝑟𝑖 𝑇 𝜕2 n𝑖 𝜕𝑟𝑖     𝜕𝑙 𝑇 𝜕𝑙                   𝜃 also bounds the spline trajectory. This is exactly
+             ≈ 𝑒𝑅𝑙           𝑤𝑖                 + 𝑅         . (8c)
+  𝜕𝑥𝜕𝑢                          𝜕𝑥 𝜕𝑟 2 𝜕𝑢          𝜕𝑥 𝜕𝑢                     true for the zero and linear interpolations, and
+                       𝑖=0
+                                                                              mostly-true for cubic splines. Bounding is import-
+The norm Hessians, 𝜕2 n/𝜕𝑟 2 , are computed analyt-                           ant as most physical systems clamp controls to
+ically.                                                                       bounds, and there is no point searching outside
+                                                                              of them. Expressions for cubic, linear and zero
+                                                                              interpolations are provided in Appendix A.
+3.3. Splines
+
+As we explain below, planners like iLQG require the
+                                                                              3.4. Planners
+direct control-sequence representation 𝑢0:𝑇 due to
+the requirements of the Bellman Principle. Without                            MJPC includes two derivative-based planners.
+this constraint, controls can be “compressed” into
+a lower-dimensional object. There are many ways
+
+
+                                                                                                                                 5
+                                                       Predictive Sampling:
+                                            Real-time Behaviour Synthesis with MuJoCo
+
+
+
+Algorithm 3 Gradient Descent                                       Algorithm 4 Predictive Sampling
+Require: initial state 𝑥0 , nominal plan Π( 𝜃)                     Parameters: 𝑁 rollouts, noise scale 𝜎
+ 1: Roll out nominal from 𝑥0 using Π( 𝜃)                           Require: initial state 𝑥0 , nominal plan Π( 𝜃)
+ 2: Compute 𝜕𝐽 /𝜕Π with (14)                                        1: Get 𝑁 −1 samples 𝜃𝑖 ∼ N ( 𝜃, 𝜎2 )
+ 3: Compute 𝜕𝐽 /𝜕𝜃 with (13)                                        2: Including 𝜃, roll out all 𝑁 samples from 𝑥0
+                                                                    3: Pick the best one: 𝜃 ← argmin 𝐽 ( 𝜃 ( 𝑖) )
+                                                                                                                  
+ 4: Roll out parallel line-search with (12)
+ 5: Pick the best one: 𝜃 ← argmin 𝐽 ( 𝜃 ( 𝑖) )
+                                               
+
+
+                                                                   with respect to 𝑢 are given by:
+iLQG. The iLQG3 planner [Tassa et al., 2012],                                                     𝜕 𝑓 𝑇
+a Gauss-Newton approximation of the DDP al-                                               𝜕𝑐
+                                                                                        𝜆𝑗 =   +          𝜆 𝑗+1 ,   (14a)
+gorithm [Jacobson and Mayne, 1970], utilises first-                                       𝜕𝑥 𝑗    𝜕𝑥 𝑗
+and second-order derivative information to take                                    𝜕𝐽     𝜕𝑐      𝜕 𝑓 𝑇
+                                                                                        =      +          𝜆 𝑗+1 .   (14b)
+an approximate Newton step over the open-loop                                      𝜕𝑢 𝑗   𝜕𝑢 𝑗     𝜕𝑢 𝑗
+control sequence 𝑢0:𝑇 via dynamic programming
+[Kalman, 1964], producing a time-varying linear                    The primary advantage of this first-order method
+feedback policy:                                                   compared to a computationally more expensive
+                                                                   method like iLQG is that optimisation is performed
+                    ¯𝑡 + 𝐾𝑡 ( 𝑥𝑡 − 𝑥¯𝑡 ) + 𝛼𝑘𝑡 .
+               𝑢𝑡 = 𝑢                                    (11)      over the smaller space of spline parameters, in-
+                                                                   stead of the entire (non-parametric) sequences of
+The nominal, or current best trajectory, is denoted                actions.
+with overbars (¯), 𝐾 is a feedback gain matrix,
+and 𝑘 is an improvement to the current action tra-
+jectory. A parallel line search over the step size                 Predictive Sampling. This is a trivial, zero-order,
+𝛼 ∈ [ 𝛼min , 1] is performed to find the best im-                  sampling-based Predictive Control method that
+provement. Additional enhancements include a                       works well and is easy to understand. Designed
+constrained backward pass [Tassa et al., 2014]                     as an elementary baseline, this algorithm turned
+that enforces action limits and adaptive regular-                  out to be surprisingly competitive with the more
+isation. The details of iLQG are too involved to                   elaborate derivative-based algorithms.
+restate here, we refer the reader to the references
+above for details.
+                                                                   Algorithm. A nominal sequence of actions, rep-
+                                                                   resented with spline parameters, is iteratively im-
+Gradient descent. This first-order planner,                        proved using random search [Matyas, 1965]. At
+known as Pontryagin’s Maximum Principle [Man-                      each iteration, 𝑁 candidate splines are evaluated:
+gasarian, 1966], utilises gradient information to                  the nominal itself and 𝑁 − 1 noisy samples from a
+improve action sequences, here represented as                      Gaussian with the nominal as its mean and fixed
+splines. The gradient of the total return is used to               standard deviation 𝜎. After sampling, the actions
+update the spline parameters, using a parallel line                are clamped to the control limits by clamping the
+search over the step size 𝛼 ∈ [𝛼min , 𝛼max ]:                      spline parameters 𝜃. Each candidate’s total return
+                                                                   is evaluated and the nominal is updated with the
+                       𝜃←𝜃−𝛼
+                                    𝜕𝐽
+                                       .                 (12)      best candidate. See Algorithm 4 and pseudocode
+                                    𝜕𝜃                             in Appendix C. Predictive Sampling is not innov-
+The total gradient is given by:                                    ative or performant, but is presented as a simple
+                                                                   baseline, see Discussion below.
+                       𝜕𝐽   𝜕𝐽 𝜕Π
+                          =       ,                      (13)
+                       𝜕𝜃 𝜕Π 𝜕𝜃
+                                                                   4. Results
+where the spline gradient 𝜕Π/𝜕𝜃 is given by (10),
+while 𝜕𝐽 /𝜕Π is computed with the Maximum Prin-                          e provide a short textual description of our
+ciple. Letting 𝜆 denote the co-state, the gradients                W      graphical user interface (GUI) for three ex-
+                                                                   ample tasks. They are best understood by viewing
+   3 Equivalently, “iLQR”, since we don’t make use of the noise-
+sensitive term for which iLQG was originally developed [Li
+                                                                   the associated video at dpmd.ai/mjpc or better yet,
+and Todorov, 2004]. We keep the name “iLQG” due to its             by downloading the software and interacting with
+provenance.                                                        it.
+
+
+                                                                                                                        6
+                                               Predictive Sampling:
+                                    Real-time Behaviour Synthesis with MuJoCo
+
+
+
+4.1. Graphical User Interface                             automatic transition occurs and the next target is
+                                                          set.
+The MJPC GUI, shown and described in Fig. 3,
+provides an interactive simulation environment, as
+well as modules containing live plots and paramet-        Hand. A Shadow Hand [Tuffield and Elias,
+ers that can be set by the researcher. The intuitive      2003], also from MuJoCo Menagerie, performs
+interface makes policy design easy by enabling the        in-hand manipulation of a cube to a desired ori-
+researcher to interactively change cost parameters        entation (Fig. 4c), where this goal can be set by
+or planner settings and immediately see the results       the researcher in real-time by interactively setting
+in both the simulation environment and live plots,        the target orientation. In-hand reorientation—a
+allowing fast debugging and an enhanced under-            high-DoF system with complex contact dynamics—
+standing of the factors that influence behaviour.         is considered difficult to solve [Chen et al., 2022]
+                                                          and to the best of our knowledge has not previously
+                                                          been solved from scratch, in real time.
+4.2. Examples
+
+In the following examples, we demonstrate the abil-
+                                                          5. Discussion
+ity to synthesise complex locomotion and manipu-
+lation behaviours for a variety of high-dimensional           h e thrust of this paper is to make predictive
+systems in simulation on a single CPU. Further,
+we demonstrate that the behaviours are robust
+                                                          T    control accessible via customisable, interact-
+                                                          ive, open-source tooling. We believe that respons-
+to disturbances and mismatch between the sim-             ive, GUI-based tools are a prerequisite for acceler-
+ulation and planning model, and can adapt ex-             ated robotics research, and that due to their im-
+tremely quickly in new scenarios. For all of the ex-      portance, these tools should be modifiable and the
+amples, the total planning time for a single update       inner workings transparent to the researcher. We
+is between 1 and 20 milliseconds. We highlight            hope that our MJPC project will be embraced by
+three examples below and provide additional ex-           the community, and look forward to improving and
+amples with the software. Experimental details for        extending it together.
+objectives and planner settings are found in the
+Appendix B.
+                                                          5.1. Predictive Sampling
+
+                                                          The effectiveness of this simple method suggests
+Humanoid. This 27-DOF human-like system,
+                                                          that fast, approximate optimisation can be com-
+from DeepMind Control Suite [Tunyasuvunakool
+                                                          petitive with more sophisticated methods which
+et al., 2020], has 21 actions and is tasked with
+                                                          return better solutions but at a lower rate. Does
+standing. The system can be initialised on the
+                                                          the higher planning rate completely explain this
+floor and quickly stands in a manner that is robust
+                                                          surprising effectiveness? We believe there is an-
+to large disturbances. If a sufficiently large dis-
+                                                          other, subtler reason. Predictive Control is not
+turbance knocks the humanoid onto the floor, the
+                                                          well-described by the tenets of traditional optim-
+system will stand back up (Fig. 4a).
+                                                          isation. For example, it usually makes no sense to
+                                                          take more than one step of optimisation. Once a
+                                                          single iteration is complete, it is more important to
+Quadruped. A Unitree A1 quadruped [Unitree,
+                                                          measure a new value of the state and re-plan, than
+2022], from MuJoCo Menagerie [MuJoCo Mena-
+                                                          it is to continue to converge to the minimum of
+gerie Contributors, 2022], exhibits agile behaviour
+                                                          an already-outdated problem. The constant shift-
+to traverse uneven terrain which includes walking
+                                                          ing of the optimisation landscape makes Predictive
+over a steep slope. On slower machines, the quad-
+                                                          Control a qualitatively different problem, more like
+ruped often struggles to ascend. In this scenario,
+                                                          surfing than mountain climbing. The goal is not
+the simulation slow down can be effectively utilised
+                                                          to find the minimum, but to remain in the basin-
+to provide the planner with addition simulation
+                                                          of-attraction of the minimum. This is a different,
+time to plan a successful climb. The system is
+                                                          weaker criterion, at which simple algorithms fair
+also capable of rolling off its back and standing up
+                                                          better than when measured by the traditional yard-
+(Fig. 4b). In order to perform long-horizon tasks
+                                                          stick of convergence.
+like continuously navigating the terrain, a series
+of target poses are set. Once a goal is reached, an          To be clear, Predictive Sampling is not a novel
+
+
+                                                                                                             7
+                                                 Predictive Sampling:
+                                      Real-time Behaviour Synthesis with MuJoCo
+
+
+
+
+Figure 3 | Graphical User Interface. The left tab includes modules for Tasks and the Agent. In the
+Task module, models are selected from a drop-down menu and the risk value is set; cost weights
+and residual parameters are specified with interactive sliders. The Agent module provides access to a
+drop-down menu for planners, settings, and switches that toggle the planner and controller. The right
+tab includes simulation readings and predictions for the cost, including individual terms, and actions.
+Live, planner-specific information and various compute time results are shown below. Traces of the
+current policy and sampled trajectories are visualised and the user can interactively pause or slow down
+the simulation and apply external forces and moments to the system.
+
+
+algorithm; instead, it is a baseline. A corner-case              tasks, expose task parameters to the GUI, and
+of many existing methods, it can variously be de-                quickly generate the desired behaviour. The
+scribed as “MPPI with infinite temperature”, “CEM                task can then be re-implemented in any other
+with a non-adaptive distribution” or just “trivial               framework of choice. While we have not yet
+random search”. Better algorithms exist, but none                implemented time-dependent tasks, it is pos-
+are so easy to describe or implement. We are intro-              sible and easy; we expect MJPC to work espe-
+ducing Predictive Sampling not because it is good,               cially well for motion-tracking tasks.
+but because it is not good. It is the simplest possible       2. Data generation. MJPC can be used to gener-
+sampling-based shooting method, and therefore es-                ate data for learning-based approaches, i.e., it
+tablishes a lower bound for performance baselines.               can act like an “expert policy”. In this context,
+                                                                 it is often the case that the model and task
+                                                                 from which the data is generated do not have
+5.2. Use cases                                                   to exactly match the one used by the learner,
+Before we discuss limitations and their possible                 and the data can likely be useful for a wide
+resolutions, it is worth asking how can MJPC be                  range of setups.
+used now, as it is described above?                           3. Predictive Control research. For researchers
+                                                                 interested in Predictive Control itself, MJPC
+                                                                 provides an ideal playground. MJPC can
+ 1. Task design. MJPC makes it easy to add new
+
+
+                                                                                                                8
+                                                Predictive Sampling:
+                                     Real-time Behaviour Synthesis with MuJoCo
+
+
+
+
+                                  (a) Humanoid standing up off the floor.
+
+
+
+
+                              (b) Quadruped rolling off its back to stand up.
+
+
+
+
+                           (c) Hand manipulating a cube to a goal orientation.
+
+Figure 4 | Behaviours generated with MuJoCo MPC. Time progresses left to right.
+
+
+     switch planners on-the-fly, and its asynchron-        2020], to disambiguate the effects of modeling
+     ous design affords a fair comparison by cor-          errors.
+     rectly accounting for and rewarding faster
+     planners.
+                                                           Myopic. The core limitation of Predictive Con-
+                                                           trol is that it is myopic and cannot see past the
+5.3. Limitation and Future Work                            fixed horizon. This can be ameliorated in three
+Can only control what MuJoCo can simulate.                 conceptually straightforward ways:
+This is a general limitation of Predictive Control
+and is in fact stronger since one can only control           1. Learned policies. By adding a learned
+what can be simulated much faster than real-time.               policy, information from past episodes can
+For example, it is difficult to imagine any simula-             propagate to the present via policy generalisa-
+tion of a very-high-DoF system, like fluid, cloth               tion [Byravan et al., 2021]. This approach is
+or soft bodies advancing so fast. One solution                  attractive since it can only improve perform-
+is improved simulation using a combination of                   ance: when rolling out samples, one also rolls
+traditional physics modeling and learning, e.g.,                out the proposal policy. If the rollout is better,
+[Ladicky et al., 2017]. Another possibility is to en-           it becomes the new nominal. A learned policy
+tirely learn the dynamics from observations. This               is also expected to lead to more stereotypical,
+approach, often termed Model Based Reinforce-                   periodic behaviours, which are important in
+ment Learning is showing great promise [Heess                   locomotion.
+et al., 2015, Nagabandi et al., 2020, Wu et al.,             2. Value functions. Terminating the rollout
+2022]. We would recommend that where possible,                  with a learned value function which estimates
+when attempting Predictive Control using learned                the remaining cost-to-go is the obvious way by
+dynamics models, a traditional simulator be em-                 which to increase the effective horizon. Com-
+ployed as a fallback as in [Schrittwieser et al.,               bining learned policies and value functions
+
+
+                                                                                                                9
+                                                Predictive Sampling:
+                                     Real-time Behaviour Synthesis with MuJoCo
+
+
+
+    with model-based search would amount to                Arunkumar Byravan, Leonard Hasenclever, Piotr
+    an “AlphaGo for control” [Silver et al., 2016,           Trochim, Mehdi Mirza, Alessandro Davide Ia-
+    Springenberg et al., 2020].                              longo, Yuval Tassa, Jost Tobias Springenberg,
+ 3. High-level agent. A predictive controller                Abbas Abdolmaleki, Nicolas Heess, Josh Merel,
+    could be used as the low-level module in a               et al. Evaluating model-based planning and
+    hierarchical control setup. In this scenario,            planner amortization for continuous control.
+    the actions of the high-level agent have the             arXiv:2110.03363, 2021.
+    semantics of setting the cost function of the
+    predictive controller. The predictive control-         Tao Chen, Jie Xu, and Pulkit Agrawal. A system
+    ler remains myopic while the high-level agent            for general in-hand object re-orientation. In
+    contains the long-horizon “cognitive” aspects            Conference on Robot Learning, pages 297–307,
+    of the task. A benefit of this scenario is that          2022.
+    the high-level actions have a much lower fre-          Paolo Falcone, Francesco Borrelli, Jahan Asgari,
+    quency than required for low-level control               Hongtei Eric Tseng, and Davor Hrovat. Pre-
+    (e.g., torques).                                         dictive active steering control for autonomous
+                                                             vehicle systems. IEEE Transactions on Control
+Hardware. MJPC is aimed at robotics research,                Systems Technology, 15(3):566–580, 2007.
+which raises the question, can it be used to control
+                                                           Philip E. Gill, Walter Murray, and Michael A. Saun-
+hardware?
+                                                             ders. SNOPT: An SQP algorithm for large-scale
+                                                             constrained optimization. SIAM Review, 47(1):
+ 1. Transfer learning. As mentioned in 5.2, us-              99–131, 2005.
+    ing MJPC to generate data which can then be
+    transferred to a real robot is already possible.       Perttu Hämäläinen, Sebastian Eriksson, Esa
+ 2. Estimation. The most obvious yet difficult               Tanskanen, Ville Kyrki, and Jaakko Lehtinen.
+    route to controlling hardware is to follow in            Online motion synthesis using sequential Monte
+    the footsteps of classic control and couple              Carlo. ACM Transactions on Graphics, 2014.
+    MJPC to an estimator providing real-time
+    state estimates. In the rare cases where es-           Perttu Hämäläinen, Joose Rajamäki, and C. Karen
+    timation is easy, for example with fixed-base            Liu. Online control of simulated humanoids us-
+    manipulators and static objects, controlling a           ing particle belief propagation. ACM Transac-
+    robot directly with MJPC would be a straight-            tions on Graphics, 2015.
+    forward exercise. The difficult and interesting
+                                                           Nikolaus Hansen and Andreas Ostermeier. Com-
+    case involves free-moving bodies and contacts,
+                                                             pletely derandomized self-adaptation in evolu-
+    as in locomotion and manipulation. For cer-
+                                                             tion strategies. Evolutionary Computation, 9(2):
+    tain specific cases, like locomotion on flat, uni-
+                                                             159–195, 2001.
+    form terrain, reasonable estimates should not
+    be difficult to obtain. For the general case, we       Nicolas Heess, Gregory Wayne, David Silver,
+    believe that contact-aware estimation is pos-            Timothy Lillicrap, Tom Erez, and Yuval
+    sible following the approach of [Lowrey et al.,          Tassa. Learning continuous control policies by
+    2014], but that remains to be seen. Relatedly,           stochastic value gradients. Advances in Neural
+    we believe that high-quality estimators also re-         Information Processing Systems, 28, 2015.
+    quire the same kind of interactive, GUI-driven
+    interface used by MJPC.                                John H. Holland. Genetic algorithms. Scientific
+                                                             American, 267(1):66–73, 1992.
+
+References                                                 David Jacobson. Optimal stochastic linear systems
+                                                             with exponential performance criteria and their
+Charles Audet and Warren Hare. Derivative-Free               relation to deterministic differential games. IEEE
+  and Blackbox Optimization, volume 2. Springer,             Transactions on Automatic Control, 18(2):124–
+  2017.                                                      131, 1973.
+
+John T. Betts. Survey of numerical methods for             David H. Jacobson and David Q. Mayne. Differential
+  trajectory optimization. Journal of Guidance,              Dynamic Programming. Number 24. Elsevier
+  Control, and Dynamics, 21(2):193–207, 1998.                Publishing Company, 1970.
+
+
+                                                                                                            10
+                                               Predictive Sampling:
+                                    Real-time Behaviour Synthesis with MuJoCo
+
+
+
+Rudolf E. Kalman. On the general theory of control           competitive for reinforcement learning. In Ad-
+  systems. In International Conference on Auto-              vances in Neural Information Processing Systems,
+  matic Control, pages 481–492, 1960.                        pages 1800–1809, 2018.
+
+Rudolf E. Kalman. When Is a Linear Control System         J. Matyas. Random optimization. Automation and
+  Optimal? Journal of Basic Engineering, 86(1):              Remote Control, 26(2):246–253, 1965.
+  51–60, 1964.
+                                                          MuJoCo Menagerie Contributors.    MuJoCo
+Scott Kuindersma, Robin Deits, Maurice Fallon, An-         Menagerie:   A collection of high-quality
+  drés Valenzuela, Hongkai Dai, Frank Permenter,           simulation models for MuJoCo, 2022. URL
+  Twan Koolen, Pat Marion, and Russ Tedrake.                 http://github.com/deepmind/mujoco_
+  Optimization-based locomotion planning, es-                menagerie.
+  timation, and control design for the Atlas hu-
+  manoid robot. Autonomous Robots, 40(3):429–             Man Gyun Na, Sun Ho Shin, and Whee Cheol Kim.
+  455, 2016.                                               A model predictive controller for nuclear reactor
+Lubor Ladicky, SoHyeon Jeong, Nemanja Barto-               power. Nuclear Engineering and Technology, 35
+  lovic, Marc Pollefeys, and Markus Gross. Phys-           (5):399–411, 2003.
+  icsForests: Real-time fluid simulation using ma-
+                                                          Anusha Nagabandi, Kurt Konolige, Sergey Levine,
+  chine learning. In ACM SIGGRAPH Real Time
+                                                            and Vikash Kumar. Deep dynamics models for
+  Live!, page 22, 2017. ISBN 9781450350907.
+                                                            learning dexterous manipulation. In Conference
+Weiwei Li and Emanuel Todorov. Iterative linear             on Robot Learning, pages 1101–1112, 2020.
+ quadratic regulator design for nonlinear biolo-
+ gical movement systems. In International Confer-         NASA. Apollo 11 Mission Report, volume 238. Sci-
+ ence on Informatics in Control, Automation and            entific and Technical Information Office, Na-
+ Robotics, pages 222–229, 2004.                            tional Aeronautics and Space Administration,
+                                                           1971.
+Timothy P. Lillicrap, Jonathan J. Hunt, Alexan-
+  der Pritzel, Nicolas Heess, Tom Erez, Yuval             Ingo Rechenberg. Evolutionsstrategie. Optimierung
+  Tassa, David Silver, and Daan Wierstra. Continu-          technischer Systeme nach Prinzipien derbiologis-
+  ous control with deep reinforcement learning.             chen Evolution, 1973.
+  arXiv:1509.02971, 2015.
+                                                          Jacques Richalet, André Rault, J. L. Testud, and
+Rodrigo Lopez-Negrete, Fernando J. D’Amato,                 J. Papon. Model predictive heuristic control:
+  Lorenz T. Biegler, and Aditya Kumar. Fast nonlin-         Applications to industrial processes. Automatica,
+  ear model predictive control: Formulation and             14(5):413–428, 1978.
+  industrial process applications. Computers &
+  Chemical Engineering, 51:55–64, 2013.                   Nikita Rudin, David Hoeller, Philipp Reist, and
+                                                            Marco Hutter. Learning to walk in minutes using
+Kendall Lowrey, Svetoslav Kolev, Yuval Tassa,               massively parallel deep reinforcement learning.
+  Tom Erez, and Emanuel Todorov. Physically-                In Conference on Robot Learning, pages 91–100,
+  consistent sensor fusion in contact-rich beha-            2022.
+  viors. In IEEE/RSJ International Conference on
+  Intelligent Robots and Systems, pages 1656–1662,        Tim Salimans, Jonathan Ho, Xi Chen, Szymon
+  2014.                                                     Sidor, and Ilya Sutskever. Evolution strategies as
+                                                            a scalable alternative to reinforcement learning.
+Zhong-Lin Lu and Barbara Anne Dosher. Current
+                                                            arXiv:1703.03864, 2017.
+  directions in visual perceptual learning. Nature
+  Reviews Psychology, 1(11):654–668, 2022.                Julian Schrittwieser, Ioannis Antonoglou, Thomas
+O. L. Mangasarian. Sufficient conditions for the op-        Hubert, Karen Simonyan, Laurent Sifre, Simon
+  timal control of nonlinear systems. SIAM Journal          Schmitt, Arthur Guez, Edward Lockhart, Demis
+  on Control, 4(1):139–152, 1966.                           Hassabis, Thore Graepel, Timothy Lillicrap, and
+                                                            David Silver. Mastering Atari, Go, chess and
+Horia Mania, Aurelia Guy, and Benjamin Recht.               shogi by planning with a learned model. Nature,
+ Simple random search of static linear policies is          588(7839):604–609, 2020.
+
+
+                                                                                                           11
+                                               Predictive Sampling:
+                                    Real-time Behaviour Synthesis with MuJoCo
+
+
+
+John Schulman, Filip Wolski, Prafulla Dhariwal,              Tassa. dm_control: Software and tasks for con-
+  Alec Radford, and Oleg Klimov. Proximal policy             tinuous control. Software Impacts, 6:100022,
+  optimization algorithms. arXiv:1707.06347,                 2020.
+  2017.
+                                                          Unitree. Unitree A1 Quadruped. https://m.
+David Silver, Aja Huang, Chris J. Maddison, Arthur          unitree.com/products/a1, 2022.
+  Guez, Laurent Sifre, George van den Driessche,
+  Julian Schrittwieser, Ioannis Antonoglou, Veda          Oskar Von Stryk. Numerical solution of optimal
+  Panneershelvam, Marc Lanctot, Sander Diele-               control problems by direct collocation. In Op-
+  man, Dominik Grewe, John Nham, Nal Kal-                   timal Control, pages 129–143. Springer, 1993.
+  chbrenner, Ilya Sutskever, Timothy Lillicrap,           Oskar Von Stryk and Roland Bulirsch. Direct
+  Madeleine Leach, Koray Kavukcuoglu, Thore                 and indirect methods for trajectory optimization.
+  Graepel, and Demis Hassabis. Mastering the                Annals of Operations Research, 37(1):357–373,
+  game of Go with deep neural networks and tree            1992.
+  search. Nature, 529(7587):484–489, 2016.
+                                                          Andreas Wächter and Lorenz T. Biegler. On the
+Laura Smith, Ilya Kostrikov, and Sergey Levine.             implementation of an interior-point filter line-
+  A walk in the park: Learning to walk in 20                search algorithm for large-scale nonlinear pro-
+  minutes with model-free reinforcement learn-              gramming. Mathematical Programming, 106(1):
+  ing. arXiv:2208.07860, 2022.                              25–57, 2006.
+R. E. Smith and J. W. Yound. Trajectory optimiza-         Peter    Whittle.            Risk-sensitive   lin-
+  tion for an Apollo-type vehicle under entry condi-        ear/quadratic/Gaussian control.        Advances
+  tions encountered during lunar return. Technical          in Applied Probability, 13(4):764–777, 1981.
+  report, 1967.
+                                                          Grady Williams, Andrew Aldrich, and Evangelos A.
+Jost Tobias Springenberg, Nicolas Heess, Daniel             Theodorou. Model predictive path integral
+  Mankowitz, Josh Merel, Arunkumar Byravan,                 control: From theory to parallel computation.
+  Abbas Abdolmaleki, Jackie Kay, Jonas Degrave,             Journal of Guidance, Control, and Dynamics, 40
+  Julian Schrittwieser, Yuval Tassa, et al. Local           (2):344–357, 2017.
+  search for policy iteration in continuous control.
+  arXiv:2010.05545, 2020.                                 Philipp Wu, Alejandro Escontrela, Danijar Hafner,
+                                                            Ken Goldberg, and Pieter Abbeel. DayDreamer:
+Yuval Tassa, Tom Erez, and Emanuel Todorov.                 World models for physical robot learning.
+  Synthesis and stabilization of complex behavi-            arXiv:2206.14176, 2022.
+  ors through online trajectory optimization. In
+  IEEE/RSJ International Conference on Intelligent
+  Robots and Systems, pages 4906–4913, 2012.
+
+Yuval Tassa, Nicolas Mansard, and Emo Todorov.            Appendices
+  Control-limited differential dynamic program-
+  ming. In IEEE International Conference on Robot-
+                                                          A. Interpolation
+  ics and Automation, pages 1168–1175, 2014.
+
+Emanuel Todorov, Tom Erez, and Yuval Tassa. Mu-           This section provides analytical expressions for
+ JoCo: A physics engine for model-based con-              computing interpolations. The indices 𝑗 and 𝑗 + 1
+  trol. In IEEE/RSJ International Conference on In-       correspond to the indices of the domain variables
+  telligent Robots and Systems, pages 5026–5033,          which contain the query point 𝜏. These values are
+ 2012.                                                    efficiently found using binary search in O (log( 𝑛))
+                                                          where 𝑛 is the dimension of the domain variable
+Paul Tuffield and Hugo Elias. The Shadow robot            set.
+  mimics human actions. Industrial Robot: An
+  International Journal, 2003.
+                                                          Zero. The zero-order interpolation simply re-
+Saran Tunyasuvunakool, Alistair Muldal, Yotam             turns the parameter values at the lower bound
+  Doron, Siqi Liu, Steven Bohez, Josh Merel, Tom          index:
+  Erez, Timothy Lillicrap, Nicolas Heess, and Yuval                          𝜃 𝑗 ← 𝑠.               (15)
+
+
+                                                                                                           12
+                                                        Predictive Sampling:
+                                             Real-time Behaviour Synthesis with MuJoCo
+
+
+
+Linear. The linear interpolation returns:                             • Term 3:
+                                                                               r3 : lateral center-of-mass velocity
+               (1 − 𝑞) · 𝜃 𝑗 + 𝑞 · 𝜃 𝑗+1 ← 𝑠,            (16)
+                                                                               n3 : smooth absolute value
+where     𝑞 = ( 𝜏 − 𝜏 𝑗 )/( 𝜏 𝑗+1 − 𝜏 𝑗 ).                                     𝑤3 : 10
+                                                                      • Term 4:
+
+Cubic. The cubic interpolation leverages finite-                               r4 : joint velocity
+difference approximations of the slope at the inter-                           n4 : quadratic
+val points:                                                                    𝑤4 : 0.01
+                                                                    • Term 5:
+              1 𝜃 𝑗+1 − 𝜃 𝑗 𝜃 𝑗 − 𝜃 𝑗−1
+        𝜙𝑗 =                +             ,    (17)                            r5 : control effort
+              2 𝜏 𝑗+1 − 𝜏 𝑗 𝜏 𝑗 − 𝜏 𝑗−1
+                                                                             n5 : quadratic
+              1 𝜃 𝑗+2 − 𝜃 𝑗+1 𝜃 𝑗+1 − 𝜃 𝑗                                      𝑤5 : 0.025
+      𝜙 𝑗+1 =                 +              , (18)
+              2 𝜏 𝑗+2 − 𝜏 𝑗+1 𝜏 𝑗+1 − 𝜏 𝑗
+
+and returns:                                                       Quadruped objective. This task comprises 𝑀 =
+                                                                   4 cost terms:
+     𝑎 · 𝜃 𝑗 + 𝑏 · 𝜙 𝑗 + 𝑐 · 𝜃 𝑗+1 + 𝑑 · 𝜙 𝑗+1 ← 𝑠,      (19)
+
+where,                                                                • Term 0:
+                                                                               r0 : body height and average feet height
+           𝑎 = 2𝑞3 − 3𝑞2 + 1,                            (20)                  difference minus target height
+           𝑏 = ( 𝑞3 − 2𝑞2 + 𝑞) · ( 𝜏 𝑗+1 − 𝜏 𝑗 ) ,       (21)                  n0 : quadratic
+                                                                               𝑤0 : 1
+            𝑐 = −2𝑞3 + 3𝑞2 ,                             (22)
+                   3     2                                            • Term 1:
+           𝑑 = ( 𝑞 − 𝑞 ) · ( 𝜏 𝑗+1 − 𝜏 𝑗 ) .             (23)
+                                                                               r1 : body position minus goal position
+                                                                               n1 : quadratic
+B. Tasks                                                                       𝑤1 : 5.0
+
+This section provides additional information about                    • Term 2:
+the examples provided in Section 4, including ob-                              r2 : body orientation minus goal orienta-
+jective formulations and planner settings.                                     tion
+                                                                               n2 : quadratic
+                                                                               𝑤2 : 1.0
+Humanoid objective. This task comprises 𝑀 = 6
+cost terms:                                                           • Term 3:
+                                                                               r3 : control effort
+  • Term 0:                                                                    n3 : quadratic
+                                                                               𝑤3 : 0.25
+           r0 : lateral center-of-mass position and
+           average lateral feet position alignment
+           n0 : hyperbolic cosine                                  Hand objective. This task comprises 𝑀 = 3 cost
+           𝑤0 : 100                                                terms:
+  • Term 1:
+           r1 : lateral torso position and lateral                    • Term 0:
+           center-of-mass position alignment                                   r0 : cube position minus hand palm posi-
+           n1 : smooth absolute value                                          tion
+           𝑤1 : 1                                                              n0 : quadratic
+  • Term 2:                                                                    𝑤0 : 20
+
+         – r2 : head height and feet height differ-                   • Term 1:
+           ence minus target height difference                                 r1 : cube orientation minus goal orienta-
+         – n2 : smooth absolute value                                          tion
+         – 𝑤2 : 100                                                            n1 : quadratic
+
+
+                                                                                                                        13
+                                                         Predictive Sampling:
+                                              Real-time Behaviour Synthesis with MuJoCo
+
+
+
+         𝑤1 : 3                                                     Xeon Gold 6154 72-core CPU. Additional experi-
+  • Term 2:                                                         ments were performed on an Apple MacBook Pro
+                                                                    (2021) with 16 GB of memory and an M1 Pro CPU.
+         r2 : cube linear velocity
+         n2 : quadratic
+         𝑤2 : 10
+
+
+Planner settings. We provide the settings used
+for Predictive Sampling in Table 1.
+
+Table 1 | Predictive Sampling settings
+
+           Task            𝑃    𝑁       𝑇          𝜎
+       Humanoid            3   10       23     0.125
+       Quadruped           3   10       35      0.25
+         Hand              6   10       25       0.1
+
+
+
+C. Predictive Sampling Algorithm
+
+Algorithm 5 PredictiveSampling
+ 1: procedure Op t i m i z e Pol icy
+ 2:    task: 𝑓 , 𝑐, 𝑅
+ 3:    settings: 𝑇 , 𝑁 , 𝜎, 𝑠
+ 4:    initialise: ( 𝜏, 𝜃)
+ 5:    for 𝑘 = 0, . . . , ∞
+ 6:          ( 𝑥, 𝜏) ← get state
+ 7:          (¯𝜏, 𝜃) ← resample
+ 8:          for 𝑖 = 0, . . . , 𝑁( (parallel)
+                                  0,              𝑖 = 0,
+ 9:                𝜃˜ ( 𝑖) = 𝜃 +
+                                          2
+                                  N (0, 𝜎 · 𝐼 ) , else
+                    ( 𝑖)         ( 𝑖)
+10:               𝑥0 = 𝑥, 𝜏0 = 𝜏,
+11:               for 𝑡 = 0, . . . , 𝑇
+                          ( 𝑖)         ( 𝑖)      ˜ ( 𝑖) ))
+12:                    𝑢𝑡 = 𝑠 ( 𝜏𝑡 ; (¯     𝜏, 𝜃
+                         ( 𝑖)          ( 𝑖) ( 𝑖)
+13:                    𝑐 𝑡 = 𝑐 ( 𝑥 𝑡 , 𝑢𝑡 ; 𝑅 )
+14:                    ( 𝑥𝑡+1 , 𝜏𝑡+1 ) = 𝑓 ( 𝑥𝑡( 𝑖) , 𝑢𝑡( 𝑖) )
+                             ( 𝑖) ( 𝑖)
+
+15:                end for
+16:          end for                 
+17:          𝜃 ← argmin 𝐽 ( 𝜃˜ ( 𝑖) )
+18:    end for
+19: end procedure
+20: procedure A c t ion From Pol icy
+21:    ( 𝑥, 𝜏) ← get state
+22:    𝑢 = 𝑠 ( 𝜏; (¯
+                   𝜏, 𝜃))
+23:    return 𝑢
+24: end procedure
+
+
+
+D. Compute Resources
+Experiments were performed on a Lenovo Think-
+Station P920 with 48GB of memory and an Intel
+
+
+                                                                                                               14
+

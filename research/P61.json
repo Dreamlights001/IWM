@@ -1,0 +1,29 @@
+{
+  "id": "P61",
+  "slug": "MuJoCo_MPC_Predictive_Sampling",
+  "arxiv_id": "2212.00541",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2212.00541",
+  "accessed": "2026-11-11",
+  "title": "Predictive Sampling: Real-time Behaviour Synthesis with MuJoCo",
+  "authors": [
+    "Howell, Taylor",
+    "Gileadi, Nimrod",
+    "Tunyasuvunakool, Saran",
+    "Zakka, Kevin",
+    "Erez, Tom",
+    "Tassa, Yuval"
+  ],
+  "publication_date": "2022/12/01",
+  "submitted_date": "2022/12/24",
+  "abstract": " We introduce MuJoCo MPC (MJPC), an open-source, interactive application and software framework for real-time predictive control, based on MuJoCo physics. MJPC allows the user to easily author and solve complex robotics tasks, and currently supports three shooting-based planners: derivative-based iLQG and Gradient Descent, and a simple derivative-free method we call Predictive Sampling. Predictive Sampling was designed as an elementary baseline, mostly for its pedagogical value, but turned out to be surprisingly competitive with the more established algorithms. This work does not present algorithmic advances, and instead, prioritises performant algorithms, simple code, and accessibility of model-based methods via intuitive and interactive software. MJPC is available at: this http URL , a video summary can be viewed at: this http URL .",
+  "submission_history": "Submission history From: Taylor Howell [ view email ] [v1] Thu, 1 Dec 2022 14:47:47 UTC (1,514 KB) [v2] Sat, 24 Dec 2022 00:50:53 UTC (1,502 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2212.00541v2",
+  "local_pdf": "papers/P61_MuJoCo_MPC_Predictive_Sampling_2212.00541v2.pdf",
+  "sha256": "393d890aa0c0096f33db5a8f0e509c7ce47e0462a41c18b9701b4703bc3ac0dd",
+  "bytes": 1563028,
+  "pages": 14,
+  "text_file": "research/P61_MuJoCo_MPC_Predictive_Sampling.txt",
+  "status": "downloaded_and_text_extracted"
+}

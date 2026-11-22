@@ -1,0 +1,409 @@
+                                                  Available online at www.sciencedirect.com
+
+
+
+
+                                                         Procedia CIRP 00 (2023) 000–000                                   www.elsevier.com/locate/procedia
+
+
+                                  19th CIRP Conference on Modeling of Machining Operations
+
+   Coupled Dynamic Simulator With Tri-Dexel Milling Module For Robotic
+                         Machining Operations
+                        Valentin Dambly *a , Édouard Rivière-Lorphèvreb , Olivier Verlindena
+             a Department of Theoretical Mechanics, Dynamics and Vibrations, University of Mons (UMons), Place du Parc 20, Mons 7000, Belgium
+               b Department of Machine Design and Production Engineering, University of Mons (UMons), Place du Parc 20, Mons 7000, Belgium
+
+
+* Corresponding author. Tel.: +3265374325. E-mail address: valentin.dambly@umons.ac.be
+
+
+
+Abstract
+   In robotic machining, important tool-tip deviations occur resulting from lower stiffness as compared to CNC machines. Hence, this paper aims
+to present a coupled simulator developed in C++ for offline simulation of machine dynamics while operating, ultimately to estimate tool deviation
+and machined surface. The dynamic simulator of machine is coupled with a dexel-based machining module computing the forces as well as the
+updated workpiece geometry. The forces are computed by considering interference between dexel network and triangle-mesh sweep volume with
+relative closest triangle algorithm. Experimental milling tests are carried out for verification of forces, deviations and hence geometry.
+
+© 2023 The Authors. Published by Elsevier B.V.
+This is an open access article under the CC BY-NC-ND license (http://creativecommons.org/licenses/by-nc-nd/4.0/)
+Peer review under the responsibility of the scientific committee of the 19th CIRP Conference on Modeling of Machining Operations.
+
+Keywords: Virtual machining; robotic machining; 5-axis milling; tri-dexels; machine-tool dynamics
+
+
+1. Introduction                                                                  in robotic machining. In the context of model-based trajectory
+                                                                                 compensation, it is essential to model the dynamical behaviour
+    Even though robotic machining is a fast-growing technology                   of such flexible structure as well as the cutter-workpiece
+in the field of mechanical manufacturing with its costs savings                  engagement (CWE) and the resulting forces along the tool
+and ability to work with complex geometries and trajectories,                    while operating complex trajectories.
+this technology is confronted to troubling phenomena. Indeed
+the counterpart for its mobility is the lower stiffness than                        The paper first presents the numerical approach for dynam-
+conventional machine tools with, as an order of magnitude,                       ical simulations of machining operations and their purpose in
+1N/µm for robots against about 50N/µm for machine tools [1].                     machining modelling in general. Afterwards, the coupled ma-
+Consequently, machining hard materials, leads to inaccuracies                    chining simulation principle is presented with further details on
+due to cutting forces. To improve the accuracy of robotic                        the CWE determination, covering the definition of the swept
+machining operations, it has been shown that a significant part                  surface as well as the handling of multi-dexel networks, up to
+of the deviations, up to 80%, can be compensated offline based                   the modelling of the system dynamics. Initially, the novelty of
+on reliable models of the operation [1].                                         the approach lies on the methods used to determine the inter-
+                                                                                 section between the workpiece and the tool swept surface, but
+   Furthermore, in the context of Industry 4.0 and its digital                   also in the coupling of a multibody model including tri-axial
+twins concept, virtual manufacturing has grown to become                         flexibility with a machining simulator. The coupled model sim-
+essential for the offline prediction of instabilities and online                 ulator is compared in terms of forces and machined surfaces to
+monitoring of operation. With accurate enough modelling of                       data measured in robotic machining cell for linear trajectory.
+machining operation, the cutting conditions can be optimised to                  Eventually a 5-axis motion is simulated to illustrate the CWE
+place the operation in a stable region by avoiding phenomena                     determination capability.
+such as chatter vibrations, which is a current problematic met
+
+
+
+2212-8271 © 2023 The Authors. Published by Elsevier B.V.
+This is an open access article under the CC BY-NC-ND license (http://creativecommons.org/licenses/by-nc-nd/4.0/)
+Peer review under the responsibility of the scientific committee of the 19th CIRP Conference on Modeling of Machining Operations.
+                                             V. Dambly et al. / Procedia CIRP 00 (2023) 000–000                                                                        2
+
+2. State of the art                                                      Machine Tool / Robot Model                               Workpiece  z
+                                                                                                                                                  y
+
+                                                                          - Multibody model                  - ZPK                Multidexel
+                                                                                                                                              x
+
+
+
+
+   Obviously, the modelling approach has to be chosen de-
+                                                                                                                                  Network
+pending on the goal of the simulation. From micro-mechanics                   Dynamics Simulation
+to macro-mechanics levels, their purposes and benefits are                   Integration of dynamics model                   t    t+dt
+strongly different [2]. In robotic machining, the main interest is                    from t-dt to t
+                                                                                                                                                           Updated
+                                                                                                                                         Force at TCP
+the ability to predict the stability of the operation and the tool                                                                                         Workpiece
+deviation. The simulation level of robotic machining lies then
+                                                                            Tool Kinematics at t       Determination of the swept
+in macro-mechanics level where the focus is on estimating the                                          surface in interval [t-dt, t ]
+                                                                                                         as Triangulated Surface                  Interference :
+machining forces.                                                                       ntool                                                 Triangulated Surface
+                                                                              ωtool                                                          vs. multidexel network
+   There are many workpiece modelling approaches able to                                        vtcp                                          with RCT algorithm
+                                                                                       ptcp
+deal with complex tool motions. For a more global view of the
+operation and volume removed, where only the tool envelope is
+considered, the Constructive Solid Geometry enables excellent            Fig. 1: Flow chart of the simulation process. The visualisation of tool cutting
+                                                                         edge swept surface triangulated is carried out with VTK through Pyvista [15].
+estimation of machined surface [2]. The quality and the
+stability of a machining operation strongly rely on the machine
+tool behaviour while subjected to cutting forces. Thus, for
+dynamical simulation, the modelling of cutting edges motion is               ddex,i Discretisation of dexel grid along i axis
+required to determine the evolution of the forces at each step.              hk, j        Uncut chip thickness for slice k at tooth j
+In such cases, discrete modelling approaches, with especially                Kc           The shear force coefficients [MPa]
+voxels [3] and dexels [4], are preferred.                                    Ke           The edge force coefficients [N/mm]
+                                                                             dz           Height of the tool slice
+   The dexel approach presents interesting characteristics in                dS           Elementary edge length of the tool slice
+terms of memory consumption and interference computation,                    Ri, j        Rotation matrix from frame i to j (∈ S O3 )
+making this method widely used in dynamical simulation of                    Mq (~q) Mass matrix of the system depending on ~q
+machining operations [5]. During the simulation, the update                  hq (~q, ~q˙ )Vector regrouping the Coriolis, gyroscopic and
+of the dexel network implies to determine if extremities are                        centrifugal forces
+located inside the volume swept by the edges. This geometry                 ~τ(t)         External forces applied on the system
+problem can be approach by considering the concept of
+oriented volume described by Denkena et al. [6] or with
+point-in-volume algorithms [7],[8].
+                                                                         3. Numerical Approach
+    There also exist several approaches for the modelling of
+machine tool dynamics. The modal parameters can be directly                 The simulation of machining operations in this work lies
+considered [9], [10]. However in the case of robots, due to their        on the determination of the cutter workpiece engagement,
+highly non-linear dynamics, multibody approach is considered             depending on the modelling approach of the workpiece, and
+for more general reproduction of their behaviour in the whole            the model of the machine tool. The workpiece is modelled with
+workspace [11]. Stavropoulos et al. proposed a dynamical                 a discrete approach, namely a multi-dexel network. Following
+simulator explicitly coupling machine dynamics models with               the convention in mechanistic approach [13], the solid mill is
+commercial CAM software where the CAM software is used to                discretized in slices along its revolution axis. The simulation
+get an estimation of the forces along the operation. This signal         process requires the model of the workpiece as well as the
+is applied as an external excitation on the multibody model to           dynamical model of the machine tool. In the specific case
+iteratively get an estimated deflection at the tool tip [12].            of this work, the machine tool is an industrial robot. The
+                                                                         simulation consists in the integration in time of the dynamical
+   In the frame of this research, the focus is on the dynamic            equations of the model where the external applied forces at the
+response of the system. Hence, the cutting forces as well as the         tool tip are the machining forces computed with a machining
+machined surface are computed by a module communicating                  module, updating the part as well [14]. The flow chart of the
+with the machine tool dynamical model at each time-step.                 process is detailed in Figure 1.
+
+
+                                                                         3.1. Modelling of tool-workpiece interference
+  Nomenclature
+                                                                            As introduced, the cutting is characterised by the cutter-
+  CWE Cutter-workpiece engagement                                        workpiece engagement. The CWE is determined by the inter-
+  RCT Relative Closest Triangle                                          ference of the surface swept by the cutting edges and the net-
+                                                                         work of dexels. The CWE is refreshed at each time step, which
+                                                                     2
+                                                          V. Dambly et al. / Procedia CIRP 00 (2023) 000–000                                                                   3
+
+enables to capture the effect of the robot vibrations on the shape                                                                 z
+of the cutting forces as well as in the resulting cut dexels. As il-                                                           x       y
+lustrated in Figure 1, at each time step of the simulation, the
+kinematics of the TCP is known. As a result, the position and
+velocity of each point along the cutting edges can be computed
+from the velocity field of the tool body as long as this body
+is defined (as a rigid body or more sophisticated models). From
+the edges kinematics, known at times t − dt and t, with dt the in-
+tegration time step, intermediate positions are computed using
+Hermite Splines, creating a point cloud, which can be converted
+to a triangulated surface. Its illustration is given in Figure 2 for
+common tools with a flat-end mill and a ball-end mill. Since the
+swept surface (S for a single tooth in Fig. 2) is basically a set of                                                                       thread i           thread j
+                                                                                                                       Segmented
+triangles, the computation of intersection with dexels is direct.
+Several cases are possible when dealing with a dexel: it can                                Fig. 3: Representation of the workpiece in multi-dexel network. Illustration of
+be shortened, divided or removed. The first test is to check if                             the segmentation of dexel network in subsets.
+nodes of the dexel are comprised in the volume enclosed within
+the swept surface. To check if a point is inside a volume or not,
+efficient methods have been proposed with PinMesh algorithm                                 to collide with tool or no collision by using Boolean tests [10].
+[7] and the relative closest triangle (RCT) [8]. Since the amount
+of vertices and triangles is rather low compared with the test                                  In Figure 3, where the workpiece is discretized in dexels,
+cases in [7], the RCT algorithm is preferred with its forward                               only the subsets interfering with the tool are shown and
+preprocessing of the point cloud and low query time.                                        represent the ones actually checked for interference. In order
+    The common case is to have a node fulfilling the inside                                 to exploit computation capability, the intersection computation
+volume condition along with an intersection with a triangle                                 is parallelized by assigning a thread to each subset as explicitly
+∈ S, leading to the dexel being shortened. If no nodes are                                  shown for the dexel network along z direction.
+enclosed in the volume and two intersections are computed, the
+dexel is divided, creating an opening in the workpiece. Finally,
+                                                                                            3.2. Modelling of process dynamics
+if the two-ends fulfil the condition, the dexel must be removed.
+                                                                                                The industrial robot is modelled as a multibody system
+    As mentioned, the workpiece is modelled with dexels and
+                                                                                            where its flexible behaviour is taken into account. The struc-
+it is well-known that the main drawbacks of every discrete
+                                                                                            tural flexibility is modelled through equivalent beams and the
+modelling methods, including dexels, are the aliasing error
+                                                                                            articular one is modelled with the tri-axial flexibility approach
+and the management of the memory. The management of the
+                                                                                            for each articulation [11]. The general expression of the dynam-
+memory covers the volume required to store the information
+                                                                                            ical equations is given by:
+as well as its handling in the simulation. The voxel method
+is a typical illustration the impact of such phenomena where                                       Mq (~q) ~q̈(t) + hq (~q, ~q˙ ) = ~τ(t)                  (1)
+the octree approach has been brought to strongly reduce their
+impact on the simulation performances [3]. The concept is to                                where Mq (~q) is the mass matrix, hq (~q, ~q̇) is the vector regroup-
+subdivide the model into a reduced number of subsets with                                   ing the Coriolis, gyroscopic and centrifugal forces and ~τ(t) the
+a rougher resolution than the model resolution. With this                                   vector of external forces applied on the system.
+approach, the subsets can be efficiently sorted in either likely                                          nB 
+                                                                                                          X                                                               
+                                                                                                   ~τ =          [JS ,i ]TBase · {Ri }Base + [Jω,i ]TBase · {MG,i }Base       (2)
+                                                                                                          i=1
+
+                         Cutting Cutting                        Cutting   Cutting           where the subscript Base refers to the base frame, [JS ,i ]Base and
+                          Edge    Edge                           Edge      Edge
+                                                                                            [Jω,i ]Base are the translational and rotational Jacobian matrices
+                                                                                            of body i expressed in the base frame. According to the tri-axial
+                                                                                            flexibility approach, the flexibility is modelled by introducing
+                                                                                            unactuated degrees of freedom qu in each of the principal direc-
+                                                                                            tion x, y, z of the articulation and apply forces on bodies from
+                                                                                            both side of this articulation. The forces applied to body i are
+                                                                                            gathered in the resulting force {Ri }Base and moment {MG,i }Base .
+                                                                          Surface           The action (a) - reaction (r) torques between body i and j are
+                   (a)                                        (b)                           expressed:
+                                                                                                                                    
+Fig. 2: Triangulated swept surface in the time interval [t − dt, t] for 4 teeth tools               {MG,i }Base = − kqu qu + dqu q̇u · RBase,i · ~ux,y,z (a),
+                                                                                                                                                            (3)
+: (a) Flat-end mill, (b) Ball-end mill.                                                             {MG, j }Base = kqu qu + dqu q̇u · RBase,i · ~ux,y,z (r)
+                                                                                        3
+                                              V. Dambly et al. / Procedia CIRP 00 (2023) 000–000                                                         4
+
+where kqu and dqu are the torsional stiffness and damping of the
+articulation respectively along ~ux,y,z , being the local unit vec-
+tors. The stiffness and damping coefficients have been identified
+by fitting the simulated frequency response functions from the
+multibody model with data from experimental modal analysis
+(EMA) according to the forward fitting method described by
+Huynh et al. [11], [16].
+    The machining forces are computed as the sum of the ele-
+mentary contribution of each slice where this contribution dF    ~
+is determined with the mechanistic approach [13] :
+
+      dFi = Ki,c · h · dz + Ki,e · dS                            (4)
+                                                                           Fig. 4: Illustration in CAM software SprutCAM of the experimental pass with
+with i = t, r, a being the tangential, radial and axial directions,        the chosen reference frame for measurements.
+h the chip thickness, dz the height of the slice and dS the edge
+length. The coefficients Ki,c and Ki,e represent shear contact
+pressure [MPa] and the non-shearing flank line contact force               gathered in Figure 7 and the gap between machined surfaces
+[N/mm] respectively. They must be identified experimentally                and targeted surfaces are presented in Figure 5.
+by fitting the linearized force model. The key element to deter-
+                                                                           Table 1: Operation and simulation parameters. The shear force and edge coeffi-
+mine in Equation 4 is the chip thickness h, resulting from the             cients have been previously identified and corroborate with literature [17].
+evaluation of the CWE. The chip thickness is estimated by lo-
+cally reconstituting the front of matter, at each step, with the           Workpiece Material                                                 Al6060
+dexel network and the tool kinematics using Hermite Splines                                                                   Operation parameters
+[14]. The computed machining forces are applied to the system              Operation type                                                Half-immersion
+                                                                           Tool type                                                   Cylindrical Flat-end
+through {Rtool }Base the resultant of applied forces on the tool
+                                                                           Tool material                                                     Carbide
+body.                                                                      Diameter                                       [mm]                 10
+                                                                           N° of edges (flutes)                                                 2
+                                                                           Pitch                                           [°]              170-190
+4. Results                                                                 Helix angle                                     [°]                 30
+                                                                           Rotation Speed                                [RPM]               11250
+   The coupled simulator results are compared with forces and              Tooth feed                                  [mm/tooth]             0.13
+surface measurements for a pass in half immersion of a flat-end            Axial - Radial depth of cut                    [mm]                2-5
+                                                                                                                             Simulation parameters
+mill. This section is concluded with a 5-axis motion to illustrate
+                                                                           Dexel Resolution ddex,x , ddex,y , ddex,z      [µm]             100, 100, 50
+the ability of the proposed approach to compute the CWE and                Number of slices (tool)                                             16
+workpiece determination for varying axial and radial depth of              Time steps dt                                   [s]               1e − 4
+cut.                                                                       Kt/r/a,c                                      [MPa]         733.5/346.5/127.9
+                                                                           Kt/r/a,e                                     [N/mm]            28.2/21.6/2.5
+4.1. Experimental setup
+                                                                              The forces along the global x, y, z directions are measured
+   The industrial robot used in the faculty robotic machining              and compared with simulated forces. The RMS force in the
+cell is a Stäubli TX200 with a teknomotor spindle. The cutting            x − y plane is also given in Figure 7(a). The envelope shape
+forces signals in the X, Y and Z directions were measured with             of the forces for each of the global directions is given in
+a Kistler 9257B force sensor and recorded with a Kistler charge            Figures 7(b,c,d). Overall, the simulated RMS force in the x − y
+amplifier 5070A and the data acquisition system (DAQ) Kistler              matches the measurements, hence the mean level of excitation
+5697A2 where the sampling frequency was set at 40 kHz. The                 applied on the model is considered relevant. Some differences
+machined surfaces point clouds have been measured with a Co-               are however to mention in the x and z directions, where positive
+ordinate Measuring Machine Wenzel LH57 with a 1.5 mm di-                   contributions are measured.
+ameter probe. Further mentioned x, y, z directions are defined
+as follows: the feed direction is along the y axis, the tool axis             The measurement of the Fz signal underlines the limitation
+is aligned along the z direction and, consequently, the x is the           of the force model used for cylindrical tools since a positive
+privileged direction to observe radial deviations as illustrated in        contribution is measured. For stiff machine tool, the effect of
+Figure 4.                                                                  the axial contribution is rather low [14]. However for flexible
+                                                                           machines such as robots, the vibrations and deflections along
+4.2. Linear motion                                                         the axial direction are strong and lead to higher forces than
+                                                                           estimated. It shows that the model should be augmented by the
+   The operation measured is a linear pass in half-immersion in            effect of the front edge of the tool. Its effect should then be
+a block of Al6060, as illustrated in Figure 4. The operation and           separately identified [18].
+simulation parameters are gathered in Table 1. The forces are
+                                                                       4
+                                                          V. Dambly et al. / Procedia CIRP 00 (2023) 000–000                                                 5
+
+                                                                                           difference along the axial direction between the measured Fz
+                                                                                           and simulated one.
+
+                                                                                           4.3. Five axis motion
+
+                                                                                               In order to illustrate the capability of the cutting module to
+                                                                                           handle more complex tool motions, a 5-axis trajectory is con-
+                                                                                           sidered where the tool follows an ellipse running alongside a
+                                                                                           cone. This motion gathers several challenges such as a vary-
+                                                                                           ing radial and axial depth of cut with a changing orientation.
+                                                                                           This case is simulated with the aim of highlighting the robust-
+                                                                                           ness of the approach. The TCP path and tool orientation are
+                                         (a)
+                                                                                           illustrated in Figure 8a and the machined surface is shown in
+                                                                                           Figure 8b along with an illustration of the tool envelope evolu-
+                                                                                           tion along the path in Figure 8c. Finally the machining forces
+                                                                                           are displayed in Figure 8d.
+
+
+                                                                                           5. Conclusion
+
+                                                                                              This paper presents a coupled simulator designed for the
+                                                                                           dynamical simulation of machine tools in operations. The
+                                                                                           research focuses on machining robots for the modelling the
+                                                                                           vibrations and deflections of these machines while subjected
+                                         (b)
+                                                                                           to machining forces. With the proposed approach for the
+                                                                                           modelling of the CWE, the dexel handling as well as its
+Fig. 5: Comparison between the point cloud measured with a Coordinate Mea-                 coupling with a multibody model of an industrial robot, the
+suring Machine of the surfaces resulting form the operation and the correspond-            deviations of TCP are estimated properly in radial direction but
+ing surfaces from the dexel network. (a) Error along the path (y direction) of the
+                                                                                           improvements should be brought along the axial direction and
+side surface : surface parallel to plan y − z . (b) Error along the path of the bot-
+tom surface : surface parallel to plan x − y.                                              in terms of model damping. It has been pointed out that the
+                                                                                           cutting force module itself reaches its limitation for the axial
+                                                                                           component and requires additional identification of the front
+                                                                                           edge effect. The approach considered for the determination
+                                                                                           of the CWE and dexel update was able to manage 5-axis tool
+                                                                        z                  motion cumulating challenges with varying depth of cut and
+                                                                x                          tool orientation.
+                                                                    y                          As stated in the Results section, a piece of the future works is
+                                                                                           the determination of machining forces model allowing a more
+                                                                                           realistic estimation of the axial force and the update of the
+                                                                                           multibody characteristics to meet a less stiff response. Alter-
+                                                                                           natively, the estimation of the forces are accurate enough to es-
+Fig. 6: Picture of the part where the tool exit, emphasizing the visible tool de-
+viation.                                                                                   timate the deviations and vibrations induced by the robot in the
+                                                                                           radial direction, which makes it possible to propose alternative
+                                                                                           trajectories that compensate these deviations.
+   The machined surfaces have been measured as a point cloud
+and compared to the dexel network in Figure 5. The simulated                               Acknowledgements
+lateral surface presents the same characteristics as the mea-
+surements in terms of mean deflection while machining and                                     The authors would like to acknowledge the Belgian National
+the entrance-exit deviations with an amplitude of about 400µm.                             Fund for Scientific Research (FNRS-FRS) for the grant allo-
+Where the exit of matter is properly estimated, the behaviour                              cated to V. Dambly.
+of the robot at the entrance reflects a lack of excitation in the
+dynamic simulation. The exit is shown in Figure 6 with the fo-
+cus on the deviation. Meanwhile the deviation amplitude for the
+bottom surface measured is similar, it presents more variations
+with respect to the ideal plane as well as to the simulated re-
+sulting surface. This is a direct consequence of the excitation
+                                                                                       5
+                                                         V. Dambly et al. / Procedia CIRP 00 (2023) 000–000                                                                  6
+
+
+
+
+Fig. 7: Comparison of the machining forces between measured and simulated forces (blue: simulated; green: measured) for the linear trajectory with the parameters
+given in Table 1. (a) RMS Force in the x − y plane (b) F x (c) Fy (d) Fz .
+
+
+
+                                                                                               of rake and flank face engagement parameters using a dexel-based mate-
+                                                                                               rial removal simulation with an oriented sweep volume, CIRP Journal of
+                                                                                               Manufacturing Science and Technology 35 (2021) 146–157.
+                                                                                           [7] S. V. Magalhães, M. V. Andrade, W. R. Franklin, W. Li, PinMesh—fast
+                                                                                               and exact 3d point location queries using a uniform grid, Computers &
+                                                                                               Graphics 58 (2016) 1–11, Shape Modeling International 2016.
+                                                                                           [8] J. Liu, Y. Chen, J. M. Maisog, G. Luta, A new point containment test algo-
+                                                                                               rithm based on preprocessing and determining triangles, Computer-Aided
+                                                                                               Design 42 (12) (2010) 1143–1150.
+                                                                                           [9] H. N. Huynh, E. Rivière-Lorphèvre, F. Ducobu, A. Ozcan, O. Verlinden,
+                   (a)                                       (b)                               Dystamill: a framework dedicated to the dynamic simulation of milling
+                                                                                               operations for stability assessment, The International Journal of Advanced
+                                                                                               Manufacturing Technology 98 (5) (2018) 2109–2126.
+                                                                                          [10] B. W. Peukert, A. Archenti, A modular node-based modeling platform for
+                                                                                               the simulation of machining processes, euspen’s 21st International Confer-
+                                                                                               ence & Exhibition, Copenhagen (2021) 351–354.
+                                                                                          [11] H. N. Huynh, H. Assadi, V. Dambly, E. Rivière-Lorphèvre, O. Verlinden,
+                                                                                               Direct method for updating flexible multibody systems applied to a milling
+                                                                                               robot, Robotics and Computer-Integrated Manufacturing 68 (04 2021).
+                                                                                          [12] P. Stavropoulos, C. Gerontas, H. Bikas, T. Souflas, Multi-body dynamic
+                                                                                               simulation of a machining robot driven by cam, Procedia CIRP 107 (2022)
+                   (c)                                       (d)                               764–769, leading manufacturing systems transformation – Proceedings of
+                                                                                               the 55th CIRP Conference on Manufacturing Systems 2022.
+Fig. 8: Illustration of a machining operation with a 5 axis tool motion and a ball-       [13] Y. Altintas, S. Engin, Generalized modeling of mechanics and dynamics
+end mill. (a) Tool trajectory; (b) Resulting workpiece; (c) Resulting workpiece                of milling cutters, Cirp Annals-manufacturing Technology - CIRP ANN-
+with tool envelope; (d) Cutting forces (F x ,Fy ,Fz ).                                         MANUF TECHNOL 50 (2001) 25–30.
+                                                                                          [14] V. Dambly, Édouard Rivière-Lorphèvre, O. Verlinden, Tri-dexel based
+                                                                                               cutter-workpiece engagement determination for robotic machining simula-
+                                                                                               tor, Procedia CIRP 107 (2022) 1059–1064, Proceedings of the 55th CIRP
+References                                                                                     Conference on Manufacturing Systems 2022.
+                                                                                          [15] C. B. Sullivan, A. Kaszynski, PyVista: 3D plotting and mesh analysis
+                                                                                               through a streamlined interface for the Visualization Toolkit (VTK), Jour-
+[1] A. Verl, A. Valente, S. Melkote, C. Brecher, E. Ozturk, T. Tunc, Robots in
+                                                                                               nal of Open Source Software 4 (37) (2019) 1450.
+    machining, CIRP Annals (2019) 799–822.
+                                                                                          [16] H. Hoai Nam, Robotic machining: Development and validation of a nu-
+[2] Y. Altintas, P. Kersting, D. Biermann, E. Budak, B. Denkena, I. Lazoglu,
+                                                                                               merical model of robotic milling to optimise the cutting parameters, Ph.D.
+    Virtual process systems for part machining operations, CIRP Annals -
+                                                                                               thesis, University of Mons (09 2019). doi:10.13140/RG.2.2.32268.
+    Manufacturing Technology 63 (12 2014).
+                                                                                               46726.
+[3] J. Joy, H.-Y. Feng, Frame-sliced voxel representation: An accurate and
+                                                                                          [17] M. Tsai, S. Chang, J. Hung, C. Wang, Investigation of milling cutting
+    memory-efficient modeling method for workpiece geometry in machining
+                                                                                               forces and cutting coefficient for aluminum 6060-t6, Computers & Elec-
+    simulation, Computer-Aided Design 88 (04 2017).
+                                                                                               trical Engineering 51 (2016) 320–330.
+[4] B. Denkena, O. Pape, A. Kroedel, V. Böß, L. Ellersiek, A. Muecke, Pro-
+                                                                                          [18] S. Bissey-Breton, Développement d’un modèle d’efforts de coupe applica-
+    cess design for 5-axis ball end milling using a real-time capable dynamic
+                                                                                               ble à des familles d’outils: cas du fraisage des aciers traités thermiquement,
+    material removal simulation, Production Engineering 15 (11 2020).
+                                                                                               PhD Thesis (2005).
+[5] M. Inui, M. Kobayashi, N. Umezu, Cutter engagement feature extraction
+    using triple-dexel representation workpiece model and gpu parallel pro-
+    cessing function, Computer-Aided Design and Applications 16 (2019) 89–
+    102.
+[6] B. Denkena, A. Kroedel, O. Pape, A. Muecke, L. Ellersiek, Identification
+                                                                                      6
+

@@ -1,0 +1,27 @@
+{
+  "id": "P32",
+  "slug": "MeshGraphNets",
+  "arxiv_id": "2010.03409",
+  "family": "structured",
+  "source_url": "https://arxiv.org/abs/2010.03409",
+  "accessed": "2026-11-09",
+  "title": "Learning Mesh-Based Simulation with Graph Networks",
+  "authors": [
+    "Pfaff, Tobias",
+    "Fortunato, Meire",
+    "Sanchez-Gonzalez, Alvaro",
+    "Battaglia, Peter W."
+  ],
+  "publication_date": "2020/10/07",
+  "submitted_date": "2021/06/18",
+  "abstract": " Mesh-based simulations are central to modeling complex physical systems in many disciplines across science and engineering. Mesh representations support powerful numerical integration methods and their resolution can be adapted to strike favorable trade-offs between accuracy and efficiency. However, high-dimensional scientific simulations are very expensive to run, and solvers and parameters must often be tuned individually to each system studied. Here we introduce MeshGraphNets, a framework for learning mesh-based simulations using graph neural networks. Our model can be trained to pass messages on a mesh graph and to adapt the mesh discretization during forward simulation. Our results show it can accurately predict the dynamics of a wide range of physical systems, including aerodynamics, structural mechanics, and cloth. The model's adaptivity supports learning resolution-independent dynamics and can scale to more complex state spaces at test time. Our method is also highly efficient, running 1-2 orders of magnitude faster than the simulation on which it is trained. Our approach broadens the range of problems on which neural network simulators can operate and promises to improve the efficiency of complex, scientific modeling tasks.",
+  "submission_history": "Submission history From: Tobias Pfaff [ view email ] [v1] Wed, 7 Oct 2020 13:34:49 UTC (13,145 KB) [v2] Thu, 14 Jan 2021 13:09:58 UTC (13,154 KB) [v3] Mon, 18 Jan 2021 10:43:15 UTC (13,166 KB) [v4] Fri, 18 Jun 2021 16:32:43 UTC (13,163 KB)",
+  "version": "v4",
+  "pdf_url": "https://arxiv.org/pdf/2010.03409v4",
+  "local_pdf": "papers/P32_MeshGraphNets_2010.03409v4.pdf",
+  "sha256": "d5a9e09b4b8d559121bc67cbaa020fe61326cc8296637cb4dab4dc86d495f625",
+  "bytes": 13931901,
+  "pages": 18,
+  "text_file": "research/P32_MeshGraphNets.txt",
+  "status": "downloaded_and_text_extracted"
+}

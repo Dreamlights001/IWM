@@ -1,0 +1,33 @@
+{
+  "id": "P37",
+  "slug": "Industrial_Process_JEPA",
+  "arxiv_id": "2503.01411",
+  "family": "factory",
+  "source_url": "https://arxiv.org/abs/2503.01411",
+  "accessed": "2026-11-09",
+  "title": "Learning Actionable World Models for Industrial Process Control",
+  "authors": [
+    "Yan, Peng",
+    "Abdulkadir, Ahmed",
+    "Schatte, Gerrit A.",
+    "Aguzzi, Giulia",
+    "Gha, Joonsu",
+    "Pascher, Nikola",
+    "Rosenthal, Matthias",
+    "Gao, Yunlong",
+    "Grewe, Benjamin F.",
+    "Stadelmann, Thilo"
+  ],
+  "publication_date": "2025/03/03",
+  "submitted_date": "2025/04/25",
+  "abstract": " To go from (passive) process monitoring to active process control, an effective AI system must learn about the behavior of the complex system from very limited training data, forming an ad-hoc digital twin with respect to process inputs and outputs that captures the consequences of actions on the process's world. We propose a novel methodology based on learning world models that disentangles process parameters in the learned latent representation, allowing for fine-grained control. Representation learning is driven by the latent factors influencing the processes through contrastive learning within a joint embedding predictive architecture. This makes changes in representations predictable from changes in inputs and vice versa, facilitating interpretability of key factors responsible for process variations, paving the way for effective control actions to keep the process within operational bounds. The effectiveness of our method is validated on the example of plastic injection molding, demonstrating practical relevance in proposing specific control actions for a notoriously unstable process.",
+  "submission_history": "Submission history From: Peng Yan [ view email ] [v1] Mon, 3 Mar 2025 11:05:44 UTC (17,062 KB) [v2] Tue, 22 Apr 2025 14:47:07 UTC (6,668 KB) [v3] Fri, 25 Apr 2025 09:11:20 UTC (6,668 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2503.01411v3",
+  "local_pdf": "papers/P37_Industrial_Process_JEPA_2503.01411v3.pdf",
+  "sha256": "322e6efaab384e60faf6797ee3da5e2309d85ef2118fdd13e08589f072a022b1",
+  "bytes": 3863169,
+  "pages": 8,
+  "text_file": "research/P37_Industrial_Process_JEPA.txt",
+  "status": "downloaded_and_text_extracted"
+}

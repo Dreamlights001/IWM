@@ -1,0 +1,30 @@
+{
+  "id": "P19",
+  "slug": "PhysGaussian",
+  "arxiv_id": "2311.12198",
+  "family": "physics",
+  "source_url": "https://arxiv.org/abs/2311.12198",
+  "accessed": "2026-11-09",
+  "title": "PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics",
+  "authors": [
+    "Xie, Tianyi",
+    "Zong, Zeshun",
+    "Qiu, Yuxing",
+    "Li, Xuan",
+    "Feng, Yutao",
+    "Yang, Yin",
+    "Jiang, Chenfanfu"
+  ],
+  "publication_date": "2023/11/20",
+  "submitted_date": "2024/04/15",
+  "abstract": " We introduce PhysGaussian, a new method that seamlessly integrates physically grounded Newtonian dynamics within 3D Gaussians to achieve high-quality novel motion synthesis. Employing a custom Material Point Method (MPM), our approach enriches 3D Gaussian kernels with physically meaningful kinematic deformation and mechanical stress attributes, all evolved in line with continuum mechanics principles. A defining characteristic of our method is the seamless integration between physical simulation and visual rendering: both components utilize the same 3D Gaussian kernels as their discrete representations. This negates the necessity for triangle/tetrahedron meshing, marching cubes, \"cage meshes,\" or any other geometry embedding, highlighting the principle of \"what you see is what you simulate (WS$^2$).\" Our method demonstrates exceptional versatility across a wide variety of materials--including elastic entities, metals, non-Newtonian fluids, and granular materials--showcasing its strong capabilities in creating diverse visual content with novel viewpoints and movements. Our project page is at: this https URL",
+  "submission_history": "Submission history From: Tianyi Xie [ view email ] [v1] Mon, 20 Nov 2023 21:34:52 UTC (27,116 KB) [v2] Wed, 22 Nov 2023 06:46:18 UTC (27,114 KB) [v3] Mon, 15 Apr 2024 06:04:55 UTC (27,116 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2311.12198v3",
+  "local_pdf": "papers/P19_PhysGaussian_2311.12198v3.pdf",
+  "sha256": "95b0b94d80e3161396235dbc67d0e0b0877f62b41a90c9921652dca05671eb47",
+  "bytes": 4749740,
+  "pages": 13,
+  "text_file": "research/P19_PhysGaussian.txt",
+  "status": "downloaded_and_text_extracted"
+}

@@ -1,0 +1,947 @@
+                                         GaussianBench: Physics-Fidelity Evaluation for Gaussian Scene Representations
+
+                                                                                  Chukwudalu Dumebi-Kachikwu
+                                                                              STAR Laboratories, University of Maryland
+                                                                                          daludk@terpmail.umd.edu
+
+
+
+                                                                  Abstract                                     five-to-ten applicable scenes per external system, Gaus-
+arXiv:2610.10554v1 [cs.GR] 27 Sep 2026
+
+
+
+
+                                                                                                               sianBench separates conservation, continuum, kinematic,
+                                            3D Gaussian Splatting has rapidly evolved from                     representation-state, and validity-regime outcomes, while
+                                         static scene reconstruction toward dynamic and physics-               matched faults and tolerance audits verify that these distinc-
+                                         integrated representations intended not only to reproduce             tions arise from the intended contracts. Our results show
+                                         observed motion, but to predict how scenes change under               why physics-integrated Gaussian systems require state-level
+                                         interaction. This shift creates a new evaluation problem:             diagnosis in addition to visually plausible rollouts.
+                                         a rollout can look physically plausible while relying on in-
+                                         correct internal mechanics, and visual agreement with an
+                                         observed sequence does not establish that the system will             1. Introduction
+                                         respond correctly to a new force, material edit, contact, or
+                                         thermal intervention. Existing evaluations therefore provide          Dynamic neural and Gaussian scene representations have
+                                         limited evidence about whether the underlying representa-             made substantial progress in reconstructing time-varying
+                                         tion actually satisfies the physical behavior it is intended to       appearance and geometry for novel-view synthesis [15, 22].
+                                         model.                                                                Physics-integrated Gaussian systems augment that repre-
+                                            We introduce GaussianBench, a physics-fidelity eval-               sentation with continuum simulation, surface-particle dy-
+                                         uation suite for physics-integrated Gaussian scene rep-               namics, or learned material inference [1, 6, 11, 16, 23, 25].
+                                         resentations.     GaussianBench evaluates physical and                However, if these systems are eventually used to simulate
+                                         representation-level behavior directly through frozen file-           physical phenomena in counterfactual ways, their behavior
+                                         based scenes, simulator-independent scorers, and analyti-             should be evaluated as carefully as their appearance.
+                                         cal or measured references. The benchmark separately tests                The evaluation gap is now the limiting issue. Pub-
+                                         conservation, continuum response, heterogeneous-material              lished systems are commonly demonstrated on method-
+                                         coupling, Gaussian covariance transport and rendering,                specific rendered-motion suites, user studies of motion re-
+                                         thermal phase change, and counterfactual response. Each               alism, or bespoke material-edit and fracture examples. For
+                                         reference declares its regime of validity, and outcomes dis-
+                                                                                                               example, PhysGaussian evaluates generated motion on syn-
+                                         tinguish PASS, FAIL, NA, and INVALID, separating genuine
+                                                                                                               thetic and captured scenes [23]; PhysDreamer evaluates
+                                         physical failures from unsupported capabilities and invalid
+                                                                                                               visual quality and motion realism for action-conditioned
+                                         comparisons.
+                                                                                                               rollouts [24]; OmniPhysGS evaluates material-conditioned
+                                            We additionally provide GaussianFlesh, a thermome-
+                                                                                                               interactions [13]; and GaussianFluent evaluates mixed-
+                                         chanical reference entrant in which persistent 3D Gaus-
+                                         sians act as both rendering primitives and continuum ma-              material fracture and cutting [8]. These are valuable task
+                                         terial points. Its shared-grid UL-MLS-MPM solver sup-                 demonstrations, but they do not create a common measure-
+                                         ports per-particle constitutive behavior, covariance trans-           ment of physical state. A rollout can resemble a reference
+                                         port through Σp = Fp Σ0,p F⊤                                          video while failing to conserve momentum, reproduce the
+                                                                           p , and persistent thermal,
+                                         latent-heat, and phase state.                                         correct material response, realize a prescribed deformation,
+                                            We evaluate seven broad profiles, including six released           transport Gaussian covariance correctly, or behave correctly
+                                         external systems: PhysGaussian, GaussianFluent, Omni-                 under an unseen intervention. In addition, visual evalua-
+                                         PhysGS, PhysDreamer, Physics3D, and GASP. The shared                  tion alone cannot reveal which of these physical properties
+                                         protocol exposes distinct failure signatures hidden by na-            failed, whether the system lacks the capability altogether, or
+                                         tive visual or task-specific evaluations: systems can repro-          whether the comparison itself is physically valid. Gaussian-
+                                         duce homogeneous continuum response while failing bima-               Bench supplies that missing evaluation: frozen file-based
+                                         terial coupling, or correctly transport Gaussian covariance           scenes, pure-function scorers, explicit regimes of validity,
+                                         while failing to realize the prescribed deformation. Across           and analytical or measured references for mechanics, Gaus-
+
+
+                                                                                                           1
+Figure 1. GaussianBench in three steps. We lock each scene’s physics setup, reference answer, validity rules, and tolerance; run every
+released system through a thin adapter that exports its native physical state; and grade the result with simulator-independent scorers that
+report PASS, FAIL, INVALID, or NA.
+
+
+sian state, rendering, thermomechanics, and material re-                face responds as part of one mechanical system; Sec. 3
+sponse.                                                                 tests this coupling against an analytical bimaterial-bar so-
+    GaussianBench asks a benchmark-first question: which                lution. Temperature likewise diffuses on the grid within a
+physical and representation-level contracts can a released              thermally simulated body, but the current implementation
+system demonstrate under a shared, auditable protocol?                  uses one set of thermal coefficients per body rather than dis-
+GaussianFlesh serves as a reference implementation for                  tinct interface coefficients per painted region. This persis-
+exercising these contracts and validating the benchmark                 tent state matters because a physics-integrated system must
+across mechanical, thermomechanical, and representation-                represent not only an observed trajectory but also how the
+level behavior.                                                         scene would change under new forces, contacts, tempera-
+    GaussianFlesh treats every Gaussian as a material point             tures, or material edits.
+with persistent identity. Each particle stores the kine-                    The demonstrated system supports elastic rubber/jelly,
+matic, rendering, constitutive, plastic, temperature, latent-           StVK metal with log-strain J2 plasticity and work hard-
+heat, and phase state detailed in Sec. 4. The same durable              ening, Drucker-Prager clay/sand, heat diffusion, continu-
+memory can store interaction-inferred physical fields or la-            ous thermal softening, latent-heat melting, collisions, and
+tent material vectors, giving inferred state somewhere to               trained 3DGS PLY input.
+persist and affect later predictions.                                       Our contributions are:
+    A shared UL-MLS-MPM solver advances the cloud.                      • GaussianBench, a file-based physics-fidelity suite with
+During particle-to-grid (P2G) transfer, each particle reads                analytical verification of motion, covariance, render-
+its own material model ID and dispatches to the appropri-                  ing, thermomechanics, and shared-grid material-interface
+ate stress law; all particles nevertheless couple through the              coupling, plus measured-rubber validation and interven-
+same grid. This design makes mixed-material objects a                      tion tests.
+property of the particle state rather than a separate scene-            • An adversarial covariance audit that separates three fail-
+graph construction. A single connected object can there-                   ure modes: whether the scene deforms correctly, whether
+fore contain locally stiff, soft, or plastic regions without               Gaussian covariance follows that deformation correctly,
+first being segmented into independently simulated bodies                  and whether the Gaussian state remains healthy rather
+or attached to separate proxy geometry. Those regions ex-                  than collapsing or freezing.
+change momentum through the shared grid, so their inter-                • GaussianFlesh, a thermomechanical reference entry with
+
+
+                                                                    2
+   grid heat diffusion, continuous µ(T ) softening, latent            tions, and task-specific physical simulations. However,
+   heat, and per-particle constitutive dispatch across elastic,       their evaluations use different scenes, experimental condi-
+   J2, Drucker–Prager, and pressure branches.                         tions, and metrics, making it difficult to establish which
+• Cross-system evaluation across seven broad profiles, in-            physical properties each system satisfies under a common
+   cluding six released external systems with five-to-ten ap-         protocol. In particular, agreement with observed motion
+   plicable scenes each, alongside two separately reported            does not by itself establish conservation, constitutive ac-
+   targeted probes.                                                   curacy, or correct Gaussian-state transport. Unlike these
+    Code, frozen benchmark scenes, adapters, and evalua-              approaches, our work focuses on evaluating physical fi-
+tion reports are publicly available at https://github.                delity rather than introducing another simulation architec-
+com/Dalu1234/GaussianBench.                                           ture. We provide a common set of frozen scenes and
+                                                                      simulator-independent scorers that distinguish physical be-
+2. Related Work                                                       havior, representation-level correctness, and the validity of
+                                                                      each comparison.
+Physics simulation. Physics-based simulation has en-
+abled the modeling of complex material behavior, includ-
+ing large deformation, plasticity, and phase transitions. The         Evaluation and verification. Physics-integrated Gaus-
+Material Point Method (MPM) has been widely adopted for               sian methods commonly evaluate rendered-video similar-
+simulating large-deformation solids and heterogeneous ma-             ity, perceived motion realism, material-specific demonstra-
+terials, with extensions supporting phase change and varied           tions, predicted geometry, unseen interactions, or physical-
+material behavior [19, 20]. Subsequent methods, including             parameter recovery [8, 10, 12, 13, 23, 24, 26]. These
+the Affine Particle-in-Cell (APIC) method [9] and Moving              evaluations provide valuable evidence, but do not individ-
+Least Squares MPM (MLS-MPM) [7], improve particle-                    ually establish numerical correctness or consistency be-
+grid transfers and computational efficiency. These meth-              tween simulated and rendered state. Drawing on established
+ods provide a foundation for physics-integrated Gaussian              verification-and-validation practice [17], GaussianBench
+representations, where Gaussian primitives can be coupled             combines analytical code-verification tests, measured-
+to simulators to generate physically driven motion. Our               material validation, Gaussian-state checks, and adversarial
+reference implementation, GaussianFlesh, follows this line            scorer audits under a simulator-independent protocol with
+of research by coupling persistent Gaussian material points           declared validity regimes. By separating failed tests from
+through a shared-grid MLS-MPM solver with per-particle                unsupported capabilities and invalid comparisons, it iden-
+constitutive dispatch. By contrast, GaussianBench is inde-            tifies which physical and representation-level properties a
+pendent of the underlying numerical method. Rather than               released system can demonstrate.
+proposing a new discretization or constitutive model, we
+evaluate whether different simulation approaches meet the             3. GaussianBench
+same standards for physical accuracy and consistent repre-
+sentation.                                                            GaussianBench is a standalone physics-fidelity benchmark
+                                                                      for physics-integrated Gaussian splatting systems [5]. Each
+                                                                      versioned scene is fixed before entrants are evaluated. Pure-
+Physics-integrated Gaussian representations. Recent
+                                                                      function scorers compare exported state against analytical
+advances in 3D Gaussian Splatting have extended Gaus-
+                                                                      or measured references and are unit-tested using synthetic
+sian scene representations beyond static reconstruction to-
+                                                                      trajectories with known outcomes. Held-out variants (un-
+ward dynamic simulation and physical interaction. Exist-
+                                                                      seen versions of benchmark scenes with changed material
+ing approaches employ a variety of physical representa-
+                                                                      or geometric parameters and recomputed references) re-
+tions and simulation frameworks. PhysGaussian [23], Om-
+                                                                      duce the benefit of instance-specific tuning and test whether
+niPhysGS [13], and PhysDreamer [24] couple Gaussian
+                                                                      a system satisfies the underlying physical contract. The
+representations with MPM-based simulation, while Spring-
+                                                                      benchmark distinguishes a genuine failure (FAIL) from a
+Gaus [26] and PhysTwin [10] employ learned spring-mass
+                                                                      missing capability (NA) and a regime violation (INVALID).
+representations. Other approaches use PBD/XPBD parti-
+                                                                      Tier A grades trajectories, Tier B grades relational and in-
+cles or cages [6, 11], mesh-based representations [16], or
+                                                                      tervention behavior, and Tier C grades Gaussian covariance
+reduced simulation proxies [1]. Relatedly, GASP [4] intro-
+                                                                      and rendering state. Versioned scene files, manifests, and
+duces triangle reparameterization for black-box point-based
+                                                                      scorers make every result reproducible and auditable.
+physics, PhysSplat [25] infers physical-property distribu-
+tions, and GaussianFluent [8] addresses mixed-material
+fracture and cutting.                                                 GaussianBench Protocols. GaussianBench divides eval-
+   These approaches demonstrate different capabilities                uation into four complementary protocols. Each asks a dif-
+through rendered dynamics, material-conditioned interac-              ferent question about the same exported physical state.
+
+                                                                  3
+    Protocol A: Does the object obey basic physics over               scene regime was not actually realized.
+time? This protocol follows positions, velocities, and op-
+tional mass throughout a rollout. Conservation scenes check
+                                                                      Adapter validation. To ensure that benchmark results re-
+whether an isolated object preserves linear and angular mo-
+                                                                      flect the evaluated system rather than adapter mistakes we
+mentum. Continuum scenes check quantities with known
+                                                                      validate each adapter as part of the measurement pipeline
+solutions: beam vibration frequency, stress-wave speed,
+                                                                      before using its scores: pin the release and harness; ver-
+Poisson contraction, melt-front motion, and free-fall trajec-
+                                                                      ify stable-identity and coordinate round trips; check unit
+tory.
+                                                                      and parameter equality through native conversion functions;
+    Protocol B: Does the system preserve relationships and            measure boundary, gravity, contact, and deformation real-
+respond to changes? These scenes test interactions that can-          ization from exported state; trace each graded channel to
+not be judged from one object in isolation. A bimaterial              the field used by the released solver or renderer; and run a
+bar checks whether two regions with different material pa-            matched negative control. A run is marked INVALID when
+rameters develop the predicted regional strains and interface         the adapter fails to apply a required scene setting, such as
+traction. It does not require different constitutive-law types:       gravity, boundary motion, material parameters, or initial
+each entrant may use an equivalent native elastic law for             state. Missing native state remains NA. For covariance-
+both regions, provided it applies the declared regional pa-           capable entries, we also run a negative control that holds
+rameters and reproduces the assumed small-strain response.            only the covariance fixed. Positions, the native deforma-
+Intervention scenes then change one physical input while              tion gradient F , and all kinematics remain unchanged, so
+holding geometry and initial state fixed, such as gravity,            any changed C1 score specifically measures covariance-
+temperature, or material assignment, and compare the new              transport sensitivity. For GASP, which uses a native trian-
+trajectory with the predicted counterfactual. A passing re-           gle representation, matched negative controls perturb grav-
+sult means the system responds to the changed input rather            ity, state transport, and post-impact recovery within that
+than replaying a memorized motion.                                    triangle-state contract. The complete audit matrix is pro-
+    Protocol C: Does the Gaussian representation itself re-           vided in the supplement.
+main physically correct? This protocol checks whether
+each Gaussian or native representation carries the correct
+                                                                      Coverage and reporting policy. We distinguish broad
+physical state as the object deforms. For particle Gaussians,
+                                                                      profiles from targeted probes. A broad profile covers at
+the scorer independently fits a deformation gradient from
+                                                                      least five frozen scenes across multiple diagnostic families;
+the exported positions to measure whether the requested de-
+                                                                      a targeted probe evaluates a released representation-specific
+formation was realized. It then computes the expected co-
+                                                                      path on only one or two applicable scenes and is not treated
+variance transport from the entrant’s rest covariance and ex-
+                                                                      as full-system coverage. Seven systems provide broad pro-
+ported deformation state, Σ′ = FΣ0 FT , and compares this
+                                                                      files: GaussianFlesh, PhysGaussian, GaussianFluent, Om-
+result with the covariance exported by the entrant. This sep-
+                                                                      niPhysGS, PhysDreamer, Physics3D, and GASP. Spring-
+arates errors in the object’s motion from errors in Gaussian-
+                                                                      Gaus and PhysTwin remain targeted probes because their
+state transport. The transport verdict is therefore condi-
+                                                                      released implementations do not expose the state or bound-
+tional on the entrant’s exported F: it tests whether covari-
+                                                                      ary structures required by the broader contracts.
+ance follows the deformation state that the system reports,
+while the separate position-fitted check tests whether the re-
+quested deformation was actually realized.                            4. Reference Entrant: GaussianFlesh
+    Protocol M: Does the constitutive law agree with mea-             GaussianFlesh is our reference entrant used to test Gaus-
+sured material data? The measured-material protocol com-              sianBench’s contracts. It represents a body or captured
+pares a simulated stress–strain curve with an independently           3DGS object as persistent Gaussian material points. Each
+characterized reference, currently the three-term Yeoh fit            point carries position, velocity, deformation and plastic
+to ASTM D412 natural-rubber measurements reported by                  state, rest and rendered covariance, mass and density, con-
+Azarniya and Rahimi [2, 3]. It is deliberately separate from          stitutive identifier, and, for thermal scenes, temperature, la-
+analytical code checks: matching a rendered deformation               tent heat, phase, and melt parameters. The complete state
+does not establish that the material law is correct.                  table and implementation equations are provided in the sup-
+    These protocols separate four failure modes: wrong mo-            plement.
+tion, wrong constitutive response, wrong Gaussian-state                   The production solver is a shared-grid Updated La-
+transport, and an unsupported or invalid evaluation regime.           grangian MLS-MPM implementation with APIC-style
+A FAIL means the applicable test was run and missed its               transfer. Per-particle material identifiers dispatch stress
+reference; NA means the released system does not expose               evaluation while all particles scatter to and gather from the
+the required capability; and INVALID means the prescribed             same grid. Gaussian appearance is updated from deforma-
+
+                                                                  4
+ ID     Tier Reference               Quantity graded               Pass tolerance                         Regime of validity
+ A1a    A    Conservation            Relative momentum drift (en- ∆prel < 10−6 ; ∆Lrel < 10−3             Isolated body near its initial location.
+                                     ergy reported)
+                                                                                 −3              −2
+ A1b    A    Conservation            Relative momentum drift (en- ∆prel < 10 ; ∆Lrel < 10                 Isolated body translating 11.5 m; declared domain handling.
+                                     ergy reported)
+ A2     A    Euler–Bernoulli
+                  p                  Beam frequency                Relative error < 10%                   Slender, linear elastic, small deflection.
+ A3     A    c = E/ρ                 Wave speed                    Relative error < 15%                   Thin bar, free lateral surfaces, linear response.
+ A4     A    Neumann–Stefan          Melt-front prefactor          R2 > 0.98; error < 15%                 1D conduction, insulated sides, equal phase properties.
+ A5     A    Poisson law             Lateral contraction           Error < 10%; face within 5%            Quasi-static, linear elastic, traction-free sides.
+ A6     A    Free fall               COM; state health             Position/velocity < 10%; volume < Uniform gravity; no contact in scoring window.
+                                                                   1%
+ B1     B    Series bar              Regional strain; traction     Each error and jump < 15%              Small strain, equal area, bonded interface.
+ C1     C    Affine push-forward     Kinematics; transport         Kinematic < 5/10%; transport < Homogeneous affine interior; boundary band excluded.
+                                                                   0.1/1%
+ C2-s   C    Peak shear              Kinematics; transport; health Same transport limits; declared health Unit volume-preserving shear; regime guarded.
+                                                                   limits
+ C2-m C      State health            Eigenvalues; condition        Ratio > 10−3 ; condition < 104         Thermal melt capability.
+ C3   C      Render round trip       PSNR; SSIM                    ≥ 35 dB; ≥ 0.97                        Elastic squash; identical rendering configuration.
+ C4   C      Measured section        Beam frequency                Relative error < 20%                   Irregular captured beam, small deflection.
+ C5   C      Triangle identity       Edge; area transport          Edge < 1/5%; area < 2/10%              Stable triangles; nontrivial translation.
+ C6   C      Galilean transport      COM path; shape               Straightness < 2%; speed var. < 5%; Zero gravity, uniform velocity oblique to the grid.
+                                                                   C5 shape limits
+ C7     C    Static equilibrium      Post-settle drift; shape      Drift < 2% body scale; bounded tail Resting on the system’s own released support.
+                                                                   shape error
+ C8     C    Impact recovery         Peak deformation; tail recov- Peak ≥ 5% gate; tail median < 5/10% Soft-elastic released material; floor impact.
+                                     ery
+ M1     A    ASTM D412               Cauchy stress                 Median error < 15%                     Uniaxial, quasi-static, isothermal response.
+
+Table 1. GaussianBench scene inventory and grading contract. Versioned JSON manifests are normative. Tier A/B consumes trajecto-
+ries; Tier C consumes exposed representation state and renders.
+
+            System                   Applicable     Families      External    Profile     Observed discrimination
+            GaussianFlesh               12          A/B/C/M         No        Broad       Thermal and bimaterial capability; A1a strict single-precision mo-
+                                                                                          mentum fails.
+            PhysGaussian [23]            10          A/C/M          Yes       Broad       Accurate small-strain response; invalid large-shear realization; co-
+                                                                                          variance transport passes.
+            GaussianFluent [8]            7            A/C          Yes       Broad       Poisson and covariance pass; conservation, beam, and wave probes
+                                                                                          fail.
+            OmniPhysGS [13]               8          A/B/C          Yes       Broad       Homogeneous continuum and affine tests pass; bimaterial coupling
+                                                                                          fails.
+            PhysDreamer [24]              8          A/B/C          Yes       Broad       Continuum and affine tests pass; bimaterial coupling fails.
+            Physics3D [14]                9           A/C           Yes       Broad       Continuum and covariance contracts of its PhysGaussian-lineage
+                                                                                          solver pass; strict conservation fails; large shear invalid.
+            GASP [4]                      5        A/C native       Yes       Broad       Free fall, drop transport, Galilean transport, supported settle, and im-
+                                                                                          pact recovery all pass on stable triangle state.
+            Spring-Gaus / PhysTwin    1–2 each    Native subset     Yes       Targeted    Conservation or free-fall scorer evidence only; hard-coded gravity and
+                                                                                          no native face structure block the remaining scenes.
+
+Table 2. Coverage accounting used throughout the paper. Broad profiles support cross-system claims. Targeted probes test simulator
+and representation independence without being counted as full entries. A/B/C/M denote trajectory/continuum, relational/intervention,
+representation state, and measured-material families.
+
+
+tion using the covariance push-forward                                                   inverse models can write inferred material fields without
+                                                                                         changing the benchmark interface.
+                            Σp = Fp Σ0,p F⊤
+                                          p,                                 (1)
+so the representation exposes local strain. The reference                                5. GaussianBench Evaluation
+supports corotated elastic solids, log-strain J2 plasticity,
+Drucker–Prager response, a weakly elastic compressible                                   Evaluation scope. We compare each system’s published
+molten branch, heat diffusion, latent-heat melting, colli-                               results with results from shared GaussianBench tests. When
+sions, and trained PLY input.                                                            a test fails, we identify the specific physical contract re-
+    For thermal scenes, heat and phase remain persistent par-                            sponsible, check whether the verdict is stable under toler-
+ticle state while diffusion is solved on the same grid. Ma-                              ance changes, and evaluate whether the system responds
+terial fields may be painted per particle, allowing hetero-                              correctly when a physical input is changed. We evaluate
+geneous regions to exchange momentum through one grid.                                   seven broad profiles, controlled scorer faults, analytical and
+Parameter inference is outside the present forward-fidelity                              measured references, and two targeted probes. Only broad
+evaluation, but the persistent state is structured so future                             profiles support cross-system comparisons.
+
+
+                                                                                   5
+  System             Published native evidence (not GB A/P/F/I           B1, which joins two regions with different material param-
+                     re-scored)
+                                                                         eters and checks both their regional strains and the trac-
+  PhysGaussian [23] Synthetic/captured rendered dy- 10/7/2/1
+                     namics                                              tion transmitted across their interface. The largest regional-
+  PhysDreamer [24] Action-conditioned        motion- 8/5/2/1             strain error is 105.0% for OmniPhysGS and 105.6% for
+                     realism study                                       PhysDreamer. At the boundary between the two materials,
+  OmniPhysGS [13] Material-conditioned interaction 8/5/2/1               the force predicted on one side differs from the force pre-
+                     suite
+                                                                         dicted on the other by 55.4% for OmniPhysGS and 55.7%
+  GaussianFluent [8] Mixed-material fracture and cut- 7/2/4/1
+                     ting suite                                          for PhysDreamer. Physics3D produces continuum results
+  Physics3D [14]     Video-guided material optimiza- 9/7/1/1             close to those of PhysGaussian, consistent with their shared
+                     tion demos                                          MPM solver lineage: A2 reaches 4.23%, A3 7.71%, A5
+  GASP [4]           Engine-agnostic Gaussian simu- 5/5/0/0              2.17%, and C4 0.69%. It fails only the strict A1a single-
+                     lation demos
+                                                                         precision momentum tier. No MPM broad entrant passes
+Table 3. Published demonstrations versus GaussianBench re-               A1a at its frozen 10−6 threshold, so we treat A1a as a
+sults. The middle column summarizes what each system demon-              numerical-precision diagnostic rather than using it alone
+strated in its own paper. The final column reports GaussianBench         as evidence of model-level physical fidelity. These results
+counts as applicable/pass/fail/invalid. These are different evalu-       show why one overall visual score or total pass count is not
+ations, not converted versions of the same metric. GASP’s five           enough: two systems may achieve similar scores while fail-
+applicable scenes use a narrower representation-native profile and       ing completely different physical tests.
+omit conservation, bimaterial, and measured-material families, so
+its 5/5/0/0 does not imply superiority over systems with broader
+applicable coverage.                                                     Kinematics versus covariance transport. Gaussian-
+                                                                         Flesh passes 10 of the 11 original tests and the added B1
+                                                                         bimaterial-interface test. Its only original failure is A1a,
+5.1. Cross-system outcomes under shared tests                            the strict 10−6 single-precision momentum check. For the
+                                                                         Gaussian-state tests, GaussianFlesh realizes the prescribed
+The six external broad entries all report successful demon-
+                                                                         deformation and transports covariance correctly: C1 (small
+strations under their original, method-specific evaluations.
+                                                                         affine deformation) has a median kinematic error of 0.020%
+GaussianBench does not replace those results or combine
+                                                                         and native-F transport error of 3.20 × 10−6 %. The larger-
+their incompatible metrics into a synthetic score. It asks a
+                                                                         shear C2-s test has kinematic error 0.075% and transport
+separate question: which required physical behaviors does
+                                                                         error 1.94 × 10−6 %. Thus the benchmark checks two dif-
+each released system reproduce under the same auditable
+                                                                         ferent things: whether the object moves as prescribed and
+protocol? Four of the six external broad entries fail at least
+                                                                         whether each Gaussian’s covariance follows that motion.
+one substantive physical test. Physics3D misses only the
+                                                                             On the smaller C1 deformation, both PhysGaussian and
+strict float32 conservation check, which matters for numeri-
+                                                                         Physics3D perform well. For each system, the median
+cal stability, but does not indicate a broader physics failure.
+                                                                         kinematic errors are 0.866%, and the median covariance-
+GASP passes its narrower five-scene native-triangle profile.
+                                                                         transport errors are 0.0136%. Their independently com-
+    Table 3 pairs each system’s published evidence with its              puted values coincide after rounding because Physics3D’s
+applicable/pass/fail/invalid GaussianBench outcome.                      released implementation shares an MPM solver lineage
+                                                                         with PhysGaussian. The GaussianBench adapter only con-
+5.2. Attribution of physical failures
+                                                                         verts the documented material-parameter units and does not
+Conservation and continuum response. These shared                        replace or modify the solver.
+tests show that passing a simple single-material simulation                  Under the harder unit-shear test, each system’s median
+does not guarantee correct overall physics. A system may                 kinematic errors rise to 45.3%, so the systems do not re-
+behave well when the object is uniform, yet fail to conserve             alize the requested deformation and the scene is marked
+momentum, transmit waves at the correct speed, bend a                    INVALID. The benchmark isolates the failure: covariances
+beam correctly, or handle multiple materials. GaussianFlu-               remain healthy and are transported correctly for the defor-
+ent passes Poisson response but fails conservation, beam,                mation each system actually produces. Thus, the failure is
+and wave tests. With grid-coupled prescribed faces, Phys-                kinematic, not a covariance-transport error.
+Dreamer passes beam frequency, wave speed, Poisson re-                       C1 and C2-s use different verdict logic for a deliberate
+sponse, affine realization, and captured frequency, but fails            reason. Both first verify that the prescribed boundary faces
+conservation and bimaterial coupling. OmniPhysGS passes                  moved. C1 is a small-deformation code verification whose
+the same homogeneous continuum and affine probes but                     graded quantity is whether that drive produces the target in-
+also fails the material-interface test.                                  terior affine map, so a wrong interior map is FAIL. C2-s in-
+   The distinction is clearest in the bimaterial-interface test          stead asks about transport and covariance health at a speci-
+
+
+                                                                     6
+fied large-shear state; if the interior never reaches that state,           Intervention readout      Predicted Measured    Error
+                                                                            a370 /a400 melt prefactor    0.752    0.754    0.24%
+those measurements are not an evaluation of the declared                    Uniform soft, ∆L /∆          0.500    0.498   0.20 pp
+regime and the row is INVALID.When the object’s bound-                      Soft→stiff, ∆L /∆            0.800    0.798   0.23 pp
+ary is moved according to the test through each solver’s                    Stiff→soft, ∆L /∆            0.200    0.200 < 0.01 pp
+native grid hook, OmniPhysGS and PhysDreamer pass C1
+at 1.11% median kinematic error. Under C2-s, their me-                  Table 4. Counterfactual response with fixed geometry. Only
+                                                                        the thermal boundary or material painting changes. “pp” denotes
+dian errors rise to 22.7% rather than the requested unit-shear
+                                                                        percentage points.
+state and remain INVALID; conditional covariance transport
+and health still pass.
+                                                                        5.4. Response to physical interventions
+Heterogeneous response. B1 tests an object made from
+                                                                        We use GaussianFlesh to test whether changing a physical
+two different materials. In the representative h = 5 mm
+                                                                        input produces the corresponding predicted change in be-
+GaussianFlesh run, the predicted stretching errors are 9.1%
+                                                                        havior while geometry and initial state remain fixed. In the
+and 7.8% in the two regions, and the force mismatch at their
+                                                                        thermal intervention, we lower the floor temperature from
+interface is 1.43%. All are below the frozen 15% tolerance.
+                                                                        400K to 370K. The classical one-dimensional Stefan melt-
+The full three-resolution sweep is reported in the supple-
+                                                                        ing solution predicts that the melt front should advance at
+ment. This test distinguishes systems that work for a single
+                                                                        75.2% of its original rate; GaussianFlesh measures 75.4%,
+uniform material from systems that correctly transfer forces
+                                                                        corresponding to 0.24% relative error. In the B1 material-
+between different materials.
+                                                                        assignment intervention, we stretch a bar divided into left
+                                                                        and right halves and change which half is softer. When
+Representation-native behavior. GASP enters five                        both halves have the same material, physics predicts that
+scenes through its released Taichi triangle pipeline and                the left half should account for 50.0% of the bar’s total ex-
+passes A6, C5, C6 Galilean transport, C7 supported settle,              tension. Making the left half softer raises its predicted share
+and C8 impact recovery. Its gravity, half-gravity, and                  to 80.0%, while making it stiffer lowers the share to 20.0%.
+sand-material faults selectively fail the intended kinematic            GaussianFlesh measures 49.8%, 79.8%, and 20.0%, respec-
+or recovery metrics. Spring-Gaus exposes momentum drift                 tively, differing from the predictions by at most 0.23 per-
+in A1a/A1b, while PhysTwin passes native-body A6 free                   centage points.
+fall.
+
+5.3. Robustness to controlled changes                                   Measured material validation. Protocol M tests whether
+                                                                        a simulated material reproduces a measured stress–strain
+Adversarial scorer audit. The audit changes one state
+                                                                        curve. We compare the fixed-corotated material model
+component at a time: analytical native-F transport passes,
+                                                                        with natural-rubber tensile measurements collected under
+frame-zero covariance under shear fails transport but passes
+                                                                        ASTM D412 and represented by the three-term Yeoh fit
+health, and an induced eigenvalue collapse passes transport
+                                                                        of Azarniya and Rahimi [2, 3]. We first calibrate one pa-
+but fails health.
+                                                                        rameter, the small-strain shear modulus, using µ = 2C10 .
+                                                                        We then test whether the model reproduces the shape of the
+       Scorer audit input             Transport    Health
+                                                                        measured curve up to 150% engineering strain. Its median
+                    ⊤
+       Exact F Σ0 F                     Pass        Pass                error is 5.4%, below the frozen 15% tolerance. PhysGaus-
+       Frozen Σ0 under shear            Fail        Pass                sian and GaussianFlesh obtain the same result because both
+       Induced eigenvalue collapse      Pass        Fail                use the same calibrated fixed-corotated constitutive law in
+                                                                        this homogeneous test. M1 therefore tests whether a mate-
+Tolerance sensitivity. We re-score all 47 applicable                    rial model calibrated at small strain remains accurate when
+scenes from the six external broad profiles after multiply-             the rubber is stretched much further. It does not test auto-
+ing every verdict-bearing error budget by 0.5, 0.75, 1.25,              matic material estimation or differences in how each sys-
+and 2.0; validity gates remain frozen. Doubling the toler-              tem advances the simulation over time. The model slightly
+ances changes zero verdicts, so none of the external failures           underpredicts stress near the start of the curve and overpre-
+or invalid outcomes is created by the nominal cutoff. At                dicts it at larger strains. So the result applies only to the
+0.75×, five borderline passes change; at 0.5×, ten passes               tested rubber and strain range, not to all rubber materials.
+change. This analysis deliberately targets external entries;
+                                                                        5.5. What GaussianBench reveals
+it does not establish tolerance robustness for the Gaussian-
+Flesh reference entrant. The full per-system sweep and all              The experiments support three conclusions. First, looking
+transitions are machine-readable in the supplement.                     successful in a system’s original demonstration and obey-
+
+
+                                                                    7
+ing a specific physical rule are different claims. A method                GaussianFlesh serves as the reference entrant for exercis-
+can produce convincing rendered motion while still fail-               ing the full mechanical, thermomechanical, and Gaussian-
+ing tests of conservation, material coupling, deformation,             state contract, but the primary contribution is the evaluation
+or Gaussian-state transport. Four of six external broad en-            framework. As Gaussian splatting moves toward interactive
+tries reveal at least one additional non-precision state-level         scenes and world models, visual plausibility will not guar-
+contract violation under GaussianBench. Second, those dis-             antee correct behavior under new contacts, forces, or mate-
+crepancies are not interchangeable. The benchmark sepa-                rial changes. GaussianBench makes that difference measur-
+rates conservation, continuum response, material coupling,             able, attributable, and reproducible.
+kinematic realization, covariance transport, representation
+health, and validity-regime violations. Third, the interven-
+tion and measured material protocols test whether the rep-             Availability. The complete GaussianBench and Gaus-
+resented state predicts the correct behavior when conditions           sianFlesh code, frozen scenes, pure scorers, released-
+change. GaussianBench is therefore most useful as a diag-              system adapters, adversarial scorer tests, reference for-
+nostic methodology, not as a single leaderboard score.                 mulas, machine-readable reports, and representative arti-
+                                                                       facts are publicly available at https://github.com/
+                                                                       Dalu1234/GaussianBench.
+Limitations. GaussianBench measures declared state
+contracts, not every aspect of physical reality. In addition, it
+covers a limited set of physical scenarios, and each passing           References
+threshold applies only within the conditions defined for that           [1] Mario Alfonso-Arsuaga,            Henar Dominguez-Elvira,
+test. Tolerances are also tied to declared regimes, and cur-                Jorge Casas-Guerrero, Andrea Castiella-Aguirrezabala,
+rent thermal and measured-material references cover only                    Lorenzo Costábile Domínguez, Jorge García-González,
+selected materials and boundary conditions. So the bench-                   Maria Naranjo-Almeida, Marc Comino-Trinidad, and Jorge
+mark’s verdicts cannot automatically be generalized beyond                  Lopez-Moreno. PHYSPLAT: A framework for photorealis-
+the physical conditions for which each test and tolerance                   tic hybrid simulation of real and synthetic elements using 3D
+were designed. C1 transport is conditioned on exported na-                  Gaussian splatting. In Winter Conference on Applications of
+tive F and does not independently test native F against the                 Computer Vision (WACV), pages 1621–1631, 2026.
+position-fitted deformation.                                            [2] ASTM International. Standard test methods for vulcanized
+                                                                            rubber and thermoplastic elastomers—tension, 2016.
+6. Conclusion                                                           [3] Omid Azarniya and Gholam Hossein Rahimi. Numerical and
+                                                                            experimental analysis of free vibrations and static bending of
+We introduced GaussianBench, a shared evaluation method-                    a sandwich beam with a hyperelastic core. Mechanics Based
+ology for testing the physical behavior and internal Gaus-                  Design of Structures and Machines, 52(2):706–728, 2024.
+sian state that visual and task-specific evaluations often              [4] Piotr Borycki, Weronika Smolak-Dyżewska, Joanna
+leave unmeasured. Across six released external systems,                     Waczyńska, Marcin Mazur, Sławomir Tadeja, and Prze-
+four show at least one non-precision failure despite suc-                   mysław Spurek. GASP: Gaussian splatting for physics-based
+cessful demonstrations in their original evaluations. These                 simulations. Computer Vision and Image Understanding,
+failures span conservation, continuum response, material-                   265:104699, 2026.
+interface coupling, deformation realization, and rendering              [5] Chukwudalu Dumebi-Kachikwu.              GaussianBench: A
+state, showing that convincing motion alone does not estab-                 physics-fidelity benchmark for physics-integrated Gaussian
+lish physical correctness.                                                  splatting systems. https://github.com/Dalu1234/
+    GaussianBench’s main contribution is diagnosis. It sep-                 GaussianBench, 2026. Software and technical report.
+arates whether a system failed to produce the requested de-             [6] Yutao Feng, Xiang Feng, Yintong Shang, Ying Jiang, Chang
+formation, transported covariance incorrectly, became nu-                   Yu, Zeshun Zong, Tianjia Shao, Hongzhi Wu, Kun Zhou,
+                                                                            Chenfanfu Jiang, and Yin Yang. Gaussian splashing: Uni-
+merically unhealthy, or never entered the physical regime
+                                                                            fied particles for versatile motion synthesis and rendering. In
+required for a valid test. It also reveals distinctions hid-                CVPR, pages 518–529, 2025.
+den by a single visual score or pass count: a system may
+                                                                        [7] Yuanming Hu, Yu Fang, Ziheng Ge, Ziyin Qu, Yixin Zhu,
+reproduce a uniform material while failing at an interface,                 Andre Pradhana, and Chenfanfu Jiang. A moving least
+or transport covariance correctly for a deformation that it                 squares material point method with displacement disconti-
+failed to realize. Controlled faults verify that the scorers de-            nuity and two-way rigid body coupling. ACM TOG, 37(4):
+tect these failure modes, while tolerance analysis shows that               35:1–35:14, 2018.
+the headline verdicts are not caused by borderline thresh-              [8] Bei Huang, Yixin Chen, Ruijie Lu, Gang Zeng, Hongbin
+olds. Thermal and material interventions on GaussianFlesh                   Zha, Yuru Pei, and Siyuan Huang. Gaussianfluent: Gaus-
+further demonstrate how the benchmark tests responses to                    sian simulation for dynamic scenes with mixed materials. In
+changed physical inputs.                                                    CVPR, pages 21583–21593, 2026.
+
+
+                                                                   8
+ [9] Chenfanfu Jiang, Craig Schroeder, Andrew Selle, Joseph                [24] Tianyuan Zhang, Hong-Xing Yu, Rundi Wu, Brandon Y.
+     Teran, and Alexey Stomakhin. The affine particle-in-cell                   Feng, Changxi Zheng, Noah Snavely, Jiajun Wu, and
+     method. ACM TOG, 34(4):51:1–51:10, 2015.                                   William T. Freeman. PhysDreamer: Physics-based interac-
+[10] Hanxiao Jiang, Hao-Yu Hsu, Kaifeng Zhang, Hsin-Ni Yu,                      tion with 3d objects via video generation. ECCV, 2024.
+     Shenlong Wang, and Yunzhu Li. PhysTwin: Physics-                      [25] Haoyu Zhao, Hao Wang, Xingyue Zhao, Hao Fei, Hongqiu
+     informed reconstruction and simulation of deformable ob-                   Wang, Chengjiang Long, and Hua Zou. PhysSplat: Efficient
+     jects from videos. ICCV, 2025.                                             physics simulation for 3D scenes via MLLM-guided Gaus-
+[11] Ying Jiang, Chang Yu, Tianyi Xie, Xuan Li, Yutao Feng,                     sian splatting. In ICCV, pages 5242–5252, 2025.
+     Huamin Wang, Minchen Li, Henry Lau, Feng Gao, Yin                     [26] Licheng Zhong, Hong-Xing Yu, Jiajun Wu, and Yunzhu Li.
+     Yang, and Chenfanfu Jiang. VR-GS: A physical dynamics-                     Reconstruction and simulation of elastic objects with spring-
+     aware interactive Gaussian splatting system in virtual reality.            mass 3d gaussians. ECCV, 2024.
+     In ACM SIGGRAPH Conference Papers, 2024.
+[12] Xuan Li, Yi-Ling Qiao, Peter Yichen Chen, Krishna Murthy
+     Jatavallabhula, Ming Lin, Chenfanfu Jiang, and Chuang
+     Gan. PAC-NeRF: Physics augmented continuum neural ra-
+     diance fields for geometry-agnostic system identification.
+     In International Conference on Learning Representations,
+     2023.
+[13] Yuchen Lin, Chenguo Lin, Jianjin Xu, and Yadong Mu.
+     OmniPhysGS: 3d constitutive gaussians for general physics-
+     based dynamics generation. In ICLR, 2025.
+[14] Fangfu Liu, Hanyang Wang, Shunyu Yao, Shengjun Zhang,
+     Jie Zhou, and Yueqi Duan. Physics3D: Learning physi-
+     cal properties of 3D gaussians via video diffusion. arXiv
+     preprint arXiv:2406.04338, 2024.
+[15] Jonathon Luiten, Georgios Kopanas, Bastian Leibe, and
+     Deva Ramanan. Dynamic 3D Gaussians: Tracking by per-
+     sistent dynamic view synthesis. In International Conference
+     on 3D Vision (3DV), 2024.
+[16] Shaojie Ma, Yawei Luo, Wei Yang, and Yi Yang. MaGS: Re-
+     constructing and simulating dynamic 3D objects with mesh-
+     adsorbed Gaussian splatting. In ICCV, pages 8745–8755,
+     2025.
+[17] William L. Oberkampf and Christopher J. Roy. Verification
+     and Validation in Scientific Computing. Cambridge Univer-
+     sity Press, 2010.
+[18] Breannan Smith, Fernando de Goes, and Theodore Kim. Sta-
+     ble neo-hookean flesh simulation. ACM TOG, 37(2):12:1–
+     12:15, 2018.
+[19] Alexey Stomakhin, Craig Schroeder, Lawrence Chai, Joseph
+     Teran, and Andrew Selle. A material point method for snow
+     simulation. ACM TOG, 32(4):102:1–102:10, 2013.
+[20] Alexey Stomakhin, Craig Schroeder, Chenfanfu Jiang,
+     Lawrence Chai, Joseph Teran, and Andrew Selle. Aug-
+     mented MPM for phase-change and varied materials. ACM
+     TOG, 33(4):138:1–138:11, 2014.
+[21] Zhou Wang, Alan C. Bovik, Hamid R. Sheikh, and Eero P.
+     Simoncelli. Image quality assessment: From error visibility
+     to structural similarity. IEEE TIP, 13(4):600–612, 2004.
+[22] Guanjun Wu, Taoran Yi, Jiemin Fang, Lingxi Xie, Xiaopeng
+     Zhang, Wei Wei, Wenyu Liu, Qi Tian, and Xinggang Wang.
+     4D Gaussian splatting for real-time dynamic scene render-
+     ing. In CVPR, pages 20310–20320, 2024.
+[23] Tianyi Xie, Zeshun Zong, Yuxing Qiu, Xuan Li, Yutao Feng,
+     Yin Yang, and Chenfanfu Jiang. PhysGaussian: Physics-
+     integrated 3D Gaussians for generative dynamics. In CVPR,
+     pages 4389–4398, 2024.
+
+
+                                                                       9
+GaussianBench: Physics-Fidelity Evaluation for Gaussian Scene Representations
+                                              Supplementary Material
+7. Implementation and Reproducibility Details                             PhysGaussian and Physics3D use the same determinis-
+                                                                      tic Warp-MPM kernel, discretization, timestep policy, and
+This appendix records the constitutive dispatch and stored            frozen inputs for the shared scenes. Physics3D’s adapter
+parameter values used by the implementation. All stresses
+                                                                      additionally applies its released E/107 unit convention. Af-
+below are first Piola–Kirchhoff stresses. The simulator
+                                                                      ter that conversion, the two independently generated C1 and
+stores the Lamé parameters (µ, λ) directly. For reporting,            C2-s reports differ below the precision printed in the tables;
+we recover the equivalent isotropic parameters as                     the reported pairs are median/p95 values, not one value per
+          µ(3λ + 2µ)                λ                                 system.
+      E=             ,        ν=          ,                               The Physics3D broad entry runs through the shared
+             λ+µ                 2(λ + µ)
+                                                          (2)         bench harness pointed at its repository. Its released
+              E             2
+       κ=              = λ + µ.                                       compute_mu_lam_from_E_nu stores Young’s modu-
+          3(1 − 2ν)         3
+                                                                      lus in units of 107 Pa (the native ball configuration uses
+Equivalently, µ = E/[2(1 + ν)] and λ = Eν/[(1 + ν)(1 −                E = 0.2 for 2 MPa), so scene moduli are passed as E/107 ;
+2ν)]. Values in Table 11 are derived from the stored single-          passing raw pascals makes the Lamé parameters seven or-
+precision (µ, λ) values, so the displayed E and ν include             ders of magnitude too stiff, violates the CFL bound by three
+the small rounding error of those presets. Table 10 maps              orders of magnitude, and reproduces the solver’s illegal-
+each reported demonstration to its production constitutive            memory-access crash in p2g. The benchmark’s declared
+branch.                                                               corotated law maps to the released pure jelly_base
+                                                                      branch; the default branch adds a learned Maxwell resid-
+7.1. External Entrant Reproduction                                    ual whose zero-modulus case is guarded, and the persistent
+To make each external evaluation reproducible, we pin                 particle_F_N state is initialized to identity to match its
+every released system to a specific repository com-                   trial state (the released loader leaves it at zero, which makes
+mit:     PhysGaussian at 8339ed6aa2cd5d50e100                         the first constitutive update take the SVD of a singular ten-
+1a254a3d95aea678a956,                              Gaussian-          sor). Every meta.json records the mapping, the method
+Fluent            at          de7e10675b9dce589522                    and harness commits, timestep, substep count, and grid.
+41087bb15cce9bc3f6ef,                                 Omni-               The GASP broad entry runs its released Taichi pipeline
+PhysGS             at         5ab915b014467b911581                    unmodified: the native teddy pseudomesh vertices are simu-
+b0c6df351713d3114a08, PhysDreamer at 95beb71,                         lated by the released taichi_elements MPM engine, GASP’s
+Spring-Gaus at 62a1bb5, PhysTwin at 81c7187,                          released per-frame triangle size-control rule (threshold 1.0)
+Physics3D at 32d9218, and GASP at 186c9c9. Each                       is applied after every step exactly as in its demos, and
+GaussianBench adapter exports a stable particle or prim-              exports use the released rescaling inverse. The three new
+itive identity together with the system’s native positions,           triangle-state scenes (c6_rigid_transport_v1,
+velocities, and, when available, deformation and covariance           c7_supported_settle_v1,
+state.                                                                c8_impact_recovery_v1)                 were       frozen    with
+    Any compatibility changes are limited to running the re-          synthetic PASS/FAIL/INVALID scorer regression tests,
+leased code in the current software environment. These                including each scene’s natural controlled fault, before
+patches replace deprecated library entry points, make visu-           any entrant ran them.          C6’s uniform initial velocity
+alization dependencies optional, or repair a released initial-        is chosen as D−1 d for the export Jacobian D, so the
+ization fault. They do not modify the system’s force, stress,         exported center-of-mass direction equals the scene’s
+integration, or covariance-update equations.                          declared direction exactly. Matched GASP faults are
+    Complete machine-readable outputs are provided in                 results/GASP_half_gravity_fault                            (A6),
+results/PhysGaussian_native_2026-08-27,                               results/GASP_gravity_left_on_fault                          (C6,
+results/GaussianFluent_full,                                          the engine’s default gravity is simply not zeroed),
+results/OmniPhysGS_full,                                              and           results/GASP_sand_material_fault
+results/PhysDreamer_full,                                             (C8, a released inelastic material that cannot re-
+results/Spring-Gaus_full,                                             cover); the Physics3D frozen-covariance C1 fault is
+results/PhysTwin_full,                                                results/Physics3D_frozen_covariance_fault.
+results/Physics3D_broad,                                                  OmniPhysGS and PhysDreamer run the frozen particle
+results/GASP_broad.                                                   sets directly through their released MPM cores. Coordi-
+
+
+                                                                 10
+nates are translated, never scaled, into each native grid and         7.3. Tolerance Sensitivity
+translated back on export. PhysDreamer’s one-meter A3 bar
+                                                                      We test whether the benchmark’s conclusions depend on ar-
+uses its released configurable grid limit of 1.2 m so that the
+                                                                      bitrary numerical cutoffs for the six external broad profiles.
+bar does not touch the two-cell safety clip. The initial 1.0 m
+                                                                      GaussianFlesh is not included in this sweep, so the analysis
+domain produced an artificial first-frame arrival and was re-
+                                                                      supports threshold robustness only for the external verdicts.
+jected before reporting. Spring-Gaus enters only A1a/A1b
+                                                                      Let e be a measured error and τ its nominal allowed error.
+because those references are constitutive-calibration inde-
+                                                                      A scene passes when
+pendent; continuum probes remain NA rather than receiv-
+ing a benchmark-authored mapping from E, ν to learned                                            e ≤ τ.
+springs. PhysTwin enters A6 on a deterministic native par-
+ticle body using its released 5 × 10−5 s step. A larger ex-           For a sensitivity multiplier s, we change only the allowed
+ploratory step produced nonfinite state and was discarded.            error:
+    For both OmniPhysGS and PhysDreamer, prescribed                                              e ≤ sτ.
+faces enter through the released solver’s grid callback be-
+fore G2P. Exact particle-face targets are retained only as a          Thus s = 1 is the nominal rule, s = 0.75 makes the rule
+secondary position clamp. A particle-only post-step drive             25% stricter, s = 0.5 halves the allowed error, and s = 2
+was rejected during adapter validation because it did not             doubles it. We re-score the retained native exports under
+transmit the declared Dirichlet motion reliably into the in-          each value of s without rerunning any simulator, so the
+terior.                                                               physical output is held fixed while only the grading strict-
+                                                                      ness changes. For metrics where higher is better, we first
+7.2. Uniform Adapter Validation                                       express the score as an error from the ideal value of one. For
+Because adapter errors could affect benchmark results, ev-            example, SSIM, R2 , and direction cosine use e = 1 − m.
+ery external adapter is independently validated before scor-          PSNR is converted to its implied mean-squared error be-
+ing. The uniform protocol checks repository and harness               fore scaling. Covariance-health checks use the correspond-
+pinning, stable-identity coordinate round trips, native pa-           ing inverse rule: a stricter multiplier raises the minimum
+rameter and unit parity, measured scene realization, native-          acceptable eigenvalue floor, while a more forgiving multi-
+state traceability, and a matched negative control. An honest         plier lowers it. Regime gates remain fixed for every mul-
+NA means the release does not expose the required mapping             tiplier, including minimum travel, minimum impact defor-
+or state and the adapter leaves that scene unentered rather           mation, prescribed-face realization, frame count, and small-
+than synthesizing it.                                                 deflection bounds. Therefore, relaxing an error tolerance
+    For the five covariance-capable external adapters,                cannot turn a scene that failed to realize the prescribed ex-
+variants/freeze_covariance.py keeps the ac-                           periment into a valid pass.
+cepted C1 trajectory and native F exactly unchanged, but                  At 0.75×, five nominal passes change to fail: Om-
+replaces the covariance at every later frame with the covari-         niPhysGS A2/A5, PhysDreamer A2/A5, and Physics3D
+ance recorded in the initial frame (the undeformed starting           A6. At 0.5×, PhysGaussian A3, OmniPhysGS A2/A3/A5,
+state). Table 6 shows that this change turns the transport            PhysDreamer A2/A3/A5, Physics3D A3/A6, and GASP
+sub-verdict from PASS to FAIL for every adapter, while the            C7 change from pass to fail. No nominal failure changes
+independently fitted kinematic error remains unchanged.               to pass even at 2×. The executable analysis, complete
+Every native C1 row passes before the fault and fails only            per-scene transitions, and JSON/CSV outputs are released
+its transport sub-verdict after covariance is frozen.                 in analysis/tolerance_sensitivity.py and
+    The C1 and C2-s status rules answer different questions.          results/tolerance_sensitivity. All verdict
+Adapter validation first confirms prescribed-face motion for          tables can be regenerated with python run_all.py
+both scenes. C1 then grades the small-deformation interior            -results-dir <entry>.
+affine map itself, so failure to propagate that motion into               The frozen A1a threshold is intentionally stringent: no
+the target map is FAIL. C2-s evaluates transport and covari-          MPM broad entrant passes its 10−6 relative-momentum cri-
+ance health at a specified large-shear state; if that state is        terion. We therefore report A1a as a numerical-precision
+not realized, the requested regime was never reached and              diagnostic and do not use it alone as evidence of a
+the row is INVALID. With grid-coupled prescribed faces,               model-level physical failure. For PhysDreamer A5, the
+OmniPhysGS and PhysDreamer pass C1 at approximately                   adapter passes ν = 0.3 through the release’s native
+1.11/1.83% median/p95 kinematic error. Their C2-s inte-               set_E_nu_from_torch function and couples the pre-
+riors reach 22.7/34.9% error instead of the requested unit-           scribed face through the native grid callback. The measured
+shear state, so those rows remain INVALID while conditional           Poisson-response error is 7.79%, within the frozen 10% tol-
+transport and covariance health pass.                                 erance.
+
+
+                                                                 11
+                        System           Pin  ID/coords     Units/params    Realization      Native state       Matched control
+                        PhysGaussian     Yes      Yes            Yes             Yes            F, Σ               frozen Σ
+                        GaussianFluent   Yes      Yes            Yes             Yes            F, Σ               frozen Σ
+                        OmniPhysGS       Yes      Yes            Yes             Yes            F, Σ               frozen Σ
+                        PhysDreamer      Yes      Yes            Yes             Yes            F, Σ               frozen Σ
+                                                                 7
+                        Physics3D        Yes      Yes      E/10 verified         Yes            F, Σ           frozen Σ; gravity
+                        GASP             Yes   triangles   native controls       Yes      triangles; A6 F   gravity; transport; sand
+                        Spring-Gaus      Yes spring points   honest NA     entered scenes       x, v             targeted only
+                        PhysTwin         Yes spring points   honest NA       entered A6         x, v             targeted only
+
+Table 5. Adapter-validation protocol applied uniformly. A broad entry must satisfy every applicable check. Unsupported channels
+remain NA and do not increase coverage.
+
+
+System             Native transport        Frozen-Σ        Kinematics           Hencky StVK stress and J2 metal return. Let F =
+PhysGaussian            0.0136%             50.74%         unchanged            U diag(σ)V⊤ and ϵ = log σ. The principal Kirchhoff trial
+GaussianFluent          0.0112%             51.51%         unchanged
+                                                                                stress and the corresponding PK1 stress are
+OmniPhysGS         3.56×10−6 %              51.54%         unchanged
+PhysDreamer            0.00827%             51.54%         unchanged                         τ tr = 2µϵ + λ tr(ϵ)1,                             (5)
+Physics3D               0.0136%             50.74%         unchanged                                                       
+                                                                                                             2µϵi + λ tr(ϵ)
+                                                                                              P = U diag                      V⊤ .              (6)
+Table 6. Matched C1 adapter controls. Values are median rel-                                                       σi
+ative covariance-transport error. The fault modifies only covari-
+ance. PhysGaussian and Physics3D were scored independently;                     Writing ϵb = dev(ϵ), plastic flow occurs when
+their values coincide at the displayed precision because the two                ∥ dev(τ tr )∥2 > σy . The implemented radial return is
+released systems share the relevant solver lineage.
+                                                                                               σy
+                                                                                  ∆γ = ∥b
+                                                                                        ϵ∥2 −      ,                                            (7)
+                                                                                               2µ
+System            0.5×     0.75×         Nominal      1.25×        2×
+                                                                                            ∆γ
+PhysGaussian      6/3/1     7/2/1         7/2/1        7/2/1      7/2/1            ϵe = ϵ −      ϵb,                                            (8)
+GaussianFluent    2/4/1     2/4/1         2/4/1        2/4/1      2/4/1                     ∥b
+                                                                                             ϵ∥2
+OmniPhysGS        2/5/1     3/4/1         5/2/1        5/2/1      5/2/1             F ← U diag(exp ϵe )V⊤ ,                    σy ← σy + 2µξ∆γ. (9)
+PhysDreamer       2/5/1     3/4/1         5/2/1        5/2/1      5/2/1
+Physics3D         5/3/1     6/2/1         7/1/1        7/1/1      7/1/1         This branch stores the projected elastic deformation directly
+GASP              4/1/0     5/0/0         5/0/0        5/0/0      5/0/0
+                                                                                in F and resets its separate plastic tensor to identity, match-
+Table 7. Tolerance sensitivity as pass/fail/invalid counts. Across              ing the production implementation. Consequently, metal-
+47 applicable external scenes, doubling all pass-error budgets                  splat covariance shows the returned elastic deformation;
+changes no verdict. At 0.75×, five nominal passes change; at                    permanent set remains visible at object scale through the
+0.5×, ten change. Validity gates are fixed.                                     evolved particle positions.
+
+                                                                                Drucker–Prager return. Clay   √ uses the same Hencky
+7.4. Stress and Return Maps                                                     trial stress. With α = sin φ/( 3 cos φ) and ϵb = dev(ϵ),
+Fixed-corotated elasticity. For Fe = RS and J =                                 the production return computes
+det Fe , the production kernel evaluates                                                                               3λ + 2µ
+                                                                                                 ∆γ = ∥b
+                                                                                                       ϵ∥2 +                   tr(ϵ)α.         (10)
+                                                                                                                         2µ
+          P = 2µ(Fe − R) + λ(J − 1)J(Fe )−⊤ .                        (3)
+                                                                                If ∆γ ≤ 0, the trial state is retained. If ∆γ > 0 and
+The polar factor is corrected to a proper rotation when the                     tr(ϵ) > 0, the elastic singular values are projected to one.
+SVD reports a reflection.                                                       Otherwise,
+                                                                                                            ∆γ
+                                                                                                 ϵe = ϵ −        ϵb,
+                                                                                                            ∥b
+                                                                                                             ϵ∥2
+Stable Neo-Hookean elasticity. For the reference en-                                                                                    (11)
+trant, the stable Neo-Hookean branch used by one region of                                      Fe = U diag(exp ϵe )V⊤ ,
+B1 follows Smith et al. [18]. With λ̄ = λ + µ, γ = 1 + µ/λ̄,                                        Fpl ← (Fe )−1 F.
+and J = det F, its implemented first Piola stress is
+                                                                                Molten pressure law. After phase transition, singular val-
+                 P = µF + λ̄(J − γ)JF−⊤ .                            (4)        ues are safety-clamped to [0.2, 5] to form F
+                                                                                                                           e and J.
+                                                                                                                                  e The
+                                                                                post-transition branch evaluates
+It uses the scene-specified E and ν through the same Lamé
+conversion as the other solid branches.                                                                          e −⊤ + µreg F.
+                                                                                                  P = κ(Je − 1)JeF           e                 (12)
+
+
+                                                                           12
+For µreg > 0, this is a weakly elastic compressible post-           elasticity; metal uses the StVK/log-strain J2 path; clay
+transition material, not a viscosity law or a general free-         uses Drucker–Prager; molten material uses the compress-
+surface fluid model.                                                ible pressure branch. Rubber-like rows in Fig. 2 recover
+                                                                    after impact, while stiff/plastic rows retain residual defor-
+B1 refinement. Here, h is the particle spacing, so a                mation.
+smaller value gives a finer simulation. At the finest reso-
+lution (h = 5 mm, 1,280 particles), the two regions have            Thermomechanical melting. The coupled path com-
+strain errors of 9.1% and 7.8%, and the traction mismatch           bines grid heat diffusion, continuous µ(T ) softening, latent
+across their interface is 1.43%. Across the full refinement         heat, and phase transition. Figure 4 logs temperature, melt
+sweep, decreasing h from 10 to 6.25 to 5 mm reduces the             fraction, latent buffer, front position, and phase counts.
+traction mismatch from 14.2% to 2.0% to 1.43%. All three
+resolutions pass the frozen 15% tolerance, and the improve-         Trained 3DGS assets. GaussianFlesh loads trained PLY
+ment with refinement shows that the result is not dependent         point clouds and reuses learned covariance, opacity, and
+on one chosen resolution.                                           spherical-harmonic appearance. For a captured plush
+                                                                    object, we follow PhysGaussian’s internal-filling proce-
+Runtime and external diagnostics. On one RTX 4070                   dure [23]. After 25% impact compression, the object re-
+Laptop GPU, simulation runs at 31.7 FPS for 5,000 par-              bounds to within 0.8% of the bounding-box diagonal, with
+ticles, 13.4 FPS for 40,000, and 2.8 FPS for a 200,000-             29 dB PSNR / 0.98 SSIM [21] after rigid alignment and
+Gaussian ficus (0.21, 0.31, and 0.72 GB VRAM). The na-              no invalid covariances. This texture-sensitive diagnostic is
+tive GASP and Physics3D diagnostics and their matched               distinct from procedural C3 and remains below C3’s 35 dB
+fault tests are included as supplementary evidence. These           threshold.
+experiments validate the adapters and scorers but do not re-
+place the standardized broad verdict matrix used for cross-
+system comparison.
+7.5. Implementation equations
+With dip = xi − xp and interpolation weights wip , the grid
+transfer and deformation update are
+            X
+     mi =       wip mp ,                               (13)
+            p
+           X
+ (mv)i =        wip mp (vp + Cp dip ),                 (14)
+            p
+                X
+      fi = −        V0,p τp ∇x wip ,     Fn+1
+                                          p   = ∆Fp Fnp .
+                p
+                                                       (15)
+
+The complete constitutive, plasticity, thermal diffusion,
+latent-heat, and molten-pressure equations are given in the
+preceding supplementary sections. These define the refer-
+ence entrant only; GaussianBench scorers import no simu-
+lator code.
+
+8. Reference-Entrant Demonstrations
+These brief demonstrations show how GaussianFlesh, the
+reference entrant, realizes selected benchmarked behaviors
+in rendered Gaussian scenes. The rendered scenes can be
+seen in Figure 2.
+
+Material behavior and recovery. The reference entry
+changes per-particle material fields while leaving the rep-
+resentation unchanged. Rubber and jelly use corotated
+
+
+                                                               13
+8.1. Complete External System–Scene Results
+Tables 8 and 9 expand the aggregate counts in the main paper into per-scene outcomes for every external broad entry. Each
+applicable cell reports the verdict and the primary error used to interpret it; a dash denotes NA. Full metric vectors, references,
+and tolerances remain in the released report.json files. These tables report retained results and do not introduce a new
+aggregate score.
+
+System                      A1a                A1b                A2                A3                 A5              A6            B1         M1
+                                    −6                   −6
+PhysGaussian        F 8.95×10            P 1.02×10            P 4.23%            P 7.71%         P 2.17%               –             –       P 5.40%
+GaussianFluent      F 1.73×10−2          F 3.04×10−3          F 76.9%           F no arrival     P 0.263%              –             –              –
+                                    −6
+OmniPhysGS          F 4.16×10                     –           P 8.06%            P 9.04%         P 8.18%               –       F 105%               –
+                                    −5
+PhysDreamer         F 2.35×10                     –           P 8.61%            P 9.04%         P 7.79%               –       F 106%               –
+                                    −6                   −6
+Physics3D           F 8.56×10            P 1.00×10            P 4.23%            P 7.71%         P 2.17%          P 7.60%            –              –
+GASP                          –                   –                –                 –                 –          P 2.34%            –              –
+
+Table 8. Complete external mechanics results. P/F/I denote PASS/FAIL/INVALID. A1a/A1b report relative linear momentum drift;
+A2/A3/A5/M1 report relative error; A6 reports the larger of the COM position and velocity errors. B1 reports the largest regional-strain or
+interface-traction error. A2 invalidity is shown by maximum tip deflection. A1a is reported as a strict float32 precision diagnostic.
+
+
+
+System                C1 kin./tr.            C2-s kin./tr.          C3              C4            C5              C6            C7             C8
+PhysGaussian      P 0.866/0.0136%          I 45.3/0.0747%        F 31.63 dB      P 0.691%          –               –            –               –
+GaussianFluent    P 0.864/0.0112%          I 12.4/0.0815%              –            –              –               –            –               –
+OmniPhysGS       P 1.11/3.56×10−6 %      I 22.7/4.01×10−6 %            –         P 6.82%           –               –            –               –
+PhysDreamer       P 1.11/0.00827%          I 22.7/0.0265%              –         P 7.45%           –               –            –               –
+Physics3D         P 0.866/0.0136%          I 45.3/0.0747%              –         P 0.691%          –               –            –               –
+GASP                      –                       –                    –            –          P 0.0302%     P 0.000848%     P 1.41%      P 1.05/0.912%
+
+Table 9. Complete external representation-state results. C1 and C2-s report median kinematic/transport error; C3 reports PSNR; C4
+reports frequency error (or invalidating tip deflection); C5 reports area-error p95; C6 reports path straightness; C7 reports post-settle COM
+drift; and C8 reports tail edge/area recovery error. C2-s is invalid when the prescribed shear is not realized, even though the conditional
+transport error passes. C1 instead grades realization of its smaller prescribed affine map after boundary-face motion has been verified.
+
+
+
+Scene or demonstration                         Material assignment                                         Constitutive path
+Elastic drop and recovery                      Rubber or jelly                                             Fixed-corotated elasticity
+Metal impact and permanent set                 Metal                                                       Hencky StVK stress with log-strain J2 return
+Clay deformation                               Clay                                                        Hencky stress with Drucker–Prager return
+Mixed connected objects                        Region-painted presets                                      Per-particle dispatch among the above laws
+Hot-floor melting                              Wax solid → molten wax                                      Corotated solid → weakly elastic compressible melt
+Imported ficus, pillow, and plush captures     Assigned rubber or jelly                                    Corotated physics; trained opacity and SH retained
+GaussianBench solid scenes                     Scene-specified E, ν, and ρ                                 Fixed-corotated elasticity
+GaussianBench B1 bimaterial bar                Region-painted E; entrant-native law mapping                Small-strain-equivalent elastic interface response
+
+Table 10. Scene-to-constitutive-model mapping. A material label selects particle fields, not a different solver. Mixed regions scatter to the
+same UL-MLS-MPM grid and dispatch their stress law per particle.
+
+
+
+
+                                                                           14
+                      Preset               E (Pa)          ν       µ (Pa)       λ (Pa)        κ (Pa)    ρ (kg/m3 )
+                      Rubber           1.000×106     0.4499    3.45×105      3.10×106     3.33×106           1200
+                                                 4                       4           5             5
+                      Jelly            4.988×10      0.4501    1.72×10       1.55×10     1.665×10            1000
+                                                 8                       7           8             8
+                      Metal            1.856×10      0.2999    7.14×10       1.07×10     1.546×10            7800
+                                                 5                       4           5             5
+                      Clay             1.000×10      0.4499    3.45×10       3.10×10      3.33×10            1800
+                                                 4                       4           4             4
+                      Flesh / bread    5.011×10      0.3998    1.79×10       7.14×10     8.333×10      1050 / 400
+                                                 4                       4           5             5
+                      Wax (solid)      9.722×10      0.4090    3.45×10       1.55×10      1.78×10             900
+                                                                         3                         5
+                      Wax (molten)               –         –   3.00×10               –    4.00×10             900
+
+Table 11. Constitutive parameters stored by the named presets. For solids, κ is the derived isotropic bulk modulus in Eq. (2); the code
+evaluates stress using (µ, λ). The molten-wax row instead lists the pressure-law bulk modulus and residual shear elasticity used after
+phase transition. Metal additionally uses initial yield stress σy = 5.0×107 Pa and hardening coefficient ξ = 10; clay uses friction angle
+φ = 30◦ .
+
+
+
+
+                                                                   15
+Figure 2. GaussianFlesh reference demonstrations across elastic, stiff, soft, multi-material collision, and thermomechanical regimes. The
+shared Gaussian substrate carries appearance and persistent physical state.
+
+
+
+
+                                                                   16
+        (a) Representative material responses.                                          (b) Covariance ellipsoids expose local strain.
+
+Figure 3. Additional reference-entrant diagnostics. Top: a non-spherical Gaussian substrate under dynamics. Bottom: material response
+and local covariance deformation from the shared particle representation.
+
+
+
+
+    (a) Heat, latent state, melt fraction, and front position.                        (b) Elastic round trip on an imported 3DGS capture.
+
+Figure 4. Thermomechanical and trained-asset diagnostics for the reference entrant: melting-state evolution (left) and deformation recovery
+of a captured plush object (right).
+
+
+
+
+                                                                    17
+

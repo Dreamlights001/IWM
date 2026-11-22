@@ -1,0 +1,29 @@
+{
+  "id": "P21",
+  "slug": "PhysTwin",
+  "arxiv_id": "2503.17973",
+  "family": "physics",
+  "source_url": "https://arxiv.org/abs/2503.17973",
+  "accessed": "2026-11-09",
+  "title": "PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos",
+  "authors": [
+    "Jiang, Hanxiao",
+    "Hsu, Hao-Yu",
+    "Zhang, Kaifeng",
+    "Yu, Hsin-Ni",
+    "Wang, Shenlong",
+    "Li, Yunzhu"
+  ],
+  "publication_date": "2025/03/23",
+  "submitted_date": "2025/03/23",
+  "abstract": " Creating a physical digital twin of a real-world object has immense potential in robotics, content creation, and XR. In this paper, we present PhysTwin, a novel framework that uses sparse videos of dynamic objects under interaction to produce a photo- and physically realistic, real-time interactive virtual replica. Our approach centers on two key components: (1) a physics-informed representation that combines spring-mass models for realistic physical simulation, generative shape models for geometry, and Gaussian splats for rendering; and (2) a novel multi-stage, optimization-based inverse modeling framework that reconstructs complete geometry, infers dense physical properties, and replicates realistic appearance from videos. Our method integrates an inverse physics framework with visual perception cues, enabling high-fidelity reconstruction even from partial, occluded, and limited viewpoints. PhysTwin supports modeling various deformable objects, including ropes, stuffed animals, cloth, and delivery packages. Experiments show that PhysTwin outperforms competing methods in reconstruction, rendering, future prediction, and simulation under novel interactions. We further demonstrate its applications in interactive real-time simulation and model-based robotic motion planning.",
+  "submission_history": "Submission history From: Hanxiao Jiang [ view email ] [v1] Sun, 23 Mar 2025 07:49:19 UTC (11,733 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2503.17973v1",
+  "local_pdf": "papers/P21_PhysTwin_2503.17973v1.pdf",
+  "sha256": "79389c194d83177ac4d1ef076b5d358af823361dd75423cce5087e89f836e01f",
+  "bytes": 14275427,
+  "pages": 16,
+  "text_file": "research/P21_PhysTwin.txt",
+  "status": "downloaded_and_text_extracted"
+}

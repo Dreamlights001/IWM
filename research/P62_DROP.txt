@@ -1,0 +1,879 @@
+                                                              DROP: Dexterous Reorientation via Online Planning
+                                                                   Albert H. Li† , Preston Culbertson‡ , Vince Kurtz‡ , Aaron D. Ames†,‡
+
+
+                                           Abstract— Achieving human-like dexterity is a longstanding
+                                        challenge in robotics, in part due to the complexity of planning
+                                        and control for contact-rich systems. In reinforcement learn-
+                                        ing (RL), one popular approach has been to use massively-
+                                        parallelized, domain-randomized simulations to learn a policy                                     Keypoint Predictor
+                                        offline over a vast array of contact conditions, allowing robust
+                                        sim-to-real transfer. Inspired by recent advances in real-time
+arXiv:2409.14562v4 [cs.RO] 5 Mar 2025
+
+
+
+
+                                        parallel simulation, this work considers instead the viability
+                                        of online planning methods for contact-rich manipulation by
+                                        studying the well-known in-hand cube reorientation task. We
+                                        propose a simple architecture that employs a sampling-based                      Smoother
+                                        predictive controller and vision-based pose estimator to search
+                                        for contact-rich control actions online. We conduct thorough
+                                        experiments to assess the real-world performance of our
+
+                                                                                                                            QQ
+                                        method, architectural design choices, and key factors for robust-
+                                        ness, demonstrating that our simple sampling-based approach
+                                        achieves performance comparable to prior RL-based works.
+                                        Supplemental material: https://caltech-amber.github.io/drop.                     Corrector
+
+                                                                I. I NTRODUCTION
+                                                                                                                                            Q
+                                                                                                                                                                                   Q
+                                           Achieving dexterity comparable to human hands has been
+                                        a longstanding challenge in robotics. While even simple
+                                                                                                                              Q              Q                QQ                   Q
+                                                                                                                    Q
+
+
+
+                                        robots can produce dynamic, contact-rich behavior [1], [2],
+                                        general methods for doing so are still scarce. For contact-rich                                Sampling-Based Planner
+                                        tasks, reinforcement learning (RL) has been the dominant
+                                                                                                                  Fig. 1: The DROP architecture. DROP consists of (i) a vision-based
+                                        paradigm due to its ability to generate real-world robust                 cube pose estimator (composed of the Keypoint Predictor, Smoother, and
+                                        plans. One well-studied task is in-hand cube reorientation,               Corrector), and (ii) a sampling-based planner that selects control actions
+                                        where a hand must rotate a cube to match consecutive goal                 by conducting model-based rollouts and iteratively improving the sampling
+                                                                                                                  distribution online based on the costs J (i) .
+                                        orientations. Pioneered by OpenAI [3] and extended by oth-
+                                        ers [4], [5], RL policies trained with massively-parallelized,               Our main contribution is DROP (Dexterous Reorientation
+                                        domain-randomized simulations have achieved remarkably                    via Online Planning), a system architecture (Fig. 1) that
+                                        robust sim-to-real transfer for cube rotation. But, this offline          consists of (i) a simple sampling-based planner and (ii) a
+                                        simulation-based approach requires substantial pre-execution              vision-based state estimator comprising a keypoint detection
+                                        computation and is inflexible to changing task specifications.            model, a pose smoother, and a collision-aware state corrector.
+                                           Leveraging recent advances in real-time parallel simula-               Our aim is not to design the best cube reorientation policy,
+                                        tion (e.g., MJPC) [6], we instead study the online approach of            but to test the viability of sampling-based strategies by
+                                        sampling-based predictive control (SPC) methods for in-hand               thoroughly assessing DROP’s real-world performance, archi-
+                                        manipulation, which continuously replan by simulating par-                tectural design, and key factors for robustness. Still, DROP
+                                        allel rollouts and applying optimal control actions over short            is the first online planning method for cube reorientation
+                                        time horizons. In contrast with RL, such online planning                  on hardware, and we find that its performance is comparable
+                                        methods can adjust the task or model without re-training, but             with prior RL-based methods. For reproducibility, we provide
+                                        may demand expensive online computation. While tools like                 open-source code, estimator weights, and hardware setup1 .
+                                        MJPC have made SPC feasible for many simulated contact-
+                                        rich tasks, their real-world utility remains largely unproven.                       II. BACKGROUND AND P RELIMINARIES
+                                                                                                                  A. Related Work
+                                          † A. H. Li and A. D. Ames are with the Department of Computing and
+                                        Mathematical Sciences, California Institute of Technology, Pasadena, CA      The first viable methods for in-hand cube reorientation
+                                        91125, USA, {alberthli, ames}@caltech.edu.                                employed reinforcement learning (RL), starting with Dactyl
+                                          ‡ P. Culbertson, V. Kurtz, and A. D. Ames are with the De-              [3], which popularized domain randomization for sim-to-
+                                        partment of Civil and Mechanical Engineering, California Institute
+                                        of Technology, Pasadena, CA 91125, USA, {pculbert, vkurtz,                real transfer of RL policies. Subsequent research built on
+                                        ames}@caltech.edu.
+                                          * This research is supported by Dow.                                      1 Project website: https://caltech-amber.github.io/drop [7].
+Dactyl with improved domain randomization [4], tactile-               where querying J(U ; x0 ) requires simulating f using an
+only sensing [8], [9], and “palm-down” rotations for various          open-loop control signal u(t) from initial condition x0 .
+objects [5], [10]. While typically limited to specific robots           Throughout the paper, we use the following notation to
+or object classes, RL’s robust hardware performance has               denote “subtraction” of two quaternions a, b ∈ H:
+established it as the standard for in-hand manipulation.
+                                                                                    a ⊖ b := Log a ◦ b−1 ∈ so(3),
+                                                                                                         
+   Others have explored model-based approaches to contact-                                                                      (5)
+rich manipulation via contact-implicit trajectory optimiza-
+tion (CITO). Originally used in locomotion [11], [12], recent         and similarly, when a, b ∈ SE(3), a ⊖ b ∈ se(3).
+work [6], [13] shows that such planners can generate motions                          III. T HE DROP A LGORITHM
+for simple contact-rich tasks like bimanual lifting [14] or
+real-time planar rolling and sliding [15], [16]. Other ap-              DROP consists of (i) a sampling-based planner and (ii) a
+proaches have combined CITO with learned signed distance              keypoint-based cube pose estimator (see Fig. 1). The planner
+fields [17], global search [18], or smoothed dynamics [19].           continually updates the control spline U via SPC. We use
+   Sampling-based planning has a long history in manipu-              MJPC [6] to handle both parallel rollouts and policy updates.
+lation, starting with methods like RRT, PRM, and STOMP
+[20]–[22]. Recent advances in SPC [23], [24] have enabled             A. Sampling-Based Planning and Control
+simple contact-rich manipulation like pushing, sliding, and              Algorithm 1 describes a generic SPC procedure. At time
+pick and place [25], [26], while new tools for real-time              t ∈ R, the planner receives a state estimate x̂(t) and rolls out
+parallel simulation of contact-rich tasks [6], have made SPC          a batch of N open-loop control sequences U (i) drawn from
+viable for simulated contact-rich tasks with remarkably sim-          some parametric distribution πθ (U ). Each control trajectory
+ple controllers. Still, little evidence exists for the viability of   is simulated (in parallel) to obtain a cost J (i) , and all costs
+SPC for real-world contact-rich manipulation (concurrently,           are jointly used to update the sampling parameters θ. The
+some works have studied it for locomotion [27]), and overall,         control input u(t) can be obtained for any time t from
+model-based methods (like SPC or CITO) have seldom                    the spline parameters U . This allows planning to proceed
+studied tasks as hard as cube reorientation, which exhibits           asynchronously, with the parameters θ updated as quickly as
+many simultaneous unpredictable contact modes.                        computational limits allow.
+   Lastly, high-quality object tracking is key for most of
+these methods, especially model-based online search. RL                Algorithm 1: Sampling-based Predictive Control
+approaches [3], [4] usually use single-object pose estimation           Input: θ, N , planner-specific parameters.
+networks, but recent computer vision advances suggest that              while planning do
+more general tracking pipelines like frame-to-frame point                  x0 ← x̂(t) ;       // estimate curr state
+trackers [28]–[30] and foundation models for rigid body pose               for i = 1 to N ;           // multi-threaded
+prediction [31] may boost performance.                                      do
+B. Mathematical Notation                                                       U (i) ∼ πθ (U ) ;  // sample controls
+  We model the continuous-time cube-in-hand dynamics as                        J (i) ← J U (i) ; x0 ; // eval rollout
+                                                                                                                 
+                                                                           θ ← update params U (1:N ) , J (1:N ) ;
+                     ẋ(t) = f (x(t), u(t)) ,                  (1)         u(t) ← get action(θ, t) ; // asynchronous
+where x is the state and u are control inputs. We do not
+assume access to a closed-form expression for f , but instead
+to a simulator (MuJoCo [32]) that generates state trajectories           In our experiments, we test two simple planning strategies
+x(t) given an initial state x0 and a control sequence u(t).           that both use a diagonal Gaussian distribution
+                                                                                                                          πθ (U ) =
+   The state x consists of the generalized positions and              N U , Σ with parameters θ = U , Σ . In Algorithm 1,
+velocities of both the cube (q c , v c ) and hand (q h , v h ):       get action(θ, t) is a spline interpolation with knots U .
+                                                                         Predictive sampling (PS) repeatedly updates U to be the
+                  x = [q, v] = [q c , q h , v c , v h ].       (2)    best sample, fixing Σ = σ 2 I. Despite its simplicity, PS has
+In this work, the control actions u are position setpoints for        demonstrated surprisingly effective performance on complex
+the hand, which are tracked by a lower-level PD controller            robot manipulation and locomotion tasks in simulation [6].
+internal to the model f . Following [6], we represent a control          The cross-entropy method (CEM) instead fits both U
+trajectory u(t) on t ∈ [0, T ] with K spline knots,                   and Σ = diag(s) to the sample mean and variance of the M
+                                                                      best elite samples, where s is a vector of covariances. CEM
+                U = [u1 , u2 , . . . , uk , . . . , uK ],      (3)    is only marginally more complex than PS, but has long been
+                                                                      used for general gradient-free optimization [33].
+which constitute the decision variables for online planning.
+                                                                         As in prior work [4], the task considered in this paper is to
+The control objective is encoded by a cost functional
+                                                                      use a dexterous hand to rotate a cube to within 0.4 rad of as
+                          Z T
+                                                                      many goal orientations in a row as possible without dropping.
+             J(U ; x0 ) =     ℓ (x(t), u(t)) dt,         (4)
+                                 0
+                                                                      The goals are uniformly randomly sampled over SO(3). In
+contrast with [4], to ensure sufficient task difficulty, each new
+goal must be at least 90◦ from the prior one.
+  Mathematically, the DROP cube reorientation problem is
+expressed as the optimal control problem
+              Z T                                      
+         min         λg · ℓg (rc (t)) + λp · ℓp (pc (t)) dt
+          u    0
+                                                               (6)
+          s.t. ẋ(t) = f (x(t), u(t)),
+                x(0) = x0 ,
+where λ(·) denote weights, the dynamics f (x, u) are only
+available through simulation, and
+                                             2
+                   ℓg (rc ) := rc ⊖ rgoal
+                                     c
+                                          2
+                                            ,                 (7)
+                   ℓp (pc ) :=distS (pc ),                    (8)
+                                                                     Fig. 2: Image augmentations. To train the keypoint predictor, we aug-
+are running costs. The variables pc and rc denote the                mented simulated images of the cube with random crops, affine transfor-
+positional and rotational components of the cube pose q c =          mations, spliced backgrounds, random deletions, and visual adjustments in
+                                                                     color, contrast, brightness, and reflectivity.
+[pc , rc ], which are extracted from the simulated state x(t). ℓg
+penalizes rotational distance from the goal, while ℓp penalizes      size, we derive keypoint measurement factors that relate
+the cube leaving a “safe” region S in Cartesian space.               keypoints pkp to a cube pose q c . This allows GTSAM to fuse
+   In this work, we prioritize drop reduction by setting λp          keypoint predictions from an arbitrary number of cameras in
+high and choosing a conservative region S (for details, see          real-time to yield a smoothed cube pose estimate q̃ c . See our
+[7]). In practice, we use a relatively low λg , which slows          open-source implementation for exact details [7].
+down the planner but also amplifies differences in rotation              In both simulation and hardware, we estimate velocities by
+rate across methods, allowing easier quantitative comparison.        numerically differentiating position estimates (drawn from
+B. The Pose Estimation Pipeline                                      the smoother for the cube and joint encoders for the hand)
+                                                                     and applying an exponential moving average filter with
+   Our pose estimator consists of three parts: a keypoint pre-
+                                                                     parameter α = 0.1 to compute a smooth velocity estimate ṽ.
+dictor, a fixed-lag smoother, and a collision-aware corrector.
+                                                                         Collision-Aware Correction. While the smoother’s cube
+   Keypoint Prediction. The estimator takes in images Ic ∈
+                                                                     pose estimate q̃ c is usually accurate within 1cm, it may not
+RC×H×W from nc cameras. We first train a vision model
+                                                                     always be physically compatible with the hand configuration
+gφ that predicts 8 fixed keypoints on the cube corresponding
+                                                                     q̃ h from the encoders, as the smoother has no knowledge
+to its corners, pkp = gφ (Ic ). The keypoint prediction task
+                                                                     of collision dynamics. Thus, q̃ = [q̃ c , q̃ h ] often corresponds
+is supervised from a training dataset of 686,000 images of
+                                                                     to non-negligible interpenetration between cube and hand,
+a simulated cube rendered by Blender, which includes
+                                                                     which (i) leads to inaccurate plans that destabilize the
+ground-truth pixel locations for all keypoints, even those that
+                                                                     closed-loop system, and (ii) decreases the planning rate, as
+are outside the frame or occluded. We generate randomized
+                                                                     stiff MuJoCo models with high interpenetration are poorly-
+background scenes using kubric [34], which spawns the
+                                                                     conditioned, requiring more solver iterations.
+cube along with other random assets in a pybullet sim-
+ulation. Similar datasets are commonly used to train “track-             To remedy this, we adapt the method of [36] by using a
+any-point” models [28]–[30] which exhibit strong sim-to-real         corrector, which maintains an asynchronous internal model
+transfer for similar keypoint tracking tasks.
+                                                                                              x̂˙ = fˆ(x̂(t), u(t))                       (9)
+   Crucially, we then augment these images with random
+affine transforms; visual effects like color, shadow, and            with state x̂ = [q̂ c , q̂ h , v̂ c , v̂ h ].
+contrast; and randomized backgrounds. We also found that               The corrector receives an un-adjusted estimate x̃ from the
+pruning images where the cube was nearly occluded, or too            smoother and encoders, and computes a “corrective wrench”
+close for a reliable pose estimate, was essential for good
+performance. Figure 2 shows some of the resulting images.                          w = −CP (q̂ c ⊖ q̃ c ) − CD (v̂ c − ṽ c )            (10)
+   To train gφ , we fine-tuned an ImageNet-pretrained
+resnet18 using AdamW with an MSE loss. The only model                that is added to (9) as a generalized force. Since the corrector
+adjustments were the number of input channels (depending             starts in a feasible state, simulating (9) results in a corrected
+on RGB or RGBD inputs) and the dimension of the output               estimate x̂ that is always physically feasible, but pulled
+layer. For finer details, see [7, Extended Version].                 toward the (possibly infeasible) vision-based estimate x̃. We
+   Pose Smoothing. We use GTSAM [35], a factor graph-                also add a constant corrective force in the direction of gravity
+based state estimation package, to convert keypoints into a          to counteract any smoother estimates that may unrealistically
+cube pose estimate via fixed-lag smoothing. Given a fixed            pull the cube upwards due to high corrector gains CP ,
+pinhole camera model with known camera poses and cube                overwhelming the natural gravitational forces of (9).
+ A                                                                           B
+
+
+
+ C                                                                           D
+
+
+
+ E                                                                           F
+
+
+
+Fig. 3: Examples of rotations. CEM can discover many contact-rich plans for cube reorientation. The red arrows show where forces are primarily applied
+to achieve rotations. (A) The middle finger pushes down on a cube edge while the base of the thumb lifts the opposite corner, rotating the Q face up. (B)
+The ring finger and base of the index finger push on opposite corners to rotate the T face up. (C) The thumb pulls down on the W face while the base of
+the ring finger pushes on the opposite corner to rotate the Y face up. (D) The index finger pushes down on the edge of the T face while the ring finger
+swipes left on the E face to rotate it up. (E) The ring finger first swipes inwards, then the thumb quickly follows to pull the W face up. (F) The thumb
+and the ring finger pinch and lift the cube, then the index finger pushes on an edge to rotate the Y face up. The cube is calmly lowered onto the palm.
+
+                         IV. E XPERIMENTS                                     VGA resolution. The estimator runs at about 90Hz, while
+                                                                              the planner frequency fluctuates between 25-50Hz.
+   For the remainder of the paper, we thoroughly evaluate the
+                                                                                 For our trials, we compare three planners: PS and CEM
+DROP architecture via hardware and simulation experiments
+                                                                              (the two sampling-based methods discussed in Sec. III-A),
+designed to answer the following questions:
+                                                                              as well as iLQR [38], a gradient-based method. PS and CEM
+  1) Can DROP perform robust and dynamic cube reorien-
+                                                                              use N = 120 rollouts while iLQR devotes 120 threads
+      tation in hardware (Sec. IV-B)?
+                                                                              to parallel line search. CEM uses M = 4 elite samples.
+  2) How do different components of DROP contribute to its
+                                                                              When tuning hyperparameters (such as cost weights), we
+      overall performance and reliability (Sec. IV-C)?
+                                                                              prioritize robustness at the expense of rotation speed. For
+  3) How do modeling and state estimation error affect
+                                                                              all experiments, we used identical costs, code, and hyperpa-
+      DROP’s performance (Sec. IV-D)?
+                                                                              rameters for performing simulation rollouts, state estimation,
+   Overall, we find that DROP can reliably perform cube
+                                                                              and communicating with hardware. Unlike previous work
+reorientation in hardware, achieving performance compa-
+                                                                              [3], [4], we did not observe any significant degradation of
+rable with RL-based methods while exhibiting surprising
+                                                                              our hardware stack (e.g., overheating) during testing.
+robustness and dexterity. We emphasize that the goal of
+our experiments is not to design the best-possible control                    B. Main Hardware Results
+strategy, but to assess the viability of sampling-based online                   We begin by presenting results of hardware trials using
+planning for the cube reorientation task via thorough evalu-                  the full stack shown in Fig. 1 and discussed in Sec. III.
+ations of the DROP architecture. Thus, we leave systematic                    We study each planner by running 10 trials of the cube
+comparisons of DROP with other methods for future work.                       reorientation task and analyzing the associated rotation and
+                                                                              timing statistics. For examples of interesting rotations, see
+A. Hardware Setup and Experimental Details                                    Fig. 3, and for quantitative results, see Table IB. Following
+   For all experiments, we perform in-hand rotation of a                      prior work, we report statistics assuming the run ends if 80s
+3D-printed cube with 7cm side lengths and a fixed-base                        have elapsed without reaching a goal. Since this cutoff is
+LEAP hand [37] with palm angled downwards at 20◦ so                           arbitrary and we used a fairly conservative cost that slows
+that the cube slides off without intervention (see Fig. 1 and                 rotation rate, we also report results for the same runs while
+3). We use a 128-thread Ryzen Threadripper Pro 5995wx                         ignoring the timeout period, ending only when the cube is
+CPU to plan rollouts in parallel. To capture images, we use                   dropped. For iLQR and PS, this did not change the results.
+three ZED Mini cameras with RGBD channels and perform                            CEM greatly outperforms PS and iLQR. While iLQR is
+keypoint estimation on 256x256 center-cropped images at                       unable to achieve any rotations and PS only achieves single-
+                           Planner                Num Rots (Sorted)                               Mean Rots         Median Rots       Mean Rot/s ↑      Median Rot/s ↑
+                         Dactyl [3]       9, 12, 13, 19, 28, 29, 29, 32, 43, 50                 26.4 ± 13.4               28.5         Not Reported      Not Reported
+  (A) Prior Work
+                        Dextreme [4]       1, 6, 6, 10, 10, 18, 18, 36, 61, 112                 27.8 ± 19.0               14.0         Not Reported      Not Reported
+                          iLQR                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0                       0±0                     0               N/A                N/A
+                           PS                   0, 0, 1, 1, 1, 2, 2, 3, 4, 5                    1.9 ± 1.58                1.5         0.063 ± 0.070   0.033 (0.021, 0.061)
+  (B) Main Results
+                          CEM              2, 2, 11, 11, 17, 22, 27, 34, 39, 48                 21.3 ± 14.8               19.5        0.090 ± 0.081   0.062 (0.038, 0.106)
+                       CEM (No T/O)       2, 10, 11, 11, 22, 39, 48, 53, 59, 81                 33.6 ± 24.9               30.5        0.086 ± 0.085   0.063 (0.038, 0.103)
+                         RGB Only         1, 1, 12, 13, 20, 37, 52, 79, 94, 128                 43.7 ± 41.4               28.5        0.081 ± 0.106   0.053 (0.030, 0.089)
+  (C) CEM Ablations
+                        No Corrector        3, 4, 6, 9, 11, 14, 17, 20, 40, 97                  22.1 ± 27.0               12.5        0.065 ± 0.063   0.046 (0.029, 0.080)
+       (No T/O)
+                        Half Rollouts      2, 7, 17, 21, 21, 27, 29, 37, 44, 65                 27.0 ± 17.4               24.0        0.062 ± 0.070   0.040 (0.022, 0.072)
+TABLE I: Hardware experiments. (A) Prior works using RL for cube reorientation. Note that [3] performs axis-aligned rotations. Best results are shown.
+(B) Among online planners, CEM clearly performs the best. All planners use 120 threads, RGBD images, and the cube pose corrector. We note that when
+ignoring the 80s timeout imposed in [3], [4], CEM achieves higher mean and median rotation counts than Dactyl and Dextreme. (C) Hardware ablations
+show that using depth images slightly improves rotation rate, but using the corrector and as many threads as possible substantially boosts performance.
+
+digit rotations in hardware, CEM is able to achieve dozens of                                                     CEM (Original)
+                                                                                                        120       RGB Only
+rotations. Moreover, the rate that it can rotate the cube is also
+                                                                                                                  No Corrector
+nearly 50% faster than PS, suggesting that it can discover                                                        Half Rollouts
+                                                                                                        100
+
+
+
+
+                                                                                  Number of Rotations
+and/or execute contact-rich plans much more effectively.
+                                                                                                                  Mean Rate (rot/s)
+   CEM discovers nontrivial contact sequences. CEM finds
+                                                                                                         80
+contact-rich plans that leverage contacts with all parts of the
+hand. Many rotations are only feasible when the hand first
+                                                                                                         60
+partially rotates the cube using an initial contact sequence,
+then completes the rotation by gaiting the cube to a different
+                                                                                                         40
+set of contacts. For example, in Fig. 3D, the cube is first
+pushed forward and continually supported by the thumb,
+                                                                                                         20
+allowing the index and ring fingers to then swipe in opposite
+directions to rotate the cube. Similarly, in Fig. 3F, the thumb
+                                                                                                          0
+and ring finger first pinch and lift the entire cube, which                                                   0    500      1000      1500   2000     2500   3000     3500
+allows the index finger to rotate it about the pinched axis                                                                            Time (s)
+before the cube is safely lowered back onto the palm.                         Fig. 4: CEM ablation rotation rates. We use rotation rate as a proxy for
+   Moreover, many discovered plans exploit contact modes                      planner robustness, as slower rates correspond to “stuck” plans or repeatedly
+that are traditionally challenging to find, like sliding on edges             failed moves. Markers are all rotations vs. times for CEM and all ablations.
+                                                                              The dashed lines show the mean rotation rates: it is clear that all ablations
+and corners. To execute these motions, the planner employs                    decrease the rate, which justifies our design of the DROP architecture. The
+intuitive strategies like maximizing torque by levering the                   solid lines show individual rotations for each method’s longest streak. The
+cube close to a corner or edge. Lastly, our conservative cost                 long, flat regions correspond to the planner getting “stuck” in local minima.
+function also induced safeguarding behavior, where fingers                       Depth improves performance, but only marginally. We
+preemptively blocked the cube from the palm’s edges or                        compared keypoint detection models trained on RGB versus
+carefully supported the cube during risky rotations.                          RGBD images. While RGBD slightly improved rotation
+   The gradient-based iLQR planner is not viable. Corrob-                     rates, it did not significantly outperform RGB, which still
+orating recent work [6], [39], we find that the stiff dynamics                achieved 128 rotations, the longest sequence ever observed
+of the cube reorientation task prevent gradient-based methods                 for DROP. Despite this noisy result, RGB’s median rotations
+from effectively finding good plans most likely due to poor                   (28.5) were still slightly lower than RGBD’s (30.5), and
+numerical conditioning, causing jerky, erratic behaviors that                 overall, the relative rotation rates suggest that depth provides
+do not lead to coherent rotation sequences.                                   a minor improvement in state estimation accuracy.
+   DROP performs comparably to RL. While it is challeng-                         The corrector is key for performance. We tested DROP
+ing to compare our results to prior RL-based methods like                     when ablating the corrector, passing raw smoother estimates
+Dactyl [3] or Dextreme [4] due to many factors distinguish-                   q̃ directly to the planner. This significantly reduced per-
+ing each setup, like hand morphology, cube size, physical                     formance, with mean rotations decreasing by 33%, median
+properties, camera type, or vision model, Table IA/B shows                    rotations by 60%, and rotation rate by 25%. Without the
+that our simple CEM planner approaches the performance                        corrector, the planner often became trapped in local minima
+of RL-based rotation policies (outperforming them when                        and long periods of inactivity (flat regions of rollouts in
+ignoring timeouts) with similar dexterity (see Fig. 3).                       Fig. 4). This was caused by the exploitation of non-physical
+                                                                              forces in rollouts arising from non-physical hand-cube inter-
+C. Hardware Ablations                                                         penetration, leading to unrealistic predictions.
+  To understand the impact of key design choices in the                          DROP is sensitive to the number of rollouts. We reduced
+DROP architecture, we conducted a series of single-variable                   the number of rollouts from 120 to 60 and elite samples from
+ablations with the CEM planner on hardware (Table IC).                        4 to 3, resulting in a 20% decrease in mean rotation count
+and an over 25% reduction in rotation rate. This highlights       Planner      Change        Mean Rot/s ↑ Mean Rots Drops Timeouts
+the importance of variance reduction via sufficiently-high          iLQR      None                 N/A          0±0           3        2
+sample quantity in SPC, and suggesting that improving                         None                0.130      122 ± 54.8       1        0
+search efficiency could significantly boost performance.                  Kp x1.25                0.060      44.4 ± 26.4      1        4
+   All ablations increased rotation rate variance. This              PS    Kp x1.5                0.042       1.2 ± 1.17      0        5
+consistent pattern demonstrates that depth measurements,                      Est.                0.032       3.2 ± 1.72      5        0
+the corrector, and sufficient rollout quantity all contribute           Est., Kp x1.25            0.048       3.4 ± 3.14      5        0
+significantly to the planner’s reliability and consistency,             Est., Kp x1.5             0.015       0.2 ± 0.40      3        2
+which justifies the design of the DROP architecture.                          None                0.222      95.4 ± 34.8      0        4
+                                                                          Kp x1.25                0.148      52.8 ± 26.0      0        5
+                                                                    CEM    Kp x1.5                0.100      32.2 ± 26.6      0        5
+D. Simulated Robustness Study                                                 Est.                0.120      46.8 ± 24.7      5        0
+                                                                        Est., Kp x1.25            0.083      73.8 ± 26.4      4        1
+   Lastly, we study DROP’s robustness to model and esti-
+                                                                        Est., Kp x1.5             0.058      24.8 ± 13.3      2        3
+mation errors by conducting controlled trials in simulation,
+letting us isolate the planner from the estimation pipeline.     TABLE II: Simulated robustness tests. We intentionally degrade planners
+                                                                 to test their robustness by (i) tuning the hand proportional gain Kp too high,
+We compared iLQR, PS, and CEM under various corrupted            and (ii) corrupting the estimator with noise and lag (denoted “Est.”). iLQR
+conditions, simulating system physics with a 2ms timestep        failed to achieve any rotations even with perfect information. We observe
+while planner threads utilized a separate physics model with     that PS degrades substantially more than CEM in the presence of model and
+                                                                 estimation error, which suggests that CEM may transfer well to hardware.
+a 10ms timestep. Each configuration underwent five trials,
+ending upon cube drop, 80s timeout, or 150 rotations.
+                                                                           V. C ONCLUSION AND F UTURE D IRECTIONS
+   Specifically, we intentionally induce two types of errors
+that we believe contribute to real-world brittleness: (i) mis-      This work presents DROP, a minimalist online planning
+tuning the planners’ internal value of the hand Kp gains,        method for in-hand manipulation via sampling-based predic-
+and (ii) corrupting pose estimates from the simulation with      tive control that achieves robust cube rotations in hardware.
+a 0.1s lag and additive noise (simulated using a bounded         While promising, there are many avenues for future research.
+random walk to mimic asymmetric state estimation error).            Better planners. While we found that vanilla CEM al-
+When corrupting Kp , we study two cases: multiplying the         ready achieved impressive results, many more sophisticated
+true value by 1.25x and 1.5x, as the results were enlightening   algorithms exist, such as CMA-ES [24], MPPI [23], etc.
+for comparing different planners. We also study the effect of       Robustness. DROP often plans “risky” actions, possibly
+the estimator and Kp errors together.                            due to differences between real-world and simulated physics.
+   CEM is the most robust planner. Table II shows that           Incorporating domain randomization or risk-sensitivity into
+CEM is the best planner under all error conditions. For          search-based planners, like successful RL approaches, re-
+example, while PS achieves a higher mean rotation count          mains an open challenge, especially due to the extra compu-
+under perfect conditions than CEM, when Kp is mildly             tation required to simulate randomized physics online.
+corrupted up to 1.25x, PS immediately achieves fewer mean           Object generality. As in prior RL-based works [3], [4],
+rotations than CEM while suffering an over 2x decrease in        we first focus on robustly reorienting a single, simple object.
+rotation rate. At 1.5x, PS hardly rotates the cube at all,       While DROP can easily adapt to new objects in simulation,
+while CEM achieves 32.2 mean rotations, and even with the        our current vision pipeline requires retraining for new ob-
+most aggressive errors, CEM was able to achieve dozens of        jects. Recent advancements in general pixel-space tracking
+rotations. CEM’s superiority can be attributed to its strategy   [28], [30] and video-based mask propagation [40] suggest
+of recomputing πθ from multiple rollouts, in contrast to         more avenues for pose estimation that could generalize our
+PS’s single-rollout approach. This strategy appears to be key    search-based approach without extensive retraining.
+for robustness, providing a plausible explanation for CEM’s         Enhanced, data-driven search. As noted in our ablations,
+markedly better performance in hardware.                         finding good plans via search demands many threads; indeed,
+   Rot/s is a good proxy for robustness. Based on empirical      our work relies on a server-grade CPU, since dynamics simu-
+observation, we find that low rotation rates are typically       lation is about an order of magnitude slower on GPUs. Thus,
+caused by the failure to execute precisely-planned motions or    improving efficiency is key for better performance. Promis-
+the inability of the planner to escape local minima, resulting   ing directions include sampling from imitation-learned poli-
+in the cube being “stuck,” which can be attributed to model or   cies [41], learning value functions for rollout evaluation
+estimation error. CEM’s superior speed in these simulations      [42], and exploring alternate spline parameterizations [24] or
+supports our assessments of its robustness on hardware.          action spaces [43]. Searching for high-level commands for a
+   Error types have distinct failure modes. While incorrect      lower-level RL policy could perhaps yield systems with both
+Kp values primarily resulted in timeouts, corrupted estimates    the flexibility of search and robustness of RL.
+typically caused cube drops. This suggests that perfect state       DROP opens many paths for contact-rich manipulation.
+estimates allow for safe ”caging” even with poor actuation       It is our hope that algorithms like DROP can generalize to
+models, but estimation errors during precise maneuvers often     more real-world tasks than cube reorientation, unlocking tool
+cause drops, as the planner underestimates rollout risk.         use, enhanced human-robot collaboration, and more.
+                            R EFERENCES                                            spaces. IEEE Transactions on Robotics and Automation, 12(4):566–
+                                                                                   580, 1996.
+ [1] Tatsuya Ishihara, Akio Namiki, Masatoshi Ishikawa, and Makoto            [22] Mrinal Kalakrishnan, Sachin Chitta, Evangelos Theodorou, Peter Pas-
+     Shimojo. Dynamic pen spinning using a high-speed multifingered hand           tor, and Stefan Schaal. Stomp: Stochastic trajectory optimization for
+     with high-speed tactile sensor. In 2006 6th IEEE-RAS International            motion planning. In 2011 IEEE International Conference on Robotics
+     Conference on Humanoid Robots, pages 258–263, 2006.                           and Automation, pages 4569–4574, 2011.
+ [2] Nikhil Chavan-Dafle, Alberto Rodriguez, Robert Paolini, Bowei Tang,      [23] Grady Williams, Paul Drews, Brian Goldfain, James M. Rehg, and
+     Siddhartha Srinivasa, Michael Erdmann, Matthew T. Mason, Ivan                 Evangelos A. Theodorou. Information-theoretic model predictive
+     Lundberg, Harald Staab, and Thomas Fuhlbrigge. Extrinsic dexterity:           control: Theory and applications to autonomous driving. IEEE
+     In-hand manipulation with external forces. In Proceedings of (ICRA)           Transactions on Robotics, 34(6):1603–1622, 2018.
+     International Conference on Robotics and Automation, pages 1578 –        [24] Julius Jankowski, Lara Brudermüller, Nick Hawes, and Sylvain Cali-
+     1585, May 2014.                                                               non. Vp-sto: Via-point-based stochastic trajectory optimization for
+ [3] OpenAI, Marcin Andrychowicz, Bowen Baker, Maciek Chociej, Rafal               reactive robot behavior. In 2023 IEEE International Conference on
+     Józefowicz, Bob McGrew, Jakub Pachocki, Arthur Petron, Matthias              Robotics and Automation (ICRA), pages 10125–10131, 2023.
+     Plappert, Glenn Powell, Alex Ray, Jonas Schneider, Szymon Sidor,         [25] Corrado Pezzato, Chadi Salmi, Max Spahn, Elia Trevisan, Javier
+     Josh Tobin, Peter Welinder, Lilian Weng, and Wojciech Zaremba.                Alonso-Mora, and Carlos Hernandez Corbato. Sampling-based model
+     Learning dexterous in-hand manipulation. CoRR, abs/1808.00177,                predictive control leveraging parallelizable physics simulations, 2023.
+     2018.                                                                    [26] Mohak Bhardwaj, Balakumar Sundaralingam, Arsalan Mousavian,
+ [4] Ankur Handa, Arthur Allshire, Viktor Makoviychuk, Aleksei Petrenko,           Nathan D. Ratliff, Dieter Fox, Fabio Ramos, and Byron Boots.
+     Ritvik Singh, Jingzhou Liu, Denys Makoviichuk, Karl Van Wyk,                  STORM: An integrated framework for fast joint-space model-
+     Alexander Zhurkevich, Balakumar Sundaralingam, Yashraj Narang,                predictive control for reactive manipulation. In 5th Annual Conference
+     Jean-Francois Lafleche, Dieter Fox, and Gavriel State. Dextreme:              on Robot Learning, 2021.
+     Transfer of agile in-hand manipulation from simulation to reality,       [27] Juan Alvarez-Padilla, John Z. Zhang, Sofia Kwok, John M. Dolan, and
+     2024.                                                                         Zachary Manchester. Real-time whole-body control of legged robots
+ [5] Tao Chen, Megha Tippur, Siyang Wu, Vikash Kumar, Edward Adelson,              with model-predictive path integral control, 2024.
+     and Pulkit Agrawal. Visual dexterity: In-hand reorientation of novel
+                                                                              [28] Carl Doersch, Pauline Luc, Yi Yang, Dilara Gokay, Skanda Koppula,
+     and complex object shapes. Science Robotics, 8(84), November 2023.
+                                                                                   Ankush Gupta, Joseph Heyward, Ignacio Rocco, Ross Goroshin, João
+ [6] Taylor Howell, Nimrod Gileadi, Saran Tunyasuvunakool, Kevin Za-               Carreira, and Andrew Zisserman. Bootstap: Bootstrapped training for
+     kka, Tom Erez, and Yuval Tassa. Predictive sampling: Real-time                tracking-any-point, 2024.
+     behaviour synthesis with mujoco, 2022.
+                                                                              [29] Nikita Karaev, Ignacio Rocco, Benjamin Graham, Natalia Neverova,
+ [7] Albert Li. Drop: Dexterous reorientation via online planning. https:
+                                                                                   Andrea Vedaldi, and Christian Rupprecht. CoTracker: It is better to
+     //caltech-amber.github.io/drop/, 2024.
+                                                                                   track together. 2023.
+ [8] Zhao-Heng Yin, Binghao Huang, Yuzhe Qin, Qifeng Chen, and
+                                                                              [30] Yuxi Xiao, Qianqian Wang, Shangzhan Zhang, Nan Xue, Sida Peng,
+     Xiaolong Wang. Rotating without seeing: Towards in-hand dexterity
+                                                                                   Yujun Shen, and Xiaowei Zhou. Spatialtracker: Tracking any 2d pixels
+     through touch. Robotics: Science and Systems, 2023.
+                                                                                   in 3d space. In Proceedings of the IEEE/CVF Conference on Computer
+ [9] Lennart Röstel, Johannes Pitz, Leon Sievers, and Berthold Bäuml.
+                                                                                   Vision and Pattern Recognition (CVPR), 2024.
+     Estimator-coupled reinforcement learning for robust purely tactile in-
+     hand manipulation. In 2023 IEEE-RAS 22nd International Conference        [31] Bowen Wen, Wei Yang, Jan Kautz, and Stan Birchfield. Foundation-
+     on Humanoid Robots (Humanoids), pages 1–8. IEEE, 2023.                        Pose: Unified 6d pose estimation and tracking of novel objects. In
+[10] Tao Chen, Jie Xu, and Pulkit Agrawal. A system for general in-hand            CVPR, 2024.
+     object re-orientation, 2021.                                             [32] Emanuel Todorov, Tom Erez, and Yuval Tassa. Mujoco: A physics
+[11] Michael Posa, Cecilia Cantu, and Russ Tedrake. A direct method                engine for model-based control. In 2012 IEEE/RSJ international
+     for trajectory optimization of rigid bodies through contact. The              conference on intelligent robots and systems, pages 5026–5033. IEEE,
+     International Journal of Robotics Research, 33:69 – 81, 2014.                 2012.
+[12] Neel Doshi, Kaushik Jayaram, Benjamin Goldberg, Zachary Manch-           [33] Reuven Rubinstein. The cross-entropy method for combinatorial and
+     ester, Robert Wood, and Scott Kuindersma. Contact-implicit opti-              continuous optimization, 1999.
+     mization of locomotion trajectories for a quadrupedal microrobot. In     [34] Klaus Greff, Francois Belletti, Lucas Beyer, Carl Doersch, Yilun
+     Robotics: Science and Systems XIV, RSS2018. Robotics: Science and             Du, Daniel Duckworth, David J Fleet, Dan Gnanapragasam, Florian
+     Systems Foundation, June 2018.                                                Golemo, Charles Herrmann, Thomas Kipf, Abhijit Kundu, Dmitry
+[13] Simon Le Cleac’h, Taylor Howell, Shuo Yang, Chi-Yen Lee, John                 Lagun, Issam Laradji, Hsueh-Ti (Derek) Liu, Henning Meyer, Yishu
+     Zhang, Arun Bishop, Mac Schwager, and Zachary Manchester. Fast                Miao, Derek Nowrouzezahrai, Cengiz Oztireli, Etienne Pot, Noha
+     contact-implicit model-predictive control, 2023.                              Radwan, Daniel Rebain, Sara Sabour, Mehdi S. M. Sajjadi, Matan
+[14] Vince Kurtz, Alejandro Castro, Aykut Özgün Önol, and Hai Lin.              Sela, Vincent Sitzmann, Austin Stone, Deqing Sun, Suhani Vora, Ziyu
+     Inverse dynamics trajectory optimization for contact-implicit model           Wang, Tianhao Wu, Kwang Moo Yi, Fangcheng Zhong, and Andrea
+     predictive control, 2023.                                                     Tagliasacchi. Kubric: a scalable dataset generator. 2022.
+[15] Alp Aydinoglu and Michael Posa. Real-time multi-contact model            [35] Frank Dellaert and GTSAM Contributors. borglab/gtsam, May 2022.
+     predictive control via admm, 2022.                                       [36] Jad Abou-Chakra, Krishan Rana, Feras Dayoub, and Niko Sünderhauf.
+[16] William Yang and Michael Posa. Dynamic on-palm manipulation via               Physically embodied gaussian splatting: A realtime correctable world
+     controlled sliding. In Proceedings of Robotics: Science and Systems,          model for robotics, 2024.
+     July 2024.                                                               [37] Kenneth Shaw, Ananye Agarwal, and Deepak Pathak. Leap hand:
+[17] Wen Yang and Wanxin Jin. Contactsdf: Signed distance functions as             Low-cost, efficient, and anthropomorphic hand for robot learning,
+     multi-contact models for dexterous manipulation, 2024.                        2023.
+[18] Claire Chen, Preston Culbertson, Marion Lepert, Mac Schwager, and        [38] Weiwei Li and Emanuel Todorov. Iterative linear quadratic regulator
+     Jeannette Bohg. Trajectotree: Trajectory optimization meets tree              design for nonlinear biological movement systems. In Proceedings of
+     search for planning multi-contact dexterous manipulation. In 2021             the First International Conference on Informatics in Control, Automa-
+     IEEE/RSJ International Conference on Intelligent Robots and Systems           tion and Robotics - Volume 1: ICINCO,, pages 222–229. INSTICC,
+     (IROS), pages 8262–8268, 2021.                                                SciTePress, 2004.
+[19] Tao Pang, H. J. Terry Suh, Lujie Yang, and Russ Tedrake. Global          [39] H. J. Terry Suh, Max Simchowitz, Kaiqing Zhang, and Russ Tedrake.
+     planning for contact-rich manipulation via local smoothing of quasi-          Do differentiable simulators give better policy gradients?, 2022.
+     dynamic contact models, 2023.                                            [40] Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chai-
+[20] Steven Lavalle and James Kuffner. Rapidly-exploring random trees:             tanya Ryali, Tengyu Ma, Haitham Khedr, Roman Rädle, Chloe Rol-
+     Progress and prospects. Algorithmic and computational robotics: New           land, Laura Gustafson, Eric Mintun, Junting Pan, Kalyan Vasudev
+     directions, 01 2000.                                                          Alwala, Nicolas Carion, Chao-Yuan Wu, Ross Girshick, Piotr Dollár,
+[21] L.E. Kavraki, P. Svestka, J.-C. Latombe, and M.H. Overmars. Proba-            and Christoph Feichtenhofer. Sam 2: Segment anything in images and
+     bilistic roadmaps for path planning in high-dimensional configuration         videos. arXiv preprint arXiv:2408.00714, 2024.
+[41] Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du,
+     Benjamin Burchfiel, Russ Tedrake, and Shuran Song. Diffusion policy:
+     Visuomotor policy learning via action diffusion. The International
+     Journal of Robotics Research, 2024.
+[42] David Silver, Aja Huang, Chris J. Maddison, Arthur Guez, Lau-
+     rent Sifre, George van den Driessche, Julian Schrittwieser, Ioannis
+     Antonoglou, Veda Panneershelvam, Marc Lanctot, Sander Dieleman,
+     Dominik Grewe, John Nham, Nal Kalchbrenner, Ilya Sutskever, Tim-
+     othy Lillicrap, Madeleine Leach, Koray Kavukcuoglu, Thore Graepel,
+     and Demis Hassabis. Mastering the game of go with deep neural
+     networks and tree search. Nature, 529(7587):484–489, January 2016.
+[43] Roberto Martı́n-Martı́n, Michelle Lee, Rachel Gardner, Silvio
+     Savarese, Jeannette Bohg, and Animesh Garg. Variable impedance
+     control in end-effector space. an action space for reinforcement
+     learning in contact rich tasks. In Proceedings of the International
+     Conference of Intelligent Robots and Systems (IROS), 2019.
+Fig. 5: The safe regions S (green) for (a) when the cube’s xy coordinates lie in the palm, and (b) when the cube’s xy coordinates lie outside the palm.
+
+
+                                                                                       Method                Parameter                  Value
+                             A PPENDIX
+                                                                                                           Spline Order                   0
+  This appendix aims to make precise some of the technical                               All
+                                                                                                           Plan Horizon                  1.0s
+                                                                                                          Plan Timestep                 0.01s
+details that were omitted from the main body of the paper for                                           Num Spline Knots                  4
+brevity. For the most fine-grained details, please see the open-                                          Num Samples                    120
+                                                                                         PS
+source code provided at https://caltech-amber.github.io/drop.                                            Sampling Stdev                  0.3
+                                                                                                          Num Samples                    120
+                                                                                        CEM
+A. Sampling-based Predictive Control Implementation                                                         Num Elites                    4
+                                                                                        iLQR      Num Parallel Line Search Threads       120
+   Warm-starts by time shifting. Recall the generic SPC
+                                                                               TABLE III: Default planner parameter values used in all experiments.
+procedure described in Algorithm 1. Because the cost J at
+some time depends on the current state x0 = x̂(t), once
+time elapses, the optimization problem (6) changes. Instead
+of solving the problem from scratch, the solution is warm                    is parameterized by the “safe region” S in which we would
+started by applying a time shift to the previous solution (e.g.,             like the cube’s center to remain. Specifically, we have
+as in [44]). For the last time step of the warm-started solution,
+we simply copy the second-to-last spline parameter.                                 distS (pc ) := d(∥pc ∥S ),
+                                                                                                                         
+   To be precise, let h denote an iteration of the mean control                                                       250x                        (11)
+                                                                                         d(x) := 0.05 · log 1 + exp           ,
+spline knots U . Then, applying the shift operation gives                                                             0.05
+              U [h] = [u1 [h], u2 [h], . . . , uK [h]] ,
+                                                                            where ∥x∥S reports the Euclidean distance between a point x
+       shift U [h] = [u2 [h], u3 [h], . . . , uK [h], uK [h]] ,              and a set S, and d(x) is a scalar-valued function that applies
+which the new samples will be centered on (and similarly                     a very quickly-growing penalty when x > 0. In particular, its
+for any other parameters like sampling variances).                           parameters are chosen such that when x = 0.01, d(x) ≈ 1.
+   Retaining the best rollout in PS. In predictive sampling                     The set S is defined by two cases. If the cube’s x
+(PS), MJPC additionally keeps the current nominal (i.e., the                 and y coordinates lie within a specified rectangle, then we
+best) control spline as one of the samples when resampling,                  parameterize S as a parallelepiped whose x and y faces are
+so that if none of the sampled trajectories improves perfor-                 axis-aligned, and whose z faces are angled at the same angle
+mance, the nominal policy is not updated. We found that this                 as the palm of the hand, β := 20◦ . Otherwise, we instead
+is critical to the performance of PS.                                        specify a uniform minimum z height denoted z − and no
+   Minimum standard deviation in CEM. While the sam-                         maximum height. The second case is designed so that if the
+pling variance is fixed in PS, in CEM, a diagonal covariance                 planner predicts the cube will leave the palm, it prioritizes
+is repeatedly fit to the top M elite samples. However, in                    not dropping it and returning it back to the palm. See Fig. 5
+practice, the variance may quickly collapse to very low                      for a visualization of these two cases.
+values, preventing the planner from exploring. Therefore, we                    The global origin of the system is located in the center of
+specify a minimum standard deviation uniformly over the                      the interface between the hand mount and the bar of 80/20 to
+diagonal entries of Σ, denoted σmin .                                        which it is affixed. The side length of the cube is b := 0.07.
+   Default Parameters. Table III lists the values of planner                 Let (pcx , pcy , pcz ) denote the position coordinates of the center
+parameters used in experiments unless otherwise stated.                      of the cube. The dimensions associated with the figure are
+                                                                             specified in Table IV.
+B. Specifics of the DROP Control Problem                                        Cost Weights. The weights in (6) are λg = 1.0, λp = 2.5.
+   The position cost term. We now explain the exact form                        Time discretization. While (4) is expressed as an integral
+of the position cost term ℓp (pc ) in (8). The function distS (·)            over the interval [0, T ], in practice we numerically compute
+ Dim                               Value
+ x−                                 0.08
+                                                                           Specifically, an image was included in the dataset only if the
+ x+                                 0.14                                   proportion of cube pixels was in the interval [0.02, 0.7].
+ y−                                 -0.02                                     Lastly, we note that while the size of the training dataset is
+ y+     (                           0.02                                   fairly large for such a specific task (about 686000 images),
+              b        c · tan(β), if pc ∈ [x− , x+ ], pc ∈ [y − , y + ]
+                   − p x               x                y
+  z−      2 cos(β)                                                         it is far fewer than number of images used to train cube
+          −0.015,                    otherwise
+            (                                                              pose estimators in other works (e.g., 5 million in [4] and we
+              z − + 0.035,     if pcx ∈ [x− , x+ ], pcy ∈ [y − , y + ]
+  z+                                                                       approximate 76.8 million in [3]). However, it is clear that an
+              +∞,              otherwise
+                                                                           improved different approach will need to be used in order to
+                TABLE IV: Dimensions of the set S.                         generalize to different objects.
+                                                                              Image Augmentation Details. One of the key factors
+                                                                           for robust keypoint prediction in the real world was the
+it by discretizing the interval using a fixed time step ∆t:                application of extensive image augmentations during train-
+  Z T                      H                                             ing. The augmentations were randomly sampled and applied
+                          X
+      ℓ (x(t), u(t)) dt ≈     ℓ x(j∆t), u(j∆t) · ∆t, (12)                  during training using a mix of implementations from the
+   0                         j=0                                           open-source image processing package kornia and custom
+                                                                           augmentations described below. The kornia augmentations
+where H = T /∆t.                                                           and parameters are described in Table VI. For detailed
+C. Dataset and Training of the Keypoint Predictor                          descriptions of the parameters, please see the kornia
+                                                                           documentation. Any time the parameter p appears, it denotes
+   Additional dataset details. We now further explain design               the probability that the augmentation is applied.
+decisions for the dataset used to train the vision model gφ .
+   As described in Sec. III-B, the training images were                               Augmentation                    Parameters
+generated per the Movi-F dataset convention from Kubric.                                                     degrees: 90
+The images are sampled from frames of a video generated by                           RandomAffine
+                                                                                                             translate: (0.1, 0.1)
+                                                                                                             scale: (0.9, 1.5)
+simulating a random collection of objects (always including                                                  shear: 0.1
+the cube) thrown into the scene from various positions                                                       p: 0.5
+and heights, with random camera motion and motion blur.                            RandomErasing1
+                                                                                                             scale: (0.02, 0.1)
+                                                                                                             ratio: (2.0, 3.0)
+The non-cube objects are drawn randomly from the Google                                                      same on batch: False
+Scanned Objects dataset, and backgrounds are taken ran-                                                      p: 0.5
+domly from PolyHaven.                                                              RandomErasing2
+                                                                                                             scale: (0.02, 0.05)
+   These data were split into train and test datasets by                                                     ratio: (0.8, 1.2)
+                                                                                                             same on batch: False
+first separating videos into train and test videos then by                     RandomPlanckianJitter         mode: blackbody
+randomizing the order of all images from these videos. This                                                  brightness: 0.2
+ensured that very similar frames from the same video did not                                                 contrast: 0.4
+                                                                                     ColorJiggle
+                                                                                                             saturation: 0.4
+appear in both the train and test sets. Each video supplied                                                  hue: 0.025
+24 images. In these videos, the cube’s size was normalized                                                   kernel size: (5, 5)
+such that its side length was 2.0m. Thus, when using the                         RandomGaussianBlur          sigma: (3.0, 8.0)
+                                                                                                             p: 0.5
+keypoint detector model downstream in conjunction with the                       RandomPlasmaShadow          All defaults
+smoother, the cube size must first be normalized.
+                                                                           TABLE VI: All RGB image kornia augmentations used during training.
+   Visual/material properties of the cube were randomized                  Augmentation parameters are defaults if unspecified.
+using kubric by uniform random sampling (see Table V).
+                                                                              We implemented custom augmentations that applied only
+                    Property           Sampling Range                      to depth images, as well as a custom augmentation for
+                   Roughness               [0.0, 0.3]                      transplanting random backgrounds onto training images. We
+                   Specularity            [0.75, 1.0]                      describe these now and summarize the associated parameters
+                    Metallic             [0.25, 0.75]                      in Table VII.
+               Index of Refraction         [1.0, 2.0]
+                                                                              For the depth readings, we (i) uniformly randomly sample
+              TABLE V: Cube material randomizations.                       a per-image bias (DepthBias), (ii) add Gaussian noise
+                                                                           (DepthGaussianNoise), and (iii) uniformly randomly
+   The camera pose was sampled such that it was always                     sample near and far planes centered about some mean
+pointed at the origin, but its position was uniformly randomly             value, where everything too close or far is set to 0.0
+located in some hemispherical shell with inner radius 7.0m,                (DepthPlane).
+outer radius 9.0m, and z height exceeding 0.2m.                               Lastly, we implemented a special augmentation called
+   As described in Sec. III-B, images in the dataset where                 CustomTransplantation (not to be confused with the
+too few or too many pixels corresponded to the cube were                   RandomTransplantation augmentation in kornia),
+removed, as this indicated that the cube was either too oc-                which requires a batch of RGBD images as well as seg-
+cluded or too close to provide an accurate keypoint estimate.              mentation masks for the cube. With some probability, each
+                                Train Loss                                                          Validation Loss
+              RGB Only         RGBD
+Loss
+
+
+
+
+                                      Steps                                                                     Steps
+               Fig. 6: Training and validation loss curves for the RGBD and RGB-only vision models. Note that the curves are log scale.
+
+
+                                                                                         Hyperparameter                     Value
+image in the batch (the acceptor) has all of its non-cube
+                                                                                           batch size                256
+pixels replaced by pixels from another image in the batch                             learning rate (initial)        1e-3
+(the donor) using the following procedure. First, all non-                                   epochs                  100
+cube pixels in the acceptor are identified, which initializes                             num workers                4
+a background mask. Second, all pixels in the donor that are                                   AMP                    True
+                                                                                         Loss Function               MSE
+closer to the camera than the corresponding pixels in the                                  Optimizer                 AdamW
+acceptor are added to the background mask. Third, the pixels                                                         ReduceLROnPlateau
+in the donor mask corresponding to the cube in the donor                                                             patience: 5
+                                                                                             Scheduler               factor: 0.25
+are removed from the mask (to prevent there from being                                                               min lr: 1e-6
+two cubes in a single image). Fourth, the background mask                                                            grad scaler: True
+selects pixels from the donor and replaces the corresponding                                 TABLE VIII: Training Hyperparameters.
+pixels in the acceptor. Finally, if the resulting transplanted
+image results yields an image that has too large or small of a
+ratio of visible cube pixels, the transplantation is not applied.            D. Smoother Details
+This transplantation method allows backgrounds from donors
+to further obscure the cube in acceptors in random ways,                        This section provides a cursory overview of factor graphs,
+which helps improve robustness.                                              explains the setup of the graph used in DROP’s estimation
+                                                                             problem, and describes implementation details and hyper-
+                                                                             parameters of the smoother. For the most fine-grained ex-
+          Augmentation                      Parameters                       planation, please see our open-source code: https://caltech-
+                                   bias range: (-0.02, 0.02)                 amber.github.io/drop.
+           DepthBias
+                                   p: 0.5                                       A primer on factor graphs. Factor graphs are a type of
+       DepthGaussianNoise          stdev: 0.005
+                                   near mean: 0.1
+                                                                             probabilistic graphical model that models the relationships
+                                   near range: (-0.05, 0.05)                 between unknown random variables via factors, which can be
+          DepthPlane
+                                   p near: 0.5                               interpreted as (unnormalized) likelihood functions of subsets
+                                   far mean: 0.5
+                                   far range: (-0.05, 0.05)
+                                                                             of all of the unknowns parameterized by measurements,
+                                   p far: 0.5                                which themselves are functions of the same unknowns.
+                                   p: 0.5                                    The factor graph defines a factorization of some global
+   CustomTransplantation           ratio lb: 0.02
+                                   ratio ub: 0.7
+                                                                             likelihood function over all unknowns, which gives us a
+                                                                             computationally-convenient framework for performing max-
+          TABLE VII: Parameters for our custom augmentations.                imum a posteriori (MAP) inference to recover an estimate of
+                                                                             the unknowns. For further explanation, we refer the reader
+                                                                             to [45].
+   Training Hyperparameters. Training hyperparameters                           Let X denote the total set of all unknowns and Xl denote
+are described in Table VIII. We trained the model using a                    some indexed subset of X. Then, we can represent the factors
+machine with 8 H100 GPUs for about 8 hours, though we                        formally as
+remark that using this many GPUs is not required.                                                          Y
+                                                                                                  ϕ(X) =       ϕl (Xl ),              (13)
+   Training and Validation Curves. We show the training
+                                                                                                                 l
+and validation curves for the RGBD model as well as the
+RGB-only model used in the ablation study from Sec. IV-                      which models the independence relationships between the
+C in Fig. 6. Overall, the RGBD model seems to perform                        unknown variables of interest. Now, let measurements be
+slightly better, but not by a large margin. Note that the figure             modeled zl = hl (Xl ), where hl is some measurement model.
+is in log scale.                                                             Then, with a Gaussian noise model and the assumption that
+the factors take the form                                            Sketch of the keypoint projection factor. The keypoint
+                                                                factor (one for each keypoint, indexing suppressed for clar-
+                           1                2
+           ϕl (Xl ) ∝ exp − ∥hl (Xl ) − zl ∥Σl ,          (14)    ity) for a camera has the form
+                           2
+                                                                                ϕmeas
+                                                                                 t    (qtc ; ν cam , ppix   c
+                                                                                                      kp , pkp , p
+                                                                                                                  cam cam
+                                                                                                                     , r ),            (16)
+the MAP solution for the unknown variables is equivalent to
+the following nonlinear least squares problem:                    where qtc is the pose of the cube at time t, ν cam is the
+                            X                   2
+                                                                  camera’s known intrinsics, ppix   kp ∈ R
+                                                                                                              2
+                                                                                                                 is the measured
+           X MAP = arg min      ∥hl (Xl ) − zl ∥Σl .  (15)        keypoint locations in pixel coordinates from the predictor
+                      X
+                               l                                  gφ , pckp ∈ R3 is the location of the associated keypoint in the
+In practice, the MAP inference problem is solved by numeri-       cube’s local frame, and (pcam , rcam ) ∈ SE(3) is the known
+cal methods like the Gauss-Newton or Levenberg-Marquardt          fixed pose of the camera in the world frame.
+algorithms, which converge to some local minimum by                  Let the function proj : R3 → R2 project a spatial point
+solving successive linearizations of (15).                        expressed in the camera frame to a coordinate in pixel space,
+   To reduce sensitivity to outlier measurements (i.e., key-      which is implemented in GTSAM [35]. The measurement
+point detection failures), we used a robust Huber error           residual is then computed as follows:
+model (see this GTSAM blog post for more information:                            ppix        c      cam cam cam
+                                                                                  kp − proj(pkp ; ν    , p , r ),                      (17)
+gtsam.org/2019/09/20/robust-noise-model.html).
+   Incremental smoothing. We are interested in the setting        where the Jacobians associated with frame transforms and
+where we receive a stream of incremental information and          the projection function are also computed by GTSAM. For
+we seek to update the MAP estimate over time. In particular,      the exact implementation details, please see our open-source
+we consider a canonical graphical model of a dynamical            implementation [7].
+system with two types of factors: dynamics factors that              Smoother parameters and other details. We summarize
+model the (Markovian) temporal transitions between states         all parameters in Table IX. All quaternions are reported in
+(ϕdyn
+   t (Xt+1 , Xt )), and measurement factors that model the
+                                                                  wxyz order. Noise parameters are given by standard devia-
+likelihood of observations on those states (ϕmeas
+                                               t  (Xt ; zt )).    tions σ corresponding to diagonal components of the noise
+   Because the graph would rapidly grow in size as time           model covariance matrices. Rotational noise is represented
+elapses, when incrementally smoothing, it is common to            by Gaussian noise in the tangent space. Huber regularization
+marginalize out the effect of older unknowns to retain their      is applied identically to all noise models.
+information content while removing them from the graph
+                                                                                  Parameter                         Value
+(see [45, Sec. 5.3]). This way, the number of variables
+                                                                                                              p = [0.1, 0.0, 0.0]
+remains fixed and the estimation problem stays tractable.                                                   r = [1.0, 0.0, 0.0, 0.0]
+                                                                                Cube Pos Prior
+   This scheme gives rise to fixed-lag smoothing, where                                                      σp = [0.5, 0.5, 0.5]
+                                                                                                             σr = [1.0, 1.0, 1.0]
+some lookback window specifies the number of states in the
+                                                                                                              v = [0.0, 0.0, 0.0]
+past to maintain in the graph at each time step. The case                                                     ω = [0.0, 0.0, 0.0]
+                                                                                Cube Vel Prior
+where the lookback is 1 corresponds to an iterated extended                                                 σv = [0.01, 0.01, 0.01]
+Kalman filter (iEKF), since marginalization happens after                                                    σω = [0.2, 0.2, 0.2]
+                                                                                                            σp = [0.01, 0.01, 0.01]
+each measurement is received, and the MAP problem is                         Dynamics Pos Noise
+                                                                                                             σr = [0.2, 0.2, 0.2]
+solved through successive linearizations (see [46, Sec 4.3.1]).              Dynamics Vel Noise
+                                                                                                            σv = [0.01, 0.01, 0.01]
+   The cube pose estimation factor graph. In DROP,                                                           σω = [0.2, 0.2, 0.2]
+                                                                        Measurement Noise (in pixels)          σz = [3.0, 3.0]
+we seek to estimate the cube poses (and velocities) over               Meas. Robustness Parameter khuber            1.345
+time. For computational speed, we do not model the full                       Lookback Window                          1
+dynamics of the cube-hand system (which gives rise to the                           TABLE IX: Smoother parameters.
+need for the corrector later). In particular, the stiff contact
+dynamics would introduce substantial numerical challenges
+when conducting successive linearizations to solve (15).          E. Corrector Implementation
+   Instead, we use a constant velocity model to approximate         As describe in Sec. III-B, the corrector applies a virtual
+the cube dynamics. Because the linear and angular velocity        corrective wrench to its internal estimate of the cube state
+of the cube is typically small when supported by the palm,        as shown in (10). The corrector gain matrices have 6 diag-
+this simple model (accompanied by a sufficiently tuned            onal entries corresponding to the virtual forces and torques
+mistrust of it) provides a coarse but sufficiently-accurate       applied to the cube. We use the values
+model of the cube’s motion.
+                                                                            CP = diag([1000, 1000, 1000, 3, 3, 3]),
+   For a given camera with a known global pose in conjunc-                                                                             (18)
+tion with a pinhole camera model, the measurement model                     CD = diag([1, 1, 1, 0.001, 0.001, 0.001]).
+computes the expected keypoint locations in the camera’s          The extra gravitational corrective force described in Sec. III-
+image frame (in pixel coordinates). The “true” measurements       B is simply an extra 10N added along the −z axis of the
+come from the keypoint predictor network gφ .                     virtual forces applied to the cube.
+  Additionally, there are a few parameters of the corrector                 G. Miscellaneous Hardware Implementation Details
+dynamics fˆ that differ from the planner’s internal model f ,                  While the stack described in Sec. III is fairly simple, there
+which we show in Table X.                                                   are a few miscellaneous details that affect performance.
+                                                                               LEAP hand gains. The scale of the gains in the simu-
+             Parameter                      Value
+                                                                            lated model and on hardware are quite different. While in
+             Timestep                       0.04s
+           LEAP Hand kp                      3.0                            simulation, the planner’s LEAP hand gains are kp = 1.0 and
+             solimp           [0.999, 0.999, 0.001, 0.0001, 1]              kv = 0.01, on hardware, we use kp = 75 and kv = 25.
+             solref                      [0.0001, 1]                        In fact, the hardware gain values are already quite low
+TABLE X: Parameters of the corrector’s internal model fˆ that differ from   compared to the values recommended in [37]. This was
+the planner’s internal model f .                                            intentional; by lowering the gains, we lowered the amount
+                                                                            of energy imparted on the cube, and allowed the controller
+                                                                            to manipulate the cube with a higher degree of control.
+F. Implementation of Noise Random Walk                                         The physical cube. The cube itself is made of low-density
+                                                                            3D-printed PLA, weighing 0.108kg. The faces of the cube
+   In Sec. IV-D, we explained that when corrupting the                      are simply printed out on regular printer paper and taped
+perception stack, we simulate additive noise using a bounded                onto the cube using reflective, low-friction packing tape.
+random walk. The reason for this choice is that in real                     We remark that over time, the frictional properties of the
+life, perception errors are highly-correlated with state. For               cube may slightly change. Our reported experiments were
+example, if there is a 1cm error in cube keypoint estimates                 run using a cube that was used for about 1 week prior, and
+at some cube pose, then we typically observe that the error                 anecdotally, the friction increased slightly over this period,
+would remain at similar levels with low noise so long as                    which helped prevent the cube from slipping out of the
+the cube does not move much from that state. Thus, simply                   hand. In the weeks prior to our final experimental trials,
+adding 0-mean uncorrelated noise with high variance is not                  older versions of the cube also exhibited peeling tape, torn
+an accurate simulated representation of what we observe in                  faces/edges, and other effects that substantially increased the
+the real world.                                                             friction of the cube. For the most repeatable results, we
+   Instead, by modeling the noise as a bounded random                       would recommend re-taping a cube from scratch every few
+walk with very low noise, we can approximately model the                    weeks.
+effects of sustained pose estimation bias. Specifically, let                   Manual calibration of camera poses. Before running
+ν ∈ R3 , ξ ∈ so(3) ∼ = R3 denote the position and rotational                experiments, we found it important to perform some manual
+noises respectively. These noise values are iteratively updated             adjustments of each camera’s ground-truth pose with respect
+as follows, where ∆t represents whatever amount of time has                 to the world frame. To perform the calibration, we streamed
+elapsed since the last update:                                              the estimated cube pose from the smoother and projected
+                                                                            the associated analytical keypoint locations back onto each
+           ν(t + ∆t) = clip (ν(t) + zν (t), νlb , νub ) ,                   camera’s image frame using the keypoint factors derived in
+                                                                    (19)
+            ξ(t + ∆t) = clip (ξ(t) + zξ (t), ξlb , ξub ) ,                  App. D. By adjusting the camera position, we were able to
+                                                                            manually align the projected keypoints with the corners of
+where νlb , νub , ξlb , ξub are fixed lower and upper bounds for            the cube.
+the random walk, clip(·) clips the values in the first argument                Manual adjustments to the smoothed cube pose. We
+elementwise to the provided lower and upper bounds, and                     found that errors in the camera poses manifested as nearly-
+zn u ∼ N (0, Σν ), zx i ∼ N (0, Σξ ) are randomly-sampled                   constant translational biases in the smoothed cube pose esti-
+noises that drive the random walk.                                          mate. To remedy this, we simply manually adjusted estimated
+   Finally, we update the cube pose q c = [pc , rc ] ∈ SE(3)                cube pose by adding an appropriate offset.
+as follows:
+                                                                            H. Acknowledgments
+             pc (t + ∆t) = pc (t) + ν(t + ∆t)                                  We thank Taylor Howell, Tom Erez, and Yuval Tassa
+                                                                    (20)
+             rc (t + ∆t) = rc (t) ◦ Exp (ξ(t + ∆t)) .                       for early discussions regarding sampling-based trajectory
+                                                                            optimization for contact-rich tasks. We thank Taylor Howell
+The parameters we used are summarized in Table XI.                          for continual support on MJPC features that were key for the
+                                                                            development of our work.
+              Parameter                   Value
+                                                                               We thank Gavin Hua for helping to write low-level code
+                 νlb             [-0.01, -0.01, -0.01]
+                 νub               [0.01, 0.01, 0.01]                       for interfacing with the LEAP hand. We thank Zach Olkin
+                 ξlb                [-0.1, -0.1, -0.1]                      for general assistance with setting up the control stack and
+                 ξub                 [0.1, 0.1, 0.1]                        implementation advice.
+                 Σν           diag([0.001, 0.001, 0.001])
+                 Σξ         diag([0.0001, 0.0001, 0.0001])
+                                                                               We thank Simon Le Cleac’h for insightful discussions and
+                                                                            advice on contact-aware state estimation and the corrector.
+           TABLE XI: Parameters of the noise random walk.
+                                                                               We thank Sabera Talukder for assisting with the construc-
+                                                                            tion of cubes used in our hardware trials.
+   Lastly, we thank the creators and maintainers of all open
+source software that made this paper possible, including the
+following, which were not cited in the main body: pytorch
+[47] and pybullet [48].
+                            R EFERENCES
+[44] Jacob Sacks, Rwik Rana, Kevin Huang, Alex Spitzer, Guanya Shi, and
+     Byron Boots. Deep model predictive optimization, 2023.
+[45] Frank Dellaert and Michael Kaess. Factor Graphs for Robot Percep-
+     tion, volume 6. Foundations and Trends in Robotics, 2017.
+[46] Timothy D Barfoot. State estimation for robotics. Cambridge
+     University Press, 2024.
+[47] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James
+     Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia
+     Gimelshein, Luca Antiga, Alban Desmaison, Andreas Köpf, Edward
+     Yang, Zach DeVito, Martin Raison, Alykhan Tejani, Sasank Chil-
+     amkurthy, Benoit Steiner, Lu Fang, Junjie Bai, and Soumith Chintala.
+     Pytorch: An imperative style, high-performance deep learning library,
+     2019.
+[48] Erwin Coumans and Yunfei Bai. Pybullet, a python module for
+     physics simulation for games, robotics and machine learning. http:
+     //pybullet.org, 2016–2021.
+

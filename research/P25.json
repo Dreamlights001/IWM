@@ -1,0 +1,33 @@
+{
+  "id": "P25",
+  "slug": "ManiGaussian_PlusPlus",
+  "arxiv_id": "2506.19842",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2506.19842",
+  "accessed": "2026-11-09",
+  "title": "ManiGaussian++: General Robotic Bimanual Manipulation with Hierarchical Gaussian World Model",
+  "authors": [
+    "Yu, Tengbo",
+    "Lu, Guanxing",
+    "Yang, Zaijia",
+    "Deng, Haoyuan",
+    "Chen, Season Si",
+    "Lu, Jiwen",
+    "Ding, Wenbo",
+    "Hu, Guoqiang",
+    "Tang, Yansong",
+    "Wang, Ziwei"
+  ],
+  "publication_date": "2025/06/24",
+  "submitted_date": "2025/06/24",
+  "abstract": " Multi-task robotic bimanual manipulation is becoming increasingly popular as it enables sophisticated tasks that require diverse dual-arm collaboration patterns. Compared to unimanual manipulation, bimanual tasks pose challenges to understanding the multi-body spatiotemporal dynamics. An existing method ManiGaussian pioneers encoding the spatiotemporal dynamics into the visual representation via Gaussian world model for single-arm settings, which ignores the interaction of multiple embodiments for dual-arm systems with significant performance drop. In this paper, we propose ManiGaussian++, an extension of ManiGaussian framework that improves multi-task bimanual manipulation by digesting multi-body scene dynamics through a hierarchical Gaussian world model. To be specific, we first generate task-oriented Gaussian Splatting from intermediate visual features, which aims to differentiate acting and stabilizing arms for multi-body spatiotemporal dynamics modeling. We then build a hierarchical Gaussian world model with the leader-follower architecture, where the multi-body spatiotemporal dynamics is mined for intermediate visual representation via future scene prediction. The leader predicts Gaussian Splatting deformation caused by motions of the stabilizing arm, through which the follower generates the physical consequences resulted from the movement of the acting arm. As a result, our method significantly outperforms the current state-of-the-art bimanual manipulation techniques by an improvement of 20.2% in 10 simulated tasks, and achieves 60% success rate on average in 9 challenging real-world tasks. Our code is available at this https URL .",
+  "submission_history": "Submission history From: Tengbo Yu [ view email ] [v1] Tue, 24 Jun 2025 17:59:06 UTC (1,317 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2506.19842v1",
+  "local_pdf": "papers/P25_ManiGaussian_PlusPlus_2506.19842v1.pdf",
+  "sha256": "fa3e3c8d42fec18ad0c4aede2ea8d2d86d7bf7c6d831aef79091207377078a3d",
+  "bytes": 1724435,
+  "pages": 8,
+  "text_file": "research/P25_ManiGaussian_PlusPlus.txt",
+  "status": "downloaded_and_text_extracted"
+}

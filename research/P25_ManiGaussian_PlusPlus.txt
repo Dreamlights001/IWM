@@ -1,0 +1,572 @@
+                                         ManiGaussian++: General Robotic Bimanual Manipulation with Hierarchical
+                                                                 Gaussian World Model
+                                                            Tengbo Yu∗,1 , Guanxing Lu∗,1 , Zaijia Yang∗,2 , Haoyuan Deng3 , Season Si Chen1 ,
+                                                               Jiwen Lu4 , Wenbo Ding1 , Guoqiang Hu3 , Yansong Tang†,1 , Ziwei Wang3
+
+                                            Abstract— Multi-task robotic bimanual manipulation is be-                                                                                     𝑡   ⛔
+
+
+
+
+                                                                                                                                            Peract2
+                                         coming increasingly popular as it enables sophisticated tasks
+                                                                                                                                                                  …
+                                         that require diverse dual-arm collaboration patterns. Compared                                                                                   ?
+                                         to unimanual manipulation, bimanual tasks pose challenges                                                           Representation
+
+                                         to understanding the multi-body spatiotemporal dynamics.                         Initial State                                       𝑡     𝑡+1
+                                                                                                                                                                                              ✅
+
+
+
+
+                                                                                                                                            ManiGaussian++
+arXiv:2506.19842v1 [cs.RO] 24 Jun 2025
+
+
+
+
+                                                                                                                                                                         Gaussian
+                                         An existing method ManiGaussian [30] pioneers encoding the                         “Bring me the
+                                                                                                                             yellow item”
+                                                                                                                                                                          Point
+
+
+                                         spatiotemporal dynamics into the visual representation via                                                           …
+                                         Gaussian world model for single-arm settings, which ignores
+                                                                                                                        Human Instruction
+                                         the interaction of multiple embodiments for dual-arm systems
+                                         with significant performance drop. In this paper, we propose
+                                         ManiGaussian++, an extension of ManiGaussian framework                      Fig. 1. Consider the human instruction ”Bring me the yellow item”, where
+                                         that improves multi-task bimanual manipulation by digesting                 the task is considered successful if the right arm handover the yellow block
+                                         multi-body scene dynamics through a hierarchical Gaussian                   to the left arm. The previous method (Peract2 [15]) attempts to pick up
+                                                                                                                     the yellow block but fails to do so, while our ManiGaussian++ completes
+                                         world model. To be specific, we first generate task-oriented
+                                                                                                                     the task successfully by explicitly encoding the scene dynamics via future
+                                         Gaussian Splatting from intermediate visual features, which                 scene reconstruction in Gaussian embedding space.
+                                         aims to differentiate acting and stabilizing arms for multi-
+                                         body spatiotemporal dynamics modeling. We then build a
+                                                                                                                     diverse objects and environments across tasks is highly-
+                                         hierarchical Gaussian world model with the leader-follower
+                                         architecture, where the multi-body spatiotemporal dynamics is               desired in recent years. Typically, a robot manipulation
+                                         mined for intermediate visual representation via future scene               agent [42], [15] comprises a perception module that encodes
+                                         prediction. The leader predicts Gaussian Splatting deformation              the visual clues into latent representation, and a policy head
+                                         caused by motions of the stabilizing arm, through which the                 that maps these representation to the robotic action space.
+                                         follower generates the physical consequences resulted from
+                                                                                                                     However, conventional visual representations [15], [28] usu-
+                                         the movement of the acting arm. As a result, our method
+                                         significantly outperforms the current state-of-the-art bimanual             ally suffer from insufficient generalization ability to multi-
+                                         manipulation techniques by an improvement of 20.2% in 10                    task bimanual manipulation scenarios, which is required to
+                                         simulated tasks, and achieves 60% success rate on average in 9              mine the unstructured scene geometry across diverse tasks
+                                         challenging real-world tasks. Our code is available at https:               and objects.
+                                         //github.com/April-Yz/ManiGaussian_Bimanual.
+                                                                                                                        To address this, existing works [30], [52], [47] propose to
+                                                                  I. I NTRODUCTION                                   leverage self-supervised learning to enhance the generaliza-
+                                            General robotic bimanual manipulation agent is trend-                    tion ability of the visual representation for robot learning,
+                                         ing for their immeasurable potential in completing diverse                  Earlier works [34], [33], [36] first propose to leverage
+                                         complex tasks across houses [50], [49], hospitals [23], and                 pretrained 2D visual representation, which have shown initial
+                                         factories [2]. A bimanual system is more than a naive                       success of visual representation learning but are constrained
+                                         combination of separate single-arm agents, as it enables                    to relatively simple tasks due to the lack of geometric
+                                         challenging task that entails specific collaboration patterns               understanding like occlusion. To apply to more complex
+                                         including simultaneously manipulating and stabilizing target                manipulation tasks that require 3D scene understanding,
+                                         objects [28], [14]. Additionally, bimanual systems are often                preceding methods [46], [52] attempt to model the workspace
+                                         outperform unimanual agents when multiple action steps can                  via 3D reconstruction methods like Neural Radiance Fields
+                                         be performed in parallel by different arms [15]. As a result,               (NeRFs) [32] or Gaussian Splatting [26]. For example,
+                                         general bimanual manipulation system that can interact with                 ManiGaussian [30] pioneers to explicitly encode the scene
+                                                                                                                     dynamics via future scene reconstruction in Gaussian embed-
+                                           *: Equal Contribution                                                     ding space, which shows impressive performance in single-
+                                           †: Corresponding Author
+                                           1 Tsinghua Shenzhen International Graduate School, Tsinghua University,   arm setting [25]. However, learning multi-body spatiotem-
+                                         Emails: {ytb23@mails.,lgx23@mails.,season.chen@,                            poral dynamics in the dual-arm system poses challenges for
+                                         tang.yansong@, ding.wenbo@}sz.tsinghua.edu.cn                               existing methods, thereby leads to severe performance drops
+                                            2 School of Computer Science and Technology, Hainan University,
+                                         Emails: 20213002625@hainanu.edu.cn                                          in bimanual manipulation scenarios.
+                                            3 School of Electrical and Electronic Engineering, Nanyang Technologi-
+                                                                                                                        In this paper, we propose a general bimanual manipulation
+                                         cal University, Emails: {E230112@e., gqhu@, ziwei.wang@}                    agent named ManiGaussian++, which leverages hierarchical
+                                         ntu.edu.sg
+                                           4   Department    of   Automation,    Tsinghua    University,   Emails:   Gaussian world model to encode the multi-body spatiotem-
+                                         lujiwen@tsinghua.edu.cn                                                     poral dynamics in dual-arm systems. Different from the
+prior ManiGaussian which only encodes coarse scene-level          manipulation while notably mitigating the demand of large-
+spatiotemporal dynamics, ManiGaussian++ concentrates on           scale expert demonstrations. Though PerAct2 improves the
+the multi-body spatiotemporal dynamics of the dual-arm            expressiveness of the policy network part by leveraging scal-
+system for bimanual manipulation tasks. Therefore, the com-       able multi-modal transformer [24], the visual representation
+plex interactions between the two manipulators and targets        that bottlenecks the generalizability of bimanual manipula-
+are considered to accomplish diverse collaboration patterns.      tion is neglected, which is the main focus of this paper.
+More specifically, ManiGaussian++ first generates a task-         Visual Representations for Robot Learning. To enhance
+oriented Gaussian radiance field from intermediate visual         the generalizability of the robotic manipulation agents, prior
+representations supervised by pre-trained vision-language         arts propose more powerful network architectures [12], [11],
+models (VLMs), allowing us to assign distinct roles to the        [42], [15] or employ self-supervision [33], [36], [22], [30] in
+robot arms including stabilizing and acting arms for multi-       visual representation learning. These methods aim to lever-
+body spatiotemporal dynamics modeling. Subsequently, we           age diverse visual observations like mutli-view images [13],
+mine the multi-body spatiotemporal dynamics for inter-            [12], point cloud [3], [11], and voxel [42], [15], [28], but
+mediate visual representations via future scene prediction,       often struggle with limited labeled data. To address this
+where a hierarchical Gaussian world model with the leader-        problem, self-supervised methods [34], [33], [36] enhances
+follower architecture is utilized. The leader predicts Gaussian   generalization ability through auxiliary tasks with prior
+Splatting deformation caused by motions of the stabiliz-          knowledge. Earlier studies [34], [33], [36] have focused
+ing arm, through which the follower generates the physi-          on enhancing 2D visual representations via self-supervised
+cal consequences resulted from the movement of the act-           techniques such as time-contrastive learning [33] and masked
+ing arm. ManiGaussian++ demonstrates significant improve-         modeling [36], but are limited to simpler tasks. Recent
+ments over existing bimanual manipulation techniques across       approaches tackle 3D scene comprehension with techniques
+10 simulated and 9 real-world tasks by sizable margins in         like Neural Radiance Fields (NeRFs) [32] and Gaussian
+terms of success rate. The contributions are as follows:          Splatting [26], with method like ManiGaussian [30] encod-
+   • We propose a general robotic bimanual manipulation           ing scene dynamics for single-arm tasks. However, multi-
+     agent named ManiGaussian++, which extends prior              body dynamics in complex tasks require more advanced
+     ManiGaussian by introducing the hierarchical Gaussian        approaches to handle significant challenges.
+     world model to learn the multi-body spatiotemporal           World Models. A world model simulates the future scene
+     dynamics for bimanual tasks.                                 according to the current state and agent action, which often
+   • We generate task-oriented Gaussian Splatting to dif-         serves as an self-supervised objective to encode the underly-
+     ferentiate acting and stabilizing arms for multi-body        ing scene dynamcis for autonomous agent of various appli-
+     dynamics modeling, and we propose a hierarchical             cations like autonomous driving [43], [9], gaming [17], [18],
+     Gaussian world model with future scene prediction to         [20] and robotic manipulation [21], [44]. Early research [16],
+     mine the multi-body dynamics.                                [17], [18], [19] focus on learning a latent space for future
+   • We perform comprehensive experiments on 10 tasks             predictions with recurrent state-space models, demonstrating
+     from RLBench2. The results indicate that our method          significant effectiveness in both simulated and real-world
+     surpasses the state-of-the-art approaches by large           environments. With the evolution of cutting-edge network
+     relative margins of 131.17%. We also evaluate                architectures, world models that predict high-dimensional
+     ManiGaussian++ in real bimanual settings and obtain          representations are often used to predict the future image
+     60% success rates across 9 real-world tasks.                 [7], [39], [31], [38], voxel [51] and Gaussian [1], [30], [48]
+                                                                  domains. However, the multi-agent nature of bimanual ma-
+                     II. R ELATED W ORK                           nipulation poses challenges to model the mutual interactions
+Robotic Bimanual Manipulation. Generalizable bimanual             between two manipulators and targets, and thus we introduce
+manipulation agent enables complex task completion by             a hierarchical Gaussian world model to overcome this.
+introducing complex collaboration patterns, which is of great     Gaussian Splatting. Gaussian Splatting [26] is termed by
+importance in various applications, such as housekeeping          representing scenes using a collection of 3D Gaussian func-
+[49], healthcaring [23], [27], and manufacturing [2]. Existing    tions that can be ‘splatted’ onto 2D planes with rasterization,
+methods [15], [10], [8], [14] attempt to train a founda-          compared to implicit models like Neural Radiance Fields
+tion model for bimanual manipulation by manual-crafting           (NeRF) [32], [6], [40]. Recent works [35], [41], [29], [30]
+a large set of demonstrations for imitation learning. How-        begin to notice the great potential of the Gaussian radiance
+ever, due to the precise coordination between two high-           field in robotic manipulation, which is able to consistently
+degree-of-freedom arms required by bimanual tasks, teleop-        tracking the manipulator and target with its explicit and
+erating demonstrations for training generalizable policies is     editable nature. Although these methods depicts impres-
+costly [50], [5], [4], [45], which presents challenges for the    sive performance in unimanual settings by incorporating
+bimanual manipulation policy model to generalize to unseen        Gaussian-based representation, bimanual manipulation that
+tasks. For instance, by predicting the keyframe action and        involves complex multi-body dynamics is still unexplored.
+leveraging the 3D-aware voxel observation, a recent work
+PerAct2 [15] shows initial potential in single-task bimanual
+                                                       Task-Oriented Gaussian Splatting                                            Hierarchical Gaussian World Model
+                                                                                                      𝓛Recon
+
+
+
+
+                               Gaussian Regressor 𝑔𝜙
+                                                                            SHs
+                                                              SHs                                                                                       Time
+                                                                            Logit
+                                                              Logit                                   𝓛Task
+
+
+
+
+                                                                                                                            Det.
+                       𝑣 (𝑡)                                                                                                       Current State                         Next State
+    Observation                                                                                                                                                      𝓛Pred
+                                                                                                              (𝑡)                                           (𝑡)
+                                                                                          Stablizing Action 𝑎𝑠                          Acting Action 𝑎𝑎
+    “handover
+    the bowl.”                                                                                 Leader                                        Follower
+                                                                                             Deformation                                    Deformation
+                                                                                    (𝑡)
+                                                       Current Gaussian Mixture 𝜃             Field 𝒒𝒔, 𝝓                                    Field 𝒒𝒂, 𝝓
+                                                                                                                                    (𝑡+1)                                           (𝑡+1)
+                                                                                                              Stablizing Motion 𝜃𝑠                  𝑣 (𝑡)          Acting Motion 𝜃𝑎
+     Instruction
+                                                                                                                                                                       𝑎trans
+                     Voxelize                                               Encode                                  Aggregate                Multimodal
+                                                                                                                                                                       𝑎rot
+                                                       3D Sparse Conv. 𝑓𝜙                                                                                              𝑎open        𝓛BC
+                                                                                                                                             Transformer
+  Proprioception
+                                                                                                                                                                       𝑎collide
+                                                       Representation Net         Volumetric Representation 𝑣 (𝑡)                             Policy Net          Bimanual Action
+
+
+Fig. 2. The overall pipeline of ManiGaussian++. The task-oriented Gaussian radiance assigns unique labels to task-relevant agents and objects, and the
+hierarchical Gaussian world model upon it predicts future scenes in a leader-follower manner to encode the multi-body dynamics for bimanual manipulation.
+
+                           III. A PPROACH                                                              B. Overall Pipeline
+                                                                                                          The overall pipeline of our ManiGaussian++ method is
+   In this section, we first briefly introduce preliminaries                                           shown in Figure 2. We first develop a task-oriented Gaussian
+on bimanual manipulation, and then we depict an overview                                               radiance field to distinguish stabilizing and acting arms,
+of our pipeline. Subsequently, we present the task-oriented                                            where a stabilizing arm secures the object in hand while an
+Gaussian Splatting for multi-body modeling, and introduce                                              acting arm performs the task to mitigate the multi-modality
+the hierarchical Gaussian world model to encode the multi-                                             of bimanual manipulation. Subsequently, we build a hier-
+body spatiotemporal dynamics. Finally, We describe the                                                 archical Gaussian world model in leader-follow architecture
+learning objectives for supervisions.                                                                  upon it to forecast the future scene, through which the multi-
+                                                                                                       body spatiotemporal dynamics can be encoded to discover
+A. Problem Formulation                                                                                 complex collaboration patterns. More specifically, we trans-
+                                                                                                       form the visual input from RGB-D cameras to voxel space
+   Language-conditioned bimanual manipulation is essential                                             based on the calibrated camera parameters, which is then en-
+for next generation’s general intelligent robot. To carry                                              coded by a sparse convolutional network as the visual repre-
+out various bimanual manipulation tasks, the agent must                                                sentation in a volumetric format. For task-oriented Gaussian
+interactively predict the next best poses of both end-effectors                                        Splatting, we design a feed-forward Gaussian regressor to
+to accomplish the human instruction, based on observations                                             infer the task-oriented Gaussian radiance field from the visual
+including visual input and the robot’s proprioception. The                                             representation, where each Gaussian particle is assigned
+observation at the tth time step is o(t) = (C (t) , D(t) , P (t) ),                                    with a task-oriented instance logit distilled from pretrained
+where C (t) and D(t) respectively represent the RGB image                                              VLMs to differentiate acting and stabilizing arms for multi-
+and the depth image. P (t) is the proprioception that contains                                         body interactions. We create a hierarchical Gaussian world
+current time and gripper states. The action a(t) for each end-                                         model with a leader-follower architecture to learn visual
+                                                   (t)          3
+effector at the tth step contains the position atrans ∈ R100 ,                                         representation through future scene prediction. The leader
+              (t)                           (t)
+orientation arot ∈ R(360/5)×3 , openness aopen ∈ [0,1] and an                                          anticipates deformation from the motion of the stabilizing
+indicator of whether to invoke collision avoidance of the                                              arm, allowing the follower to generate the effects of the
+                  (t)
+motion planner acollide ∈ [0,1]. For robot learning, we assume                                         movement of the acting arm. Finally, we employ multi-modal
+access to K offline trajectories composed of observation, left-                                        transformer PerceiverIO [24] to predict the optimal robot
+arm action and right-arm action triplets paired with human                                             actions based on the enhanced volumetric representation,
+instructions. To address the issue of limited demonstrations,                                          which comprehends the multi-body spatiotemporal dynamics
+traditional arts [30] enhance the visual representation by                                             and thus can complete human instructions with precise
+mining the spatiotemporal dynamics via self-supervised fu-                                             collaboration patterns.
+ture scene reconstruction. However, the multi-body nature of
+the bimanual manipulation poses challenges to modeling the                                             C. Task-Oriented Gaussian Splatting
+spatiotemporal dynamics precisely, and the decoded actions                                                In order to capture the multi-body spatiotemporal dynam-
+based on the ineffective visual representation fail to complete                                        ics for general bimanual manipulation tasks, we start with a
+human instructions with incorrect collaboration patterns.                                              task-oriented Gaussian Splatting that disentangles the acting
+and stabilizing arms from cluttered scenes for representing               challenges for the world model to learn multi-body spa-
+the visual scene. Gaussian Splatting [26] is trending with its            tiotemporal dynamics beyond unimanual manipulation. In
+explicit nature that enables rapid rendering via rasterization.           order to capture the multi-body spatiotemporal dynamics for
+A Gaussian radiance field represents a scene with multiple                the visual representation in general bimanual manipulation
+Gaussian primitives, which can be parameterized by θi =                   tasks, we propose a hierarchical Gaussian world model with
+(µi , ci , ri , si , σi ), which respectively represent the position,     a leader-follower architecture for precise future scene pre-
+color, orientation, scaling, and opacity for the i-th Gaussian            diction. The leader predicts Gaussian Splatting deformation
+primitive. To render a novel image C, those 3D Gaussian                   caused by motions of the stabilizing arm, through which the
+primitives can be projected onto the 2D camera plane via                  follower generates the physical consequences resulted from
+differential tile-based rasterization. In this process, a typical         the movement of the acting arm. The hierarchical Gaussian
+pixel p can be colored by the alpha-blend rendering:                      world model models the movement of explicit Gaussian
+                               N             i−1
+                                                                          points conditioned on the robot’s action. For future prediction
+                                                                          of our hierarchical Gaussian world model, the dominant
+                               X             Y
+                     C(p) =          αi ci         (1 − αj )        (1)
+                               i=1           j=1
+                                                                          movement can be regarded as rigid-body transform. There-
+                                                                          fore, we only predict the SE(3) movement of Gaussian
+where N is the number of Gaussians in a tile, αi represents               particle following the Newton-Euler equation, while keeping
+the 2D density of the Gaussian points that can be computed                the inherent properties including color, scaling, opacity, and
+by µi , ri and si of the parameters. Though the vanilla                   instance logits the same along the Markovian transition. The
+Gaussian Splatting shows effectiveness in reconstructing 3D               Gaussian particle changes caused by arm motions can be
+appearance and geometry, it struggles to generate high-                   formulated as:
+quality task-oriented labels for relevant instances, which
+is of significance to focus on learning precise multi-body                   (µ(t+1),r(t+1) ) = (µ(t) +∆µ(t)  (t) (t) (t)  (t)
+                                                                                                         s +∆µa ,r +∆rs +∆ra ),       (4)
+dynamics for bimanual manipulation tasks. To this end, we
+modify the Gaussian parameters and parameterize a Gaussian                where we denote the changes of positions and orientation
+                                                                                  (t)    (t)         (t)    (t)
+regressor to construct a task-oriented Gaussian radiance field,           by ∆µs , ∆r s and ∆µa , ∆r a for stabilizing and acting
+where the instance labels that distinguish the stabilizing                manipulator, respectively. The subscript i for each Gaussian
+and acting manipulators are learned simultaneously with the               particle is omitted here for brevity. To predict the movements
+appearance and geometry. Besides, we enable the Gaussian                  described in Equation (4) for multi-body spatiotemporal
+particles to move with discrete time to account for the                   dynamics learning, we parameterize a hierarchical Gaussian
+spatiotemporal dynamics of the scene, where the parameter                 world model that takes the visual representation as input,
+of the ith Gaussian at the tth is:                                        and outputs the future multi-view images for photometric su-
+                                                                          pervision. More specifically, the hierarchical Gaussian world
+               (t)       (t)    (t)     (t)    (t)      (t)   (t)
+             θi = (µi , ci , ri , si , σi , li ).                   (2)   model contains a representation network fϕ that infers in-
+                                                                          termediate visual representation from the voxel observation,
+The positions, colors, orientations, scales, and opacities with           where ϕ refers to the learnable parameters. Then, a Gaussian
+the superscript t represent their counterparts at the tth step            regressor gϕ is utilized to reconstruct the current task-
+                                     (t)
+in the movement. We append a li ∈ R3 variable as the                      oriented Gaussian radiance field in a feed-foward manner.
+instance-level logit to the Gaussian parameter set, which                 For future scene reconstruction, a leader deformation model
+represents the probability of the Gaussian point belonging to             qs,ϕ interprets the preliminary movements imposed by the
+a specific task-relevant instance including different manipula-                                                          (t+1)
+                                                                          stabilizing arm as a Gaussian deviation θs , a follower
+tors or target objects. The instance map can also be rendered             deformation model qa,ϕ predicts the physical consequences
+by projecting the instance-level logits of Gaussian primitives             (t+1)
+                                                                          θa      by concluding both the acting and stabilizing arm.
+to the 2D camera plane. To be specific, the expected instance
+                                                                          At last, a Gaussian renderer R in Equation (1) projects the
+logits L of a typical pixel p can be written as:
+                                                                          predicted Gaussian radiance field onto the 2D camera plane:
+                               N             i−1
+                                                                               Representation: v (t) = fϕ (o(t) )
+                               X             Y                               
+                     L(p) =          αi li         (1 − αj ),       (3)      
+                                                                              Gaussian regressor: θ(t) = gϕ (v (t) )
+                                                                             
+                                                                             
+                               i=1           j=1                             
+                                                                                               (t+1)                  (t)
+                                                                               Leader model: θr      = qs,ϕ (θ(t) , as , v (t) )      (5)
+where we omit the t superscript for brevity. To obtain                       
+                                                                              Follower model: θl
+                                                                             
+                                                                             
+                                                                                                  (t+1)           (t+1) (t) (t) (t)
+                                                                                                        = qa,ϕ (θr , as , aa , v )
+the ground-truth instance map for both manipulators and                      
+                                                                               Gaussian renderer: C (t+1) , L(t+1) = R(θ(t+1) ),
+target objects, we prompt the pretrained VLMs such as the
+                                                                                                                                      (t)
+open-vocabulary detector GroundedSAM [37] based on the                    where v (t) denotes the enhanced visual representation, as
+                                                                                (t)
+keywords from human instructions.                                         and aa are the stabilizing and acting actions at the tth step.
+                                                                          In order to effectively forecast future scenes with the hier-
+D. Hierarchical Gaussian World Model for Bimanual Ma-                     archical Gaussian world model, the visual representation is
+nipulation                                                                enhanced to capture multi-body spatiotemporal dynamics of
+  Though the multi-body nature of bimanual manipulation                   the environment, which is crucial for generating appropriate
+enables complicated task completion, it also introduces novel             bimanual actions with complex collaboration patterns.
+                                                              TABLE I
+    M ULTI -TASK T EST R ESULTS . M EAN SUCCESS RATES (%) OF MULTI - TASK AGENTS TRAINED WITH 100 DEMONSTRATIONS PER TASK AND
+                                                  EVALUATED OVER 25 EPISODES .
+
+
+                                    pick         straighten           lift                push             handover         put in
+    Method / Task
+                                   laptop           rope              tray                box                easy           fridge
+    PerAct2 [15]                      12              24                1                     6               41                   3
+    ManiGaussian [30]                 8               28                4                     24              36                   4
+    ManiGaussian++ (Ours)             12              40                8                     48              40                   28
+                                    press         handover         sweep to           take out              Average             Average
+    Method / Task
+                                   buttons          item            dustpan             tray               Success ↑            Rank ↓
+    PerAct2 [15]                      47              11                0                     9              15.4                 2.5
+    ManiGaussian [30]                 36              12                24                    12             18.8                 2.2
+    ManiGaussian++ (Ours)             48              20                92                    16             35.6                 1.1
+
+
+
+E. Learning Objectives                                            Behavior Cloning. Following [42], [15] for fair compar-
+                                                                  isons, we leverage a multi-modal transformer Perceive-
+Current Scene Reconstruction. To encode the spatial con-
+                                                                  rIO [24] to select the best candidates from discretized action
+sistency into the visual representation for further multi-body
+                                                                  bins based on enhanced volumetric representation and lan-
+spatiotemporal dynamics digesting, we impose a multi-view
+                                                                  guage instruction, where we leverage the cross-entropy loss
+photometric loss to regularize the current Gaussian Splatting
+                                                                  CE to optimize action prediction as a classification problem:
+generated from the Gaussian regressor:
+                                                                                               (t)   (t)            (t)   (t)
+                      X                                                       LBC = CE(aleft , âleft ) + CE(aright , âright ),          (9)
+             LRecon =      ∥C (t) (p) − Ĉ (t) (p)∥22 ,     (6)
+                       p                                                     (t)        (t)
+                                                                  where âleft and âright are ground-truth actions of the left
+where C (t) and Ĉ (t) stand for the predicted and ground-truth   and right manipulators from provided expert demonstrations,
+2D images from a randomly selected view at tth time step,         respectively. The overall objective for our ManiGaussian++
+respectively.                                                     agent at each time step is written as:
+Task-oriented Embodiment Mask Prediction. The task-                 L = LBC + λ Recon LRecon + λ Task LTask + λPred LPred , (10)
+oriented Gaussian radiance field differentiates acting and
+stabilizing arms for the follow-up multi-body spatiotemporal      where the hyperparameters λRecon , λTask , λPred can be tuned
+dynamics modeling. To optimize this, we first aggregate the       to balance various objectives.
+logits embedded in the Gaussian particles by rendering them
+to the camera plane via rasterization, and then implement a                                IV. E XPERIMENTS
+cross-entropy objective:                                             In this section, we first introduce the simulated and real-
+                          XX                                      world experiment setups. Then, we report the simulated
+              LTask = −           B̂ l (p) log B l (p)      (7)   performance of our method compared with the state-of-
+                           p   l
+                                                                  the-art approaches. We conduct a comprehensive ablation
+where B l and B̂ l are the predicted and ground-truth probabil-   study to validate the proposed task-oriented Gaussian radi-
+ity. The predicted probability is computed by normalizing the     ance field and the hierarchical Gaussian world model. We
+rendered instance logit map L via softmax, while the ground-      interpret the proposed techniques by visualization. Finally,
+truth probability is a discrete label obtained by prompting the   we present qualitative results to depict the effectiveness of
+VLM of a specific label l in the 2D camera plane.                 our ManiGaussian++ in real-world settings.
+Future Scene Prediction. To embed the multi-body spa-             A. Experiment Setup
+tiotemporal dynamics in the visual representations, we en-
+courage the predicted scene based on the learned Gaussian         Simulation. For benchmarking, we conduct our simula-
+parameters to get close to the ground-truth one. As we can        tion experiments on RLBench2 [15], a bimanual extension
+not directly access the ground-truth future Gaussian radiance     from the popular RLBench [25]. It contains 10 challenging
+field, the training goal is to align predicted future images      languaged-conditioned manipulation tasks varying from dif-
+from multiple views with the ground-truth images obtained         ferent challenge levels. For agent observation, we employ
+by actually taking the bimanual action, as follows:               RGB-D images from six cameras with a resolution of 256 ×
+                                                                  256, in line with [15]. We use the same number of cameras
+                LPred = ∥Ĉ(t+1) − C(t+1) ∥22               (8)   as ManiGaussian [30] to provide multi-view supervision for
+                                                                  fair comparisons. In the training phase, we provide 100
+where C(t+1) and Ĉ(t+1) represent the predicted and              demonstrations for each task, which are generated by an
+ground-truth future image, respectively.                          Oracle scripted expert.
+                                                        TABLE II
+  C OMPARISON OF O UR M ETHODS WITH D IFFERENT T ECHNIQUES . W E MANUALLY CATEGORIZE THE 12 RLB ENCH 2 TASK TO 3 GROUPS FOR
+  FURTHER INTERPRETABILITY, THEN WE SELECT ONE TASK FROM EACH CATEGORY. F OR MORE DETAILS , PLEASE REFER TO THE SUPPLEMENTARY
+                                                                      FILE .
+
+
+                                                                                        sweep to      handover        push
+   Row ID      Gaussian Splatting      Task-oriented GS       Hierarchical GWM                                                    Average ↑
+                                                                                         dustpan        item           box
+      1                 ✗                       ✗                        ✗                  0              11            6          5.67
+      2                 ✓                       ✗                        ✗                  24             12           24          20.00
+      3                 ✓                       ✓                        ✗                  32             16           32          26.67
+      4                 ✓                       ✓                        ✓                  92             20           48          60.00
+
+
+   Observation          Ground-truth       ManiGaussian              Ours            Ground-truth      ManiGaussian               Ours
+
+
+
+
+                                           PSNR=21.91          PSNR=22.89                              PSNR=21.36            PSNR=21.90
+
+
+
+
+                                           PSNR=20.22          PSNR=22.74                              PSNR=20.73            PSNR=21.95
+   (a) Front view              (b) Novel view at current time step                           (c) Novel view at future time step
+
+
+Fig. 3. Novel View Synthesis Results. Our ManiGaussian++ captures the multi-body spatiotemporal dynamics precisely, while ManiGaussian fails to
+model it. Note that we turn off the behavior cloning loss for better illustration.
+
+Real Robot. The experimental setup consists of two Uni-                     relative improvement of 89.36% (18.8% vs 35.6%). Even the
+versal Robots UR5e arms equipped with Robotiq 2F-85                         enhanced version of PerAct2 that leverages six cameras to
+grippers, controlled via two Xbox controllers to collect                    ensure seamless observation is also defeated by the proposed
+demonstration data. Two RGB-D Realsense cameras capture                     ManiGaussian++, underling the importance of mining the
+640 × 480 resolution images at 30 Hz. While multi-view                      consistency from the provided multi-view images and the
+cameras are utilized during the training phase, only a single               multi-body spatiotemporal dynamics. The results prove the
+camera is used during inference. We collect 30 real-world                   capacity of the proposed ManiGaussian++ to handle general
+human demonstrations for training, while evaluating the                     robotic manipulation tasks.
+trained policy for 10 episodes with a Nvidia RTX 4080 GPU.
+Baselines. We compare our ManiGaussian++ with the state-                    C. Ablation Study
+for-the-art robotic bimanual manipulation methods, including                   We propose task-oriented Gaussian Splatting to differenti-
+PerAct2 [15], which is a strengthened version of the widely-                ate acting and stabilizing arms for multi-body spatiotemporal
+used single-arm agent PerAct [42]. Additionaly, we include                  dynamics modeling, and hierarchical Gaussian world model
+the former version Manigaussian [30] by modifying the                       for visual representation. Table II shows the effectiveness
+action dimension to be compatible with bimanual settings.                   of each concept. We start with a vanilla PerAct2 baseline
+The primary evaluation metric is the task success rate, which               (5.67% success rate), and then progressively include the
+is calculated as the percentage of episodes in which the agent              proposed techniques. Using a Gaussian regressor to pre-
+completes the task within a budget of 25 steps.                             dict parameters improves performance by 14.33% (5.67%
+                                                                            vs 20.00%). Task-oriented Gaussian Splatting advances the
+B. Comparisons with the State-of-the-Arts                                   baseline by 21.00% (5.67% vs 26.67%), emphasizing the
+   We compare the proposed ManiGaussian++ with the state-                   importance of distinguishing arm roles for better collabora-
+of-the-art methods in the commonly-used bimanual manip-                     tion. Finally, the hierarchical Gaussian world model boosts
+ulation benchmark RLBench2 and report the performances.                     the performance by 33.33% (26.67% vs 60.00%), which
+Our ManiGaussian++ achieves the best performance across                     demonstrates the effectiveness of digesting the multi-body
+10 tasks ranging in different challenging levels, which                     dynamics for bimanual manipulation.
+demonstrates the superiority of the proposed techniques.
+Notably, by digesting the multi-body spatiotemporal dy-                     D. Qualitative Analysis
+namics in bimanual manipulation tasks, ManiGaussian++                         Figure 3 shows the novel view image synthesis results.
+outperforms its former version ManiGaussian by a sizable                    First, based on the front view observation where the gripper
+                                                                             Peract2       ManiGaussian        ManiGaussian++
+
+
+
+
+  Fig. 4.    Real-world Results. We train and evaluate Peract2 , ManiGaussian and ManiGaussian++ on 9 challenging real-world tasks.
+
+                                                  “Play ping pong”    the simulation or sim-to-real transferring. Notably, Figure 5
+                                                                      shows that ManiGaussian++ is able to complete complex
+                                                                      tasks like Play ping pong and Fold Clothes that
+                                                                      involve complex collaboration patterns, attributing to the
+                                                                      proposed hierarchical Gaussian world model that encodes the
+                                                 “Fold the clothes”   multi-body spatiotemporal dynamics for the visual represen-
+                                                                      tation. Besides, ManiGaussian++ is robust to distractors like
+                                                                      the lightning environment, which further validates the gener-
+                                                                      alizability obtained by mining the multi-body spatiotemporal
+                                                                      dynamics. Please refer to supplementary videos for more
+               (a) Experiment Setups             (b) Complex Tasks    real-world qualitative results and details on the task setups.
+
+   Fig. 5.    Real-World Experiments with two UR5e manipulators.                               V. C ONCLUSION
+shape cannot be seen, our ManiGaussian++ offers superior                 In this paper, we have presented ManiGaussian++, a
+detail in modeling buttons and grippers in novel views.               novel framework that addresses the challenges of multi-
+Second, our method accurately predicts future states based            task bimanual manipulation through hierarchical Gaussian
+on the recovered details.                                             world modeling. Our approach extends the ManiGaussian
+   For example, in the top case of the press buttons                  framework by explicitly modeling multi-body spatiotempo-
+task, our ManiGaussian++ is able to predict the current and           ral dynamics via a hierarchical Gaussian world model for
+the future gripper position. This qualitative result demon-           dual-arm collaboration. Specifically, We use task-oriented
+strates that our ManiGaussian++ learns the intricate multi-           Gaussian Splatting from visual features to differentiate acting
+body dynamics successfully. In the bottom case, for the task          and stabilizing arms for dynamics modeling. A hierarchical
+sweep to dustpan, ManiGaussian++ not only predicts                    Gaussian world model employs a leader-follower architec-
+the future position, but also predicts the future location of         ture: the leader predicts deformation from the stabilizing
+broom influenced by the gripper and the proper coordination           arm, while the follower models the acting arm’s effects.
+of both robot arms. These cases illustrate the generation             Through extensive experiments, ManiGaussian++ demon-
+fidelity of the proposed hierarchical Gaussian world model.           strates significant improvements over state-of-the-art general
+                                                                      bimanual manipulation methods, achieving an improvement
+E. Real-world Experiments                                             of 20.2% in 10 simulated tasks and 60% success rate in 9
+  We validate Peract2 , ManiGaussian and ManiGaussian++               challenging real-world tasks. Limitations include the demand
+with 9 challenging real-robot tasks, which is depicted in             for calibrated multi-view cameras for supervisions, which
+Figure 4, our ManiGaussian++ outperform Peract2 and                   increases the cost of real robot deployment.
+ManiGaussian by a sizable relative improvement of 100%
+(31.11% vs 62.22%) and 36.57% (45.56% vs 62.22%),                                                 R EFERENCES
+shows that our method is able to complete all 9 tasks
+                                                                       [1] J. Abou-Chakra, K. Rana, F. Dayoub, and N. Sünderhauf, “Physically
+simultaneously with only one model conditioned on natural                  embodied gaussian splatting: Embedding physical priors into a visual
+human language from scratch, without any pertaining on                     3d world model for robotics,” in CoRL, 2023.
+ [2] J. F. Buhl, R. Grønhøj, J. K. Jørgensen, G. Mateus, D. Pinto, J. K.         [29] H. Lou, Y. Liu, Y. Pan, Y. Geng, J. Chen, W. Ma, C. Li, L. Wang,
+     Sørensen, S. Bøgh, and D. Chrysostomou, “A dual-arm collaborative                H. Feng, L. Shi, et al., “Robo-gs: A physics consistent spatial-temporal
+     robot system for the smart factories of the future,” Procedia manufac-           model for robotic arm with hybrid representation,” arXiv preprint
+     turing, vol. 38, pp. 333–340, 2019.                                              arXiv:2408.14873, 2024.
+ [3] S. Chen, R. Garcia, C. Schmid, and I. Laptev, “Polarnet: 3d point           [30] G. Lu, S. Zhang, Z. Wang, C. Liu, J. Lu, and Y. Tang, “Manigaussian:
+     clouds for language-guided robotic manipulation,” arXiv preprint                 Dynamic gaussian splatting for multi-task robotic manipulation,” in
+     arXiv:2309.15596, 2023.                                                          ECCV. Springer, 2025, pp. 349–366.
+ [4] I. Chuang, A. Lee, D. Gao, and I. Soltani, “Active vision might be all      [31] R. Mendonca, S. Bahl, and D. Pathak, “Structured world models from
+     you need: Exploring active vision in bimanual robotic manipulation,”             human videos,” arXiv preprint arXiv:2308.10901, 2023.
+     2024.                                                                       [32] B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoor-
+ [5] R. Ding, Y. Qin, J. Zhu, C. Jia, S. Yang, R. Yang, X. Qi, and X. Wang,           thi, and R. Ng, “Nerf: Representing scenes as neural radiance fields
+     “Bunny-visionpro: Real-time bimanual dexterous teleoperation for                 for view synthesis,” CACM, vol. 65, no. 1, pp. 99–106, 2021.
+     imitation learning,” 2024.                                                  [33] S. Nair, A. Rajeswaran, V. Kumar, C. Finn, and A. Gupta, “R3m: A
+ [6] D. Driess, I. Schubert, P. Florence, Y. Li, and M. Toussaint, “Rein-             universal visual representation for robot manipulation,” arXiv, 2022.
+     forcement learning with neural radiance fields,” NeurIPS, 2022.             [34] S. Parisi, A. Rajeswaran, S. Purushwalkam, and A. Gupta, “The
+ [7] Y. Du, S. Yang, B. Dai, H. Dai, O. Nachum, J. Tenenbaum, D. Schu-                unsurprising effectiveness of pre-trained vision models for control,”
+     urmans, and P. Abbeel, “Learning universal policies via text-guided              in ICML, 2022.
+     video generation,” NeurIPS, vol. 36, 2024.                                  [35] A. Quach, M. Chahine, A. Amini, R. Hasani, and D. Rus, “Gaussian
+ [8] J. Gao, X. Jin, F. Krebs, N. Jaquier, and T. Asfour, “Bi-kvil: Keypoints-        splatting to real world flight navigation transfer with liquid networks,”
+     based visual imitation learning of bimanual manipulation tasks,” 2024.           arXiv preprint arXiv:2406.15149, 2024.
+                                                                                 [36] I. Radosavovic, T. Xiao, S. James, P. Abbeel, J. Malik, and T. Darrell,
+ [9] Z. Gao, Y. Mu, R. Shen, C. Chen, Y. Ren, J. Chen, S. E. Li, P. Luo,
+                                                                                      “Real-world robot learning with masked visual pre-training,” in CoRL,
+     and Y. Lu, “Enhance sample efficiency and robustness of end-to-end
+                                                                                      2023.
+     urban autonomous driving via semantic masked world model,” arXiv
+                                                                                 [37] T. Ren, S. Liu, A. Zeng, J. Lin, K. Li, H. Cao, J. Chen, X. Huang,
+     preprint arXiv:2210.04017, 2022.
+                                                                                      Y. Chen, F. Yan, et al., “Grounded sam: Assembling open-world
+[10] K. F. Gbagbe, M. A. Cabrera, A. Alabbas, O. Alyunes, A. Lykov, and
+                                                                                      models for diverse visual tasks,” arXiv preprint arXiv:2401.14159,
+     D. Tsetserukou, “Bi-vla: Vision-language-action model-based system
+                                                                                      2024.
+     for bimanual robotic dexterous manipulations,” 2024.
+                                                                                 [38] Y. Seo, D. Hafner, H. Liu, F. Liu, S. James, K. Lee, and P. Abbeel,
+[11] T. Gervet, Z. Xian, N. Gkanatsios, and K. Fragkiadaki, “Act3d: 3d                “Masked world models for visual control,” in CoRL, 2023, pp. 1332–
+     feature field transformers for multi-task robotic manipulation,” in              1344.
+     CoRL, 2023, pp. 3949–3965.                                                  [39] Y. Seo, K. Lee, S. L. James, and P. Abbeel, “Reinforcement learning
+[12] A. Goyal, V. Blukis, J. Xu, Y. Guo, Y.-W. Chao, and D. Fox, “Rvt2:               with action-free pre-training from videos,” in ICML, 2022, pp. 19 561–
+     Learning precise manipulation from few demonstrations,” RSS, 2024.               19 579.
+[13] A. Goyal, J. Xu, Y. Guo, V. Blukis, Y.-W. Chao, and D. Fox, “Rvt:           [40] D. Shim, S. Lee, and H. J. Kim, “Snerl: Semantic-aware neural
+     Robotic view transformer for 3d object manipulation,” arXiv preprint             radiance fields for reinforcement learning,” ICML, 2023.
+     arXiv:2306.14896, 2023.                                                     [41] O. Shorinwa, J. Tucker, A. Smith, A. Swann, T. Chen, R. Firoozi,
+[14] J. Grannen, Y. Wu, B. Vu, and D. Sadigh, “Stabilize to act: Learning             M. D. Kennedy, and M. Schwager, “Splat-mover: multi-stage, open-
+     to coordinate for bimanual manipulation,” in CoRL. PMLR, 2023,                   vocabulary robotic manipulation via editable gaussian splatting,” in
+     pp. 563–576.                                                                     CoRL, 2024.
+[15] M. Grotz, M. Shridhar, T. Asfour, and D. Fox, “Peract2: Benchmarking        [42] M. Shridhar, L. Manuelli, and D. Fox, “Perceiver-actor: A multi-task
+     and learning for robotic bimanual manipulation tasks,” 2024.                     transformer for robotic manipulation,” in CoRL, 2023.
+[16] S. Ha, David and Jurgen, “Recurrent world models facilitate policy          [43] X. Wang, Z. Zhu, G. Huang, X. Chen, and J. Lu, “Drivedreamer:
+     evolution,” NeurIPS, vol. 31, 2018.                                              Towards real-world-driven world models for autonomous driving,”
+[17] D. Hafner, K.-H. Lee, I. Fischer, and P. Abbeel, “Deep hierarchical              arXiv preprint arXiv:2309.09777, 2023.
+     planning from pixels,” NeurIPS, vol. 35, pp. 26 091–26 104, 2022.           [44] P. Wu, A. Escontrela, D. Hafner, P. Abbeel, and K. Goldberg, “Day-
+[18] D. Hafner, T. Lillicrap, J. Ba, and M. Norouzi, “Dream to con-                   dreamer: World models for physical robot learning,” in CoRL, 2023,
+     trol: Learning behaviors by latent imagination,” arXiv preprint                  pp. 2226–2240.
+     arXiv:1912.01603, 2019.                                                     [45] S. Yang, M. Liu, Y. Qin, R. Ding, J. Li, X. Cheng, R. Yang, S. Yi,
+[19] D. Hafner, T. Lillicrap, M. Norouzi, and J. Ba, “Mastering atari with            and X. Wang, “Ace: A cross-platform visual-exoskeletons system for
+     discrete world models,” arXiv preprint arXiv:2010.02193, 2020.                   low-cost dexterous teleoperation,” 2024.
+[20] D. Hafner, J. Pasukonis, J. Ba, and T. Lillicrap, “Mastering diverse        [46] Y. Ze, N. Hansen, Y. Chen, M. Jain, and X. Wang, “Visual reinforce-
+     domains through world models,” arXiv preprint arXiv:2301.04104,                  ment learning with self-supervised 3d representations,” RA-L, 2023.
+     2023.                                                                       [47] Y. Ze, G. Yan, Y.-H. Wu, A. Macaluso, Y. Ge, J. Ye, N. Hansen,
+[21] N. Hansen, H. Su, and X. Wang, “Td-mpc2: Scalable, robust world                  L. E. Li, and X. Wang, “Gnfactor: Multi-task real robot learning with
+     models for continuous control,” arXiv preprint arXiv:2310.16828,                 generalizable neural feature fields,” in CoRL. PMLR, 2023, pp. 284–
+     2023.                                                                            301.
+[22] N. Hansen and X. Wang, “Generalization in reinforcement learning            [48] M. Zhang, K. Zhang, and Y. Li, “Dynamic 3d gaussian tracking for
+     by soft data augmentation,” in ICRA, 2021.                                       graph-based neural dynamics modeling,” in CoRL, 2024.
+[23] Z. J. Hu, Z. Wang, Y. Huang, A. Sena, F. Rodriguez y Baena, and             [49] T. Zhang, D. Li, Y. Li, Z. Zeng, L. Zhao, L. Sun, Y. Chen, X. Wei,
+     E. Burdet, “Towards human-robot collaborative surgery: Trajectory                Y. Zhan, L. Li, and X. He, “Empowering embodied manipulation:
+     and strategy learning in bimanual peg transfer,” RA-L, vol. 8, no. 8,            A bimanual-mobile robot manipulation dataset for household tasks,”
+     pp. 4553–4560, 2023.                                                             2024.
+[24] A. Jaegle, F. Gimeno, A. Brock, O. Vinyals, A. Zisserman, and               [50] T. Z. Zhao, V. Kumar, S. Levine, and C. Finn, “Learning fine-grained
+     J. Carreira, “Perceiver: General perception with iterative attention,”           bimanual manipulation with low-cost hardware,” 2023.
+     in ICML, 2021.                                                              [51] W. Zheng, W. Chen, Y. Huang, B. Zhang, Y. Duan, and J. Lu,
+                                                                                      “Occworld: Learning a 3d occupancy world model for autonomous
+[25] S. James, Z. Ma, D. Arrojo, David Rovick, and A. J, “Rlbench: The
+                                                                                      driving,” in ECCV. Springer, 2025, pp. 55–72.
+     robot learning benchmark & learning environment,” RA-L, 2020.
+                                                                                 [52] H. Zhu, H. Yang, Y. Wang, J. Yang, L. Wang, and T. He, “Spa: 3d
+[26] B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis, “3d gaussian
+                                                                                      spatial-awareness enables effective embodied representation,” arXiv
+     splatting for real-time radiance field rendering,” TOG, vol. 42, no. 4,
+                                                                                      preprint arXiv:2410.08208, 2024.
+     2023.
+[27] J. W. Kim, T. Z. Zhao, S. Schmidgall, A. Deguet, M. Kobilarov,
+     C. Finn, and A. Krieger, “Surgical robot transformer (srt): Imitation
+     learning for surgical tasks,” arXiv preprint arXiv:2407.12998, 2024.
+[28] I.-C. A. Liu, S. He, D. Seita, and G. Sukhatme, “Voxact-b: Voxel-based
+     acting and stabilizing policy for bimanual manipulation,” 2024.
+

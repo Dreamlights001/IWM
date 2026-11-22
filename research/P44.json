@@ -1,0 +1,30 @@
+{
+  "id": "P44",
+  "slug": "PointWorld",
+  "arxiv_id": "2601.03782",
+  "family": "structured",
+  "source_url": "https://arxiv.org/abs/2601.03782",
+  "accessed": "2026-11-09",
+  "title": "PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation",
+  "authors": [
+    "Huang, Wenlong",
+    "Chao, Yu-Wei",
+    "Mousavian, Arsalan",
+    "Liu, Ming-Yu",
+    "Fox, Dieter",
+    "Mo, Kaichun",
+    "Fei-Fei, Li"
+  ],
+  "publication_date": "2026/01/07",
+  "submitted_date": "2026/01/07",
+  "abstract": " Humans anticipate, from a glance and a contemplated action of their bodies, how the 3D world will respond, a capability that is equally vital for robotic manipulation. We introduce PointWorld, a large pre-trained 3D world model that unifies state and action in a shared 3D space as 3D point flows: given one or few RGB-D images and a sequence of low-level robot action commands, PointWorld forecasts per-pixel displacements in 3D that respond to the given actions. By representing actions as 3D point flows instead of embodiment-specific action spaces (e.g., joint positions), this formulation directly conditions on physical geometries of robots while seamlessly integrating learning across embodiments. To train our 3D world model, we curate a large-scale dataset spanning real and simulated robotic manipulation in open-world environments, enabled by recent advances in 3D vision and simulated environments, totaling about 2M trajectories and 500 hours across a single-arm Franka and a bimanual humanoid. Through rigorous, large-scale empirical studies of backbones, action representations, learning objectives, partial observability, data mixtures, domain transfers, and scaling, we distill design principles for large-scale 3D world modeling. With a real-time (0.1s) inference speed, PointWorld can be efficiently integrated in the model-predictive control (MPC) framework for manipulation. We demonstrate that a single pre-trained checkpoint enables a real-world Franka robot to perform rigid-body pushing, deformable and articulated object manipulation, and tool use, without requiring any demonstrations or post-training and all from a single image captured in-the-wild. Project website at this https URL .",
+  "submission_history": "Submission history From: Wenlong Huang [ view email ] [v1] Wed, 7 Jan 2026 10:29:12 UTC (11,222 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2601.03782v1",
+  "local_pdf": "papers/P44_PointWorld_2601.03782v1.pdf",
+  "sha256": "368ee87a0aeb2b784026d4eb0bd47e38937759473a2762f0ac338f9ad06a4b08",
+  "bytes": 12376811,
+  "pages": 38,
+  "text_file": "research/P44_PointWorld.txt",
+  "status": "downloaded_and_text_extracted"
+}

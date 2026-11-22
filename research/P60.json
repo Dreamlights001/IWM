@@ -1,0 +1,29 @@
+{
+  "id": "P60",
+  "slug": "ASID",
+  "arxiv_id": "2404.12308",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2404.12308",
+  "accessed": "2026-11-11",
+  "title": "ASID: Active Exploration for System Identification in Robotic Manipulation",
+  "authors": [
+    "Memmel, Marius",
+    "Wagenmaker, Andrew",
+    "Zhu, Chuning",
+    "Yin, Patrick",
+    "Fox, Dieter",
+    "Gupta, Abhishek"
+  ],
+  "publication_date": "2024/04/18",
+  "submitted_date": "2024/06/27",
+  "abstract": " Model-free control strategies such as reinforcement learning have shown the ability to learn control strategies without requiring an accurate model or simulator of the world. While this is appealing due to the lack of modeling requirements, such methods can be sample inefficient, making them impractical in many real-world domains. On the other hand, model-based control techniques leveraging accurate simulators can circumvent these challenges and use a large amount of cheap simulation data to learn controllers that can effectively transfer to the real world. The challenge with such model-based techniques is the requirement for an extremely accurate simulation, requiring both the specification of appropriate simulation assets and physical parameters. This requires considerable human effort to design for every environment being considered. In this work, we propose a learning system that can leverage a small amount of real-world data to autonomously refine a simulation model and then plan an accurate control strategy that can be deployed in the real world. Our approach critically relies on utilizing an initial (possibly inaccurate) simulator to design effective exploration policies that, when deployed in the real world, collect high-quality data. We demonstrate the efficacy of this paradigm in identifying articulation, mass, and other physical parameters in several challenging robotic manipulation tasks, and illustrate that only a small amount of real-world data can allow for effective sim-to-real transfer. Project website at this https URL",
+  "submission_history": "Submission history From: Marius Memmel [ view email ] [v1] Thu, 18 Apr 2024 16:35:38 UTC (34,662 KB) [v2] Thu, 27 Jun 2024 01:22:30 UTC (34,663 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2404.12308v2",
+  "local_pdf": "papers/P60_ASID_2404.12308v2.pdf",
+  "sha256": "de05aa608448dd76af622e37e5079520a151dd9387a4b7b3c92a2ce0f6ecd8c4",
+  "bytes": 15885858,
+  "pages": 20,
+  "text_file": "research/P60_ASID.txt",
+  "status": "downloaded_and_text_extracted"
+}

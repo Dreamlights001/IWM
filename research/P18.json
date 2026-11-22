@@ -1,0 +1,27 @@
+{
+  "id": "P18",
+  "slug": "Dynamic_3D_Gaussians",
+  "arxiv_id": "2308.09713",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2308.09713",
+  "accessed": "2026-11-09",
+  "title": "Dynamic 3D Gaussians: Tracking by Persistent Dynamic View Synthesis",
+  "authors": [
+    "Luiten, Jonathon",
+    "Kopanas, Georgios",
+    "Leibe, Bastian",
+    "Ramanan, Deva"
+  ],
+  "publication_date": "2023/08/18",
+  "submitted_date": "2023/08/18",
+  "abstract": " We present a method that simultaneously addresses the tasks of dynamic scene novel-view synthesis and six degree-of-freedom (6-DOF) tracking of all dense scene elements. We follow an analysis-by-synthesis framework, inspired by recent work that models scenes as a collection of 3D Gaussians which are optimized to reconstruct input images via differentiable rendering. To model dynamic scenes, we allow Gaussians to move and rotate over time while enforcing that they have persistent color, opacity, and size. By regularizing Gaussians' motion and rotation with local-rigidity constraints, we show that our Dynamic 3D Gaussians correctly model the same area of physical space over time, including the rotation of that space. Dense 6-DOF tracking and dynamic reconstruction emerges naturally from persistent dynamic view synthesis, without requiring any correspondence or flow as input. We demonstrate a large number of downstream applications enabled by our representation, including first-person view synthesis, dynamic compositional scene synthesis, and 4D video editing.",
+  "submission_history": "Submission history From: Jonathon Luiten [ view email ] [v1] Fri, 18 Aug 2023 17:59:21 UTC (9,639 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2308.09713v1",
+  "local_pdf": "papers/P18_Dynamic_3D_Gaussians_2308.09713v1.pdf",
+  "sha256": "54eb0093cf68b92812d038a17c57e38b002a23f680d43aa15419c2520c251571",
+  "bytes": 10178596,
+  "pages": 11,
+  "text_file": "research/P18_Dynamic_3D_Gaussians.txt",
+  "status": "downloaded_and_text_extracted"
+}

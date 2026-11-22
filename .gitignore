@@ -1,0 +1,10 @@
+# Local research PDFs are intentionally kept outside the Pages repository.
+papers/*.pdf
+
+# Historical snapshots and generated QA captures are local-only artifacts.
+backup/
+qa/
+
+# Python bytecode caches.
+__pycache__/
+*.pyc

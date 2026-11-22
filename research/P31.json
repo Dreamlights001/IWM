@@ -1,0 +1,29 @@
+{
+  "id": "P31",
+  "slug": "Graph_Network_Simulator",
+  "arxiv_id": "2002.09405",
+  "family": "structured",
+  "source_url": "https://arxiv.org/abs/2002.09405",
+  "accessed": "2026-11-09",
+  "title": "Learning to Simulate Complex Physics with Graph Networks",
+  "authors": [
+    "Sanchez-Gonzalez, Alvaro",
+    "Godwin, Jonathan",
+    "Pfaff, Tobias",
+    "Ying, Rex",
+    "Leskovec, Jure",
+    "Battaglia, Peter W."
+  ],
+  "publication_date": "2020/02/21",
+  "submitted_date": "2020/09/14",
+  "abstract": " Here we present a machine learning framework and model implementation that can learn to simulate a wide variety of challenging physical domains, involving fluids, rigid solids, and deformable materials interacting with one another. Our framework---which we term \"Graph Network-based Simulators\" (GNS)---represents the state of a physical system with particles, expressed as nodes in a graph, and computes dynamics via learned message-passing. Our results show that our model can generalize from single-timestep predictions with thousands of particles during training, to different initial conditions, thousands of timesteps, and at least an order of magnitude more particles at test time. Our model was robust to hyperparameter choices across various evaluation metrics: the main determinants of long-term performance were the number of message-passing steps, and mitigating the accumulation of error by corrupting the training data with noise. Our GNS framework advances the state-of-the-art in learned physical simulation, and holds promise for solving a wide range of complex forward and inverse problems.",
+  "submission_history": "Submission history From: Alvaro Sanchez-Gonzalez [ view email ] [v1] Fri, 21 Feb 2020 16:44:28 UTC (7,620 KB) [v2] Mon, 14 Sep 2020 16:52:10 UTC (7,941 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2002.09405v2",
+  "local_pdf": "papers/P31_Graph_Network_Simulator_2002.09405v2.pdf",
+  "sha256": "4eee6d40f0015c7f14d468460836389a60af636a3917c284c8124b0704a57aaf",
+  "bytes": 8892454,
+  "pages": 20,
+  "text_file": "research/P31_Graph_Network_Simulator.txt",
+  "status": "downloaded_and_text_extracted"
+}

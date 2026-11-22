@@ -1,0 +1,31 @@
+{
+  "id": "P04",
+  "slug": "V_JEPA",
+  "arxiv_id": "2404.08471",
+  "family": "jepa",
+  "source_url": "https://arxiv.org/abs/2404.08471",
+  "accessed": "2026-11-09",
+  "title": "Revisiting Feature Prediction for Learning Visual Representations from Video",
+  "authors": [
+    "Bardes, Adrien",
+    "Garrido, Quentin",
+    "Ponce, Jean",
+    "Chen, Xinlei",
+    "Rabbat, Michael",
+    "LeCun, Yann",
+    "Assran, Mahmoud",
+    "Ballas, Nicolas"
+  ],
+  "publication_date": "2024/02/15",
+  "submitted_date": "2024/02/15",
+  "abstract": " This paper explores feature prediction as a stand-alone objective for unsupervised learning from video and introduces V-JEPA, a collection of vision models trained solely using a feature prediction objective, without the use of pretrained image encoders, text, negative examples, reconstruction, or other sources of supervision. The models are trained on 2 million videos collected from public datasets and are evaluated on downstream image and video tasks. Our results show that learning by predicting video features leads to versatile visual representations that perform well on both motion and appearance-based tasks, without adaption of the model's parameters; e.g., using a frozen backbone. Our largest model, a ViT-H/16 trained only on videos, obtains 81.9% on Kinetics-400, 72.2% on Something-Something-v2, and 77.9% on ImageNet1K.",
+  "submission_history": "Submission history From: Mahmoud Assran [ view email ] [v1] Thu, 15 Feb 2024 18:59:11 UTC (3,549 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2404.08471v1",
+  "local_pdf": "papers/P04_V_JEPA_2404.08471v1.pdf",
+  "sha256": "fb84f79be128e7425263e8674fbc3f2ec991575c4b5880556cfb8f5fa9fd91ba",
+  "bytes": 4601259,
+  "pages": 23,
+  "text_file": "research/P04_V_JEPA.txt",
+  "status": "downloaded_and_text_extracted"
+}

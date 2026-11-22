@@ -1,0 +1,28 @@
+{
+  "id": "P98",
+  "slug": "Co_Simulation_Survey",
+  "arxiv_id": "1702.00686",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/1702.00686",
+  "accessed": "2026-11-12",
+  "title": "Co-simulation: State of the art",
+  "authors": [
+    "Gomes, Cláudio",
+    "Thule, Casper",
+    "Broman, David",
+    "Larsen, Peter Gorm",
+    "Vangheluwe, Hans"
+  ],
+  "publication_date": "2017/02/01",
+  "submitted_date": "2017/02/01",
+  "abstract": " It is essential to find new ways of enabling experts in different disciplines to collaborate more efficient in the development of ever more complex systems, under increasing market pressures. One possible solution for this challenge is to use a heterogeneous model-based approach where different teams can produce their conventional models and carry out their usual mono-disciplinary analysis, but in addition, the different models can be coupled for simulation (co-simulation), allowing the study of the global behavior of the system. Due to its potential, co-simulation is being studied in many different disciplines but with limited sharing of findings. Our aim with this work is to summarize, bridge, and enhance future research in this multidisciplinary area. We provide an overview of co-simulation approaches, research challenges, and research opportunities, together with a detailed taxonomy with different aspects of the state of the art of co-simulation and classification for the past five years. The main research needs identified are: finding generic approaches for modular, stable and accurate coupling of simulation units; and expressing the adaptations required to ensure that the coupling is correct.",
+  "submission_history": "Submission history From: Cláudio Gomes [ view email ] [v1] Wed, 1 Feb 2017 11:43:13 UTC (753 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/1702.00686v1",
+  "local_pdf": "papers/P98_Co_Simulation_Survey_1702.00686v1.pdf",
+  "sha256": "5ce85c761a65389ca10448f701514e0a5f8596e0c14815972d4ad7b0316be438",
+  "bytes": 2499003,
+  "pages": 157,
+  "text_file": "research/P98_Co_Simulation_Survey.txt",
+  "status": "downloaded_and_text_extracted"
+}

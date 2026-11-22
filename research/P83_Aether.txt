@@ -1,0 +1,975 @@
+                                                                  A ETHER: Geometric-Aware Unified World Modeling
+
+                                                         Haoyi Zhu∗ Yifan Wang∗ Jianjun Zhou∗ Wenzheng Chang∗ Yang Zhou∗
+                                                                                                                     †
+                                                           Zizun Li∗ Junyi Chen∗ Chunhua Shen Jiangmiao Pang Tong He
+                                                                    USTC Shanghai AI Lab SII SJTU ZJU FDU
+                                                                      ∗                    †
+                                                                        Equal Contribution   Corresponding Author
+                                                                      https://aether-world.github.io/
+arXiv:2503.18945v3 [cs.CV] 28 Jul 2025
+
+
+
+
+                                                          LEFT
+
+                                                                                OBS.
+                                                                               IMAGE
+
+                                                                                         RI
+                                                                                              GH
+                                                                      A   RD                       T
+                                                                 RW
+                                                            FO
+                                                                                                                                                         OBS.
+                                                                                                                                                        IMAGE
+
+
+                                         Figure 1. An overview of A ETHER, trained entirely on synthetic data. The figure highlights its three key capabilities: 4D reconstruction,
+                                         action-conditioned 4D prediction, and visual planning, all demonstrated on unseen real-world data. The 4D reconstruction examples are
+                                         derived from MovieGen [48] and Veo 2 [62] generated videos, while the action-conditioned prediction uses an observation image from
+                                         a university classroom. The visual planning example utilizes observation and goal images from an office building. Better viewed when
+                                         zoomed in. Additional visualizations can be found on our website.
+                          Abstract                                     Motivated by these principles, we introduce A ETHER, a
+                                                                   unified framework that, for the first time, bridges reconstruc-
+The integration of geometric reconstruction and genera-            tion, prediction, and planning, as shown in Fig. 1. A ETHER
+tive modeling remains a critical challenge in developing           leverages pre-trained video generation models [28, 77] and
+AI systems capable of human-like spatial reasoning. This           is further refined via post-training with synthetic 4D data.
+paper proposes A ETHER, a unified framework that enables           Although multiple action modalities exist, ranging from key-
+geometry-aware reasoning in world models by jointly op-            board inputs [2, 11, 15, 46, 79] to human or robotic mo-
+timizing three core capabilities: (1) 4D dynamic recon-            tions [16, 84, 89, 90] and point flows [22, 69], we choose
+struction, (2) action-conditioned video prediction, and (3)        camera pose trajectories as our global action representation.
+goal-conditioned visual planning. Through task-interleaved         This choice is particularly effective for ego-view tasks: in
+feature learning, A ETHER achieves synergistic knowledge           navigation, camera trajectories directly correspond to the
+sharing across reconstruction, prediction, and planning ob-        navigation paths, while in robotic manipulation, the move-
+jectives. Building upon video generation models, our frame-        ment of an in-hand camera captures the 6D motion of the
+work demonstrates zero-shot synthetic-to-real generaliza-          end effector. To address the scarcity of 4D data, we utilize
+tion despite never observing real-world data during train-         RGB-D synthetic video data and propose a robust camera
+ing. Furthermore, our approach achieves zero-shot gener-           pose annotation pipeline to reconstruct full 4D dynamics.
+alization in both action following and reconstruction tasks,           Through a simple training strategy that randomly com-
+thanks to its intrinsic geometric modeling. Notably, even          bines input and output modalities, our method transforms
+without real-world data, its reconstruction performance is         the base video generation model into a unified, multi-task
+comparable with or even better than that of domain-specific        world model with three key capabilities: (1) Depth and cam-
+models. Additionally, A ETHER employs camera trajecto-             era pose estimation from full video sequences; (2) Video
+ries as geometry-informed action spaces, enabling effective        prediction conditioned on an initial observation—with the
+action-conditioned prediction and visual planning. We hope         option to incorporate a camera trajectory action; and (3)
+our work inspires the community to explore new frontiers in        Goal-conditioned visual planning based on observation–goal
+physically-reasonable world modeling and its applications.         image pairs. We transform depth videos into scale-invariant
+                                                                   normalized disparity representations to meet the tokeniza-
+                                                                   tion requirements of video VAEs. Simultaneously, we en-
+ 1. Introduction                                                   code camera trajectories as scale-invariant raymap sequence
+                                                                   representations, structured to align with the spatiotemporal
+“Prediction is not just one of the things your brain does. It is   framework of diffusion transformers (DiTs). By dynami-
+ the primary function of the neocortex.”                           cally integrating cross-task and cross-modal conditioning
+                    — Jeff Hawkins, On Intelligence (2004)         signals during training, our framework enables synergistic
+                                                                   knowledge transfer across heterogeneous inputs, facilitating
+     The development of visual intelligence systems capa-          joint optimization for multi-task generative modeling.
+ ble of comprehending and forecasting the physical world               In summary, this work introduces A ETHER, a unified
+ remains a cornerstone of AI research. World models                world model that integrates reconstruction, prediction, and
+ have emerged as a foundational paradigm for building au-          planning through multi-task learning on synthetic 4D data.
+ tonomous systems that not only perceive but also anticipate       We propose a robust automatic data annotation pipeline to
+ environmental dynamics to make reasonable actions. At             obtain accurate 4D geometry knowledge. By combining
+ their core, three capabilities stand out: First, perception       geometric reasoning with generative priors, our framework
+ equips the system with the ability to capture the intricate       achieves robust zero-shot transfer to real-world tasks, demon-
+ four-dimensional (4D) changes—integrating spatial and tem-        strating accuracy comparable to SOTA reconstruction mod-
+ poral information—that are essential for understanding the        els while enabling actionable planning capabilities. The
+ physical world [37, 63, 65, 66, 82, 86]. This continuous          results underscore the value of synergistic 4D modeling for
+ sensing of dynamic cues enables a geometric representation        advancing spatial intelligence in AI systems. We hope that
+ of the environment. Second, prediction leverages this percep-     A ETHER will serve as an effective starter framework for
+ tual information to forecast how the environment will evolve      the community to explore post-training world models with
+ under specific actions, thereby providing a foresight into fu-    scalable synthetic data.
+ ture states [3, 24, 28, 32, 35, 60, 77]. Finally, planning uses
+ these predictive insights to determine the optimal sequence       2. 4D Synthetic Data Annotation Pipeline
+ of actions required to achieve a given goal. Together, these
+ three aspects empower world models to not only represent          For the synthetic data source, we follow DA-V [74] and The-
+ the current state of the environment but also to anticipate       Matrix [17] to collect large-scale synthetic data with high-
+ and navigate its future dynamics effectively.                     quality video depth data. With high-resolution RGB videos
+ Best Horizontal Version
+              Figure  2. Some visualization results of data annotated through our pipeline. Better viewed when zoomed in.
+
+                                           Coarse Camera Estimation
+                                                                                            insufficient SIFT keypoints are discarded to ensure robust
+                                            Coarse Camera Estimation
+                   Dynamic       Video
+                                             Coarse Camera Estimation
+                                              coarse camera params
+                                                                                            correspondence estimation. Additionally, frames containing
+                                               coarse camera params
+                   Masking       Slicing         coarse camera params
+                                                                                            regions with insufficient texture due to low illumination are
+                                              Camera Refinement
+                                               Camera Refinement
+                                                Camera Refinement
+                                              refined camera params
+                                                refined camera params
+                                                                                            excluded, as such areas typically exhibit poor feature dis-
+                                                  refined camera params
+                                                                                            criminability and pose challenges for reliable matching. (2)
+                                                                                            Large Areas of Dynamic Regions: Frames where dynamic
+                                                                                            regions (obtained from dynamic annotation) dominate over
+    RGB-D                                                      Fused Point Cloud
+                                                                                            static regions can introduce ambiguity in camera pose esti-
+ Synthetic Video       Dynamic Masks                    (slice 1, with camera annotation)
+                                                                                            mation. Such frames are filtered out to ensure robust results.
+   Figure 3. Our robust automatic camera annotation pipeline.                               (3) Large Motion or Inaccurate Correspondence: Using an
+and corresponding per-frame depth maps collected, we built                                  off-the-shelf optical flow estimator, RAFT [61], we estimate
+a robust and fully automatic camera annotation pipeline                                     the magnitude of motion. If these magnitudes exceed a pre-
+for both camera extrinsics and intrinsics. As illustrated in                                defined threshold, we truncate the sequence at the current
+Fig. 3, the pipeline has four stages: (1) object-level dynamic                              frame, retaining all preceding frames as a valid segment.
+masking, (2) reconstruction-friendly video slicing, (3) coarse                              Similarly, if the ratio of forward-to-backward optical flow
+camera localization and calibration, and (4) tracking-based                                 errors surpasses a threshold value, we truncate the current
+camera refinement with bundle adjustment. We present sev-                                   frames to ensure temporal coherence.
+eral visualizations of our annotated data in Fig. 2, ranging                                Coarse Camera Estimation. For each video slice, we first
+from indoor to outdoor scenes, and from static to dynamic                                   use DroidCalib [25] to perform a coarse estimation of the
+scenarios, demonstrating the robustness and accuracy of our                                 camera parameters, leveraging the depth information from
+annotation method.                                                                          static regions. However, due to the lower input resolution
+Dynamic Masking. Distinguishing between dynamic and                                         of the DroidCalib model and the limited accuracy of its
+static regions is crucial for accurate camera parameters es-                                correspondence estimation, a refinement process is necessary
+timation. Here, we utilize semantic categories that are po-                                 to obtain precise camera parameters.
+tentially dynamic (e.g., cars, people) to segment dynamic                                   Camera Refinement. We begin camera refinement by em-
+objects. Although this may occasionally misclassify static                                  ploying the state-of-the-art tracker, CoTracker3 [33], to
+objects, such as stationary parked cars, as dynamic, we find it                             capture accurate long-term correspondences across the en-
+more robust than flow-based segmentation methods. Specifi-                                  tire slice. SIFT [39] and SuperPoint [12] feature points
+cally, we use Grounded SAM 2 [50] to ensure the temporal                                    are extracted from static regions, and then tracked to form
+consistency of dynamic masks over long sequences.                                           correspondences. Subsequently, bundle adjustment is per-
+Video Slicing. Video slicing plays a critical role in 3D recon-                             formed on all frames to minimize the accumulated reprojec-
+struction by serving two key purposes: First, it eliminates                                 tion error of all correspondences. With access to high-quality
+unsuitable video segments (such as scene cuts or motion-                                    dense depth, we apply forward-backward reprojection to es-
+blurred frames) that could compromise reconstruction qual-                                  timate and minimize errors in 3D space [8], which improves
+ity. Second, it segments long videos into shorter, temporally                               per-frame camera accuracy while preserving inter-frame ge-
+coherent clips to enhance processing efficiency. The specific                               ometric consistency. Specifically, we solve the nonlinear
+criteria for frame removal are as follows: (1) Insufficient                                 optimization problem by Ceres Solver [1], and the Cauchy
+Feature Points: We employ the SIFT [39] feature descriptor                                  loss function is applied to measure correspondence residuals,
+to extract keypoints from each frame. Frames exhibiting                                     which accounts for the problem’s sparsity.
+                                         Action Free                Action Conditioned              Action Free                Action Conditioned
+
+         4D Reconstruction                        Video Prediction                                                Visual Planning
+                Image latent    Action latent    Image prediction       Action prediction   Depth prediction        Zero-padding        Noise
+         Figure 4. The overall pipeline of A ETHER. With different condition combinations, A ETHER can serve different tasks.
+
+3. A ETHER Multi-Task World Model                                                    The multi-task objective of A ETHER is determined by the
+                                                                                 specific conditions c for different tasks. (1) Reconstruction:
+In this section, we introduce how we post-train a base                           cc represents the input video latents. (2) Video prediction:
+video diffusion model into a unified multi-task world model                      cc takes the latent of observation image as the first frame,
+A ETHER. We use CogVideoX-5b-I2V [77] as our base                                while other latents are zero-masked. (3) Goal-conditioned
+model. We first give an overview of our framework in
+                                                                                 visual planning: The first and last latents of cc correspond
+Sec. 3.1, then we detail on the input process of depth videos
+                                                                                 to the observation and goal images, respectively, with all
+and camera pose trajectories in Sec. 3.2 and Sec. 3.3. Finally,                  intermediate latents zero-padded. For the action condition
+we show how we do model training in Sec. 3.4.                                    ca , it is either entirely zero-masked or contains the full target
+3.1. Method Overview                                                             camera pose trajectory in action-free or action-conditioned
+                                                                                 control cases. Illustrations are show in Fig. 4.
+Mainstream video diffusion models [27, 40] typically in-
+volve two processes: a forward (noising) process and a re-                       3.2. Depth Videos Process
+verse (denoising) process. The forward process incremen-                         Given a depth video xd , we first clip the depth values to
+tally adds Gaussian noise, denoted as ϵ ∼ N (0, I), to a clean                   a predefined range [dmin , dmax ]. Next, we apply a square
+latent sample z0 ∈ Rk×c×h×w , where k, c, h, w represent                         root transformation and subsequently compute the recipro-
+the dimensions of the video latents. Through this process,                       cal to convert the depth values into disparity, as described
+the clean z0 is gradually transformed into a noisy latent zt .                   in [57]. Each disparity video clip is then normalized in a
+In the reverse process, a learned denoising model ϵθ progres-                    scale-invariant manner. Subsequently, the normalized dis-
+sively removes the noise from zt to reconstruct the original                     parity values are linearly mapped from [0, 1] to [−1, 1]. To
+latent representation. The denoising model ϵθ is conditioned                     meet the input requirements of the VAE, the single-channel
+on auxiliary inputs c and the diffusion timestep t.                              disparity map is replicated across three channels, as done in
+    In our method, the target latent z0 comprises three modal-                   prior works [34, 74]. The final depth latent is computed as:
+ities: color video latents zc0 , depth video latents zd0 , and
+action latents za0 . The model additionally takes two types                                                                1
+                                                                                                 xdisp = p                                   ,      (2)
+of conditions as input: color video conditions cc and action                                               clip(xd , dmin , dmax )
+conditions ca . For the action modality, we choose camera                                                   xdisp
+pose trajectory as a global action, facilitated by our auto-                                     x̂disp =              × 2 − 1,                     (3)
+                                                                                                          max (xdisp )
+mated camera pose annotation pipeline described earlier. All
+                                                                                                    zd = E(x̂disp ⊗ 13 ),                           (4)
+latents and conditions are channel-wise concatenated. The
+training objective of A ETHER can be expressed as:                               where E denotes the 3D VAE, and ⊗13 represents the
+                                                                                 channel-wise replication of 3 times. The above operations
+        Lθ = E       ϵ∼N (0,I)      ∥ϵ − ϵθ (zt , t, c)∥2 ,           (1)        are designed to be compatible with the pretrained 3D VAE
+                     t∼U (1,T )
+                 z0 =zc 0 ⊗zd0 ⊗za0                                              model, ensuring minimal reconstruction error.
+                     c=cc ⊗ca
+
+where ⊗ denotes the channel-wise concatenation operation,
+                                                                                 3.3. Camera Trajectories Process
+U(·) represents a uniform distribution, and T denotes the                        We transform camera parameters into raymap videos [7] so
+denoising steps.                                                                 that video diffusion can process them compatibly. Specifi-
+cally, given the intrinsic matrix K ∈ RT ×3×3 and the extrin-        30% for both observation and goal images (visual planning
+sic matrix E ∈ RT ×4×4 , the transformation process can be           tasks), 40% for observation images only (video prediction),
+described as follows.                                                28% for full-color video latents (4D reconstruction), and 2%
+Translation Scaling and Normalization. The translation               for masking all of cc . For ca , trajectory latents are either kept
+component of the camera pose (inverse of extrinsic matrix),          or fully masked with equal probability (supporting action-
+t ∈ R3 , is first scaled by a constant factor sray and normal-       free or action-conditioned tasks with raymap conditions).
+ized using the maximum disparity value dmax . To suppress            This strategy enables the model to adapt to diverse tasks and
+large values, we then pass it through a signed log(1 + ·)            input condition settings.
+transformation:                                                          Our training process consists of two stages. In the first
+                               t                                     stage, we adopt the loss function of a standard latent diffu-
+                    t′ =                · sray ,               (5)   sion model, which minimizes the mean squared error (MSE)
+                           max (xdisp )
+                                                                     in the latent space. In the second stage, we refine the gener-
+                tlog = sign(t′ ) · log(1 + |t′ |),             (6)   ated outputs by decoding them into the image space. Specifi-
+where sray is a predefined scaling factor.                           cally, we introduce three additional loss terms: a Multi-Scale
+Raymap Construction. Using the intrinsic matrix K, we                Structure Similarity (MS-SSIM) loss [67] for color video, a
+compute the camera ray directions rd in homogeneous coor-            scale- and shift-invariant loss [49] for depth videos, and a
+dinates for each pixel. Note that we do not unit normalize           scale- and shift-invariant pointmap loss [66] for pointmaps
+it but let it have a unit value along z axis. The ray origins        projected from the generated depths and raymaps. Further
+ro are set to the translation tlog , replicated across the spatial   details on the stage 2 loss functions are provided in the sup-
+dimensions. The raymap in the world coordinate system is             plementary material. Notably, the second stage takes about
+                                                                     1
+obtained by transforming the ray directions rd using the ex-         4 of the training steps used in the first stage.
+trinsic matrix E. The final raymap r consists of 6 channels:             We employ a hybrid training strategy combining Fully
+3 for the ray directions rd and 3 for the ray origins ro .           Sharded Data Parallel (FSDP) [87] with Zero-2 optimization
+Resolution Downsampling. To align the raymap with the                within compute nodes and Distributed Data Parallel (DDP)
+latent feature dimensions from the VAE, we perform adjust-           across nodes. Since depth videos require online normaliza-
+ments both spatially and temporally. Spatially, the raymap           tion, the VAE encoder is also run online during training and
+is downsampled by a factor of 8 using bilinear interpolation.        operates under DDP. Our implementation processes a local
+Temporally, every consecutive group of 4 frames is concate-          batch size of 4 per GPU, resulting in an effective batch size
+nated along the channel dimension. The resulting rearranged          of 320 samples across 80 A100-80GB GPUs. Training is
+tensor is denoted as za                                              conducted over two weeks using the AdamW [38] optimizer
+Converting raymap back to camera matrix. Given gen-                  with a OneCycle [56] learning rate scheduler.
+erated raymap sequences rearranged by the time axis r̂ ∈
+RT ×6×h×w = [rˆd , rˆo ], we first recover the ray origins by:       4. Reconstruction Experiments
+                     1                                               In this section, we demonstrate that A ETHER can achieve
+          rˆo ′ =          · sign(rˆo ) · (exp(|rˆo |) − 1),   (7)   zero-shot reconstruction metrics comparable to or even better
+                    sray
+                                                                     than SOTA reconstruction methods. We mainly consider two
+Then, we can recover both the intrinsics and extrinsics              zero-shot reconstruction tasks: video depth estimation and
+through Alg. 1 in the supplementary material.                        camera pose estimation. Note that we only denoise for 4
+                                                                     steps for reconstruction tasks.
+3.4. Model Training
+We initialize A ETHER with pre-trained CogVideo-5b-                  4.1. Zero-Shot Video Depth Estimation
+I2V [77] weights, excluding the additional input and output          Implementation Details. Video depth estimation is eval-
+projection layer channels for depth and raymap action tra-           uated based on two key aspects: per-frame depth quality
+jectories, which are initialized to zero. Since text prompt          and inter-frame depth consistency. These evaluations are
+conditions are not used, an empty text embedding is provided         performed by aligning the predicted depth maps with the
+during both training and inference.                                  ground truth using a per-sequence scale. We use absolute rel-
+   As the dataset we use contains video clips with variable          ative error (Abs Rel) and δ < 1.25 (percentage of predicted
+lengths and frames per second (FPS), we randomly select              depths within a 1.25-factor of true depth) as metrics. For im-
+T ∈ {17, 25, 33, 41} frames, and the FPS is randomly sam-            plementation, we adopt the settings outlined in CUT3R [65].
+pled from {8, 10, 12, 15, 24}. The RoPE [59] coefficients            Our baselines include both reconstruction-based meth-
+are linearly interpolated to align with them.                        ods—such as DUSt3R [66], MASt3R [37], MonST3R [82],
+   During training, conditional inputs are randomly masked           Spann3R [63], and CUT3R [65]—and diffusion-based depth
+to generalize across tasks. For cc , masking probabilities are:      estimators, including ChronoDepth [55], DepthCrafter [29],
+                         Table 1. Video depth Evaluation. Methods requiring global alignment are marked “GA”.
+                                             Sintel [6]                               BONN [44]                             KITTI [21]
+    Method
+                                 Abs Rel ↓            δ < 1.25 ↑          Abs Rel ↓            δ < 1.25 ↑       Abs Rel ↓            δ < 1.25 ↑
+    Reconstruction Methods. Alignment: per-sequence scale
+    DUSt3R-GA [66]               0.656                45.2                    0.155               83.3            0.144                  81.3
+    MASt3R-GA [37]               0.641                43.9                    0.252               70.1            0.183                  74.5
+    MonST3R-GA [82]              0.378                55.8                    0.067               96.3            0.168                  74.4
+    Spann3R [63]                 0.622                42.6                    0.144               81.3            0.198                  73.7
+    CUT3R [65]                   0.421                47.9                    0.078               93.7            0.118                  88.1
+    A ETHER (Ours)               0.324                50.2                    0.273               59.4            0.056                  97.8
+    Diffusion-Based Methods. Alignment: per-sequence scale&shift
+    ChronoDepth [55]              0.429               38.3                    0.318               51.8            0.252                  54.3
+    DepthCrafter [29]             0.590               55.5                    0.253               56.3            0.124                  86.5
+    DA-V [74]                     1.252               43.7                    0.457               31.1            0.094                  93.0
+    A ETHER (Ours)                0.314               60.4                    0.308               60.2            0.054                  97.7
+
+                                               Table 2. Evaluation on Camera Pose Estimation.
+                                       Sintel [6]                              TUM-dynamics [58]                          ScanNet [10]
+  Method
+                         ATE ↓      RPE trans ↓           RPE rot ↓   ATE ↓      RPE trans ↓      RPE rot ↓   ATE ↓       RPE trans ↓     RPE rot ↓
+  Optimization-based Methods
+  Particle-SfM [86]      0.129         0.031               0.535        -               -            -        0.136          0.023          0.836
+  Robust-CVD [36]        0.360         0.154               3.443      0.153           0.026        3.528      0.227          0.064          7.374
+  CasualSAM [85]         0.141         0.035               0.615      0.071           0.010        1.712      0.158          0.034          1.618
+  DUSt3R-GA [66]         0.417         0.250               5.796      0.083           0.017        3.567      0.081          0.028          0.784
+  MASt3R-GA [37]         0.185         0.060               1.496      0.038           0.012        0.448      0.078          0.020          0.475
+  MonST3R-GA [82]        0.111         0.044               0.896      0.098           0.019        0.935      0.077          0.018          0.529
+  Feed-forward Methods
+  DUSt3R [66]            0.290         0.132               7.869      0.140           0.106        3.286      0.246          0.108          8.210
+  Spann3R [63]           0.329         0.110               4.471      0.056           0.021        0.591      0.096          0.023          0.661
+  CUT3R [65]             0.213         0.066               0.621      0.046           0.015        0.473      0.099          0.022          0.600
+  A ETHER (Ours)         0.189         0.054               0.694      0.092           0.012        1.106      0.176          0.028          1.204
+
+
+and DepthAnyVideo (DA-V) [74]. It is important to note                          Sintel (Abs Rel: 0.314, δ < 1.25: 60.4) and KITTI (Abs
+that when comparing with diffusion-based depth estimators,                      Rel: 0.054, δ < 1.25: 97.7), significantly outperforming
+we apply scale and shift alignment to the ground truth, as                      ChronoDepth [55], DepthCrafter [29], and DA-V [74]. On
+most of these methods are not inherently scale-invariant. All                   BONN, A ETHER achieves the highest δ < 1.25 (60.2) with
+videos are resized with original aspect ratios kept to make the                 competitive Abs Rel (0.308).
+short side align with our model’s input size. For videos that
+exceed the maximum forward processing spatial or temporal                       4.2. Zero-Shot Camera Pose Estimation
+size of our model, we employ a sliding window strategy with                     Implementation Details. Following MonST3R [82] and
+a stride size of 8. In regions of overlap between windows,                      CUT3R [65], we evaluate camera pose estimation accuracy
+we first estimate a relative scale by calculating the average                   on the Sintel [6], TUM Dynamics [58], and ScanNet [10]
+of element-wise division. This relative scale is then used                      datasets. Notably, both Sintel and TUM Dynamics contain
+to adjust the latter window’s depth predictions. Finally, a                     highly dynamic objects, presenting significant challenges
+linspace-weighted average is applied to the overlapping ar-                     for traditional Structure-from-Motion (SfM) and Simultane-
+eas, following approaches similar to prior methods [29, 80].                    ous Localization and Mapping (SLAM) systems. We report
+Results and Analysis. Table 1 summarizes the video                              Absolute Translation Error (ATE), Relative Translation Er-
+depth estimation results across Sintel [6], BONN [44],                          ror (RPE Trans), and Relative Rotation Error (RPE Rot)
+and KITTI [21] datasets. For reconstruction-based meth-                         after Sim(3) alignment with the ground truth, following the
+ods, A ETHER outperforms or is comparable with prior ap-                        methodology in [65]. The implementation settings are con-
+proaches. On Sintel, A ETHER achieves the lowest Abs Rel                        sistent with those used in CUT3R [65]. All videos are resized
+(0.324), surpassing MonST3R-GA (0.378), and competitive                         with original aspect ratios kept and then center cropped to
+δ < 1.25 (50.2). On KITTI, A ETHER sets a new benchmark                         align with our model’s input size. For long videos exceeding
+with Abs Rel of 0.056 and δ < 1.25 of 97.8, outperform-                         our model’s maximum temporal forward processing length,
+ing the previous SOTA CUT3R (Abs Rel: 0.118, δ < 1.25:                          a sliding window strategy with a stride size of 32 is em-
+88.1). Among diffusion-based methods, A ETHER shows                             ployed. In overlapping regions between windows, camera
+consistent superiority. It achieves the best performance on                     poses are aligned following prior methods [64]. Transla-
+tion alignment is performed using linear interpolation, while    tributed to the baseline model’s pre-training data containing
+quaternion rotations are interpolated with spherical linear      domains similar to the in-domain dataset.
+interpolation. Additionally, we observed that the generated      Action-Conditioned Video Prediction. To assess the effec-
+camera trajectories exhibit noise, likely due to the limited     tiveness of our post-training in improving action control and
+number of denoising steps. To mitigate this, we apply a          action-following capabilities, we conduct action-conditioned
+simple Kalman filter [71] to smooth the trajectories.            video prediction experiments. The results, shown in Tab. 4,
+Results and Analysis. Table 2 shows the evaluation re-           indicate that A ETHER consistently outperforms the base-
+sults. Among feed-forward methods, A ETHER achieves              line in both in-domain and out-domain settings. Notably,
+the best ATE (0.189) and RPE Trans (0.054) on Sintel [6],        CogVideoX tends to generate static scenes with high visual
+while remaining competitive in RPE Rot (0.694) compared          and aesthetic quality, while A ETHER accurately follows the
+to CUT3R (0.621). On TUM Dynamics [58], A ETHER                  action conditions, producing highly dynamic scenes. These
+achieves the best RPE Trans (0.012). For other metrics,          results validate the effectiveness of our framework and the
+A ETHER is also comparable with other specialist models.         advantages of using camera trajectories as action conditions.
+
+5. Generation and Planning Experiments                           5.2. Visual Planning
+                                                                 Implementation Details.            We evaluate the action-
+In this section, we first show video prediction, with or with-
+                                                                 conditioned navigation capability of A ETHER on our valida-
+out action conditioning, quantitatively or qualitatively, in
+                                                                 tion set. To demonstrate the effectiveness of our multi-task
+Sec. 5.1. We then show visual planning abilities in Sec. 5.2.
+                                                                 objective, particularly the incorporation of the reconstruc-
+More visualizations are in the supplementary material.
+                                                                 tion objective, we also post-train an ablation model without
+5.1. Video Prediction                                            the video depth objective, denoted as A ETHER-no-depth.
+                                                                 Given the observation image, goal image, and camera tra-
+Implementation Details. We use CogVideoX-5b-I2V [77]
+                                                                 jectory, the resulting video should be highly determined.
+as our baseline. To ensure a fair comparison, we construct
+                                                                 Thus, we report pixel-wise reconstruction metrics, includ-
+a validation dataset comprising two subsets: in-domain and
+                                                                 ing PSNR, SSIM [68], MS-SSIM [67], and LPIPS [83],
+out-domain data. The in-domain subset includes novel, un-
+                                                                 for action-conditioned navigation. For the action-free case,
+seen scenes from the same synthetic environments as the
+                                                                 which represents a visual path navigation task, we also re-
+training dataset, while the out-domain subset consists of data
+                                                                 port the VBench metrics. We do not use any classifier-free
+from entirely new synthetic environments. Both models are
+                                                                 guidance on both tasks.
+provided with the first frame as the observation image. For
+                                                                 Action-Conditioned Navigation. The quantitative re-
+action-free prediction, since CogVideoX depends heavily
+                                                                 sults for action-conditioned navigation are presented in
+on text prompts, we use GPT-4o [31] to generate image de-
+                                                                 Tab. 5. A ETHER consistently outperforms the ablation model,
+scriptions and predictions of future scenes as prompts for
+                                                                 demonstrating the significant benefits of incorporating the
+CogVideoX. In contrast, A ETHER is evaluated using empty
+                                                                 reconstruction objective into generative models.
+text prompts. For action-conditioned prediction, we also
+                                                                 Visual Path Planning. In the absence of action conditions,
+labeled camera trajectories in the validation dataset and gen-
+                                                                 this task evaluates the model’s ability to function as a “world
+erated corresponding raymap sequences as action conditions
+                                                                 model as an agent,” requiring it to plan a path from the ob-
+for A ETHER. For the baseline, in addition to the prompts
+                                                                 servation image to the goal image. The results, shown in
+used for action-free prediction, we use GPT-4o [31] to gen-
+                                                                 Tab. 6, indicate that the reconstruction objective substantially
+erate detailed descriptions of object and camera movements,
+                                                                 improves the model’s visual path planning capability. Addi-
+enabling the baseline to use language as action conditions.
+                                                                 tionally, qualitative visualizations on completely in-the-wild
+We use the default classifier-free guidance value of 6 on text
+                                                                 data are provided in supplementary material.
+prompts for CogVideoX and a value of 3 on the observation
+image for A ETHER. No classifier-free guidance is applied
+                                                                 6. Related Work
+to action conditions to ensure fairness. Evaluation metrics
+follow VBench [30], a standard benchmark for video gen-          World Models. World models have emerged as a critical
+eration, with additional details on prompts and evaluation       framework in artificial intelligence, enabling agents to simu-
+metrics provided in the supplementary material.                  late, understand, and predict environmental dynamics. Early
+Image-to-Video Prediction. We first evaluate image-to-           work [23] introduced latent representations and recurrent
+video prediction without action conditions. The results, pre-    neural networks for decision-making. Recent advancements
+sented in Tab. 3, show that A ETHER consistently outperforms     include Cat3D [20] for 3D scene generation, Cat4D [72] for
+the baseline on both in-domain and out-domain validation         dynamic 4D environments, and Genie 2 [46], a large-scale
+sets. Notably, A ETHER demonstrates a larger performance         model for interactive 3D worlds. Motion Prompting [22]
+improvement on out-domain data, which can likely be at-          further enables precise video generation control. These ad-
+Table 3. VBench [30] Metrics of Video Prediction without Action Conditions. Comparison between CogVideoX and A ETHER (Ours) on
+in-domain/out-domain/overall performance on the validation set. For each group, the better performance is highlighted in bold.
+            subject consistency    b.g. consistency   motion smoothness   dynamic degree       aesthetic quality      imaging quality     weighted average
+CogVideoX 89.36/84.61/87.77 92.72/91.43/92.29 98.24/96.93/97.81 88.75/95.00/90.83 54.49/53.58/54.18 55.38/52.29/54.35 79.01/77.52/78.51
+A ETHER   91.50/87.55/90.18 94.29/93.62/94.07 98.54/98.19/98.42 96.25/100.00/97.50 54.36/52.58/53.77 55.08/54.88/55.01 80.34/79.42/80.04
+
+Table 4. VBench [30] Metrics of Action-Conditioned Video Prediction. Comparison between CogVideoX and A ETHER (Ours) on
+in-domain/out-domain/overall performance on the validation set. For each metric group, the better performance is highlighted in bold.
+            subject consistency    b.g. consistency   motion smoothness   dynamic degree       aesthetic quality      imaging quality     weighted average
+CogVideoX 91.56/88.23/90.51 92.98/92.29/92.77 98.44/97.81/98.24 83.87/93.02/86.76 56.19/57.43/56.58 56.48/61.60/58.10 79.56/80.70/79.92
+A ETHER   90.73/93.27/91.54 93.61/95.03/94.06 98.53/98.62/98.56 100.00/83.72/94.85 55.04/56.50/55.50 53.89/63.23/56.84 80.33/81.55/80.71
+
+Table 5. Pixel-wise Metrics of Action-Conditioned Navigation. Comparison of performance between A ETHER-no-depth and A ETHER on
+in-domain/out-domain/overall performance. For each metric group, the better performance is highlighted in bold.
+                                      PSNR ↑                       SSIM ↑                        MS-SSIM ↑                              LPIPS ↓
+    A ETHER-no-depth              19.13/18.67/18.97          0.5630/0.4830/0.5353          0.5467/0.5204/0.5376                0.3116/0.2995/0.3074
+    A ETHER                       19.87/19.37/19.70          0.5803/0.5058/0.5545          0.5830/0.5627/0.5760                0.2691/0.2599/0.2659
+
+Table 6. Quantitative Results of Action-Free Visual Path Planning. Comparison of performance between Aether and Aether-no-depth on
+in-domain/out-domain/overall performance. For each metric group, the better performance is highlighted in bold.
+                subject consistency    b.g. consistency   motion smoothness   dynamic degree      aesthetic quality     imaging quality     weighted average
+Aether-no-depth 88.68/89.61/88.61 93.62/93.92/93.66 98.37/98.31/98.32 97.06/91.67/96.15 54.12/56.26/54.78 51.77/58.46/54.29 79.11/80.43/79.59
+Aether (Ours)   89.69/91.61/90.36 93.88/94.58/94.13 98.50/98.40/98.46 97.06/91.67/95.19 55.83/56.87/56.19 54.71/61.13/56.93 80.21/81.53/80.67
+
+
+vancements demonstrate the evolution of world models to-                      Pyramid Flow [32]) enhance motion dynamics. These ad-
+ward dynamic, interactive, and controllable applications in                   vancements highlight rapid progress, with ongoing efforts to
+robotics, gaming, and simulation.                                             improve scalability and temporal stability.
+Reconstruction. Reconstruction has been a long-standing
+topic in computer vision, with notable progress in both tra-                  7. Conclusion and Limitations
+ditional and learning-based methods. Classical approaches,
+                                                                              In this work, we introduce A ETHER, a geometry-aware multi-
+such as Structure-from-Motion (SfM) [9, 26, 45, 53] and
+                                                                              task world model that reconstructs 4D dynamic videos, pre-
+Multi-View Stereo (MVS) [19, 54], rely on multi-view ge-
+                                                                              dicts future frames conditioned on observation images and
+ometry for feature matching, pose estimation, and dense
+                                                                              actions, and performs visual planning based on observation
+point cloud generation, demonstrating robust performance
+                                                                              and goal images. We propose an automatic 4D synthetic
+in controlled settings. Deep learning has introduced pow-
+                                                                              data labeling pipeline, enabling A ETHER to train on syn-
+erful alternatives, tackling sub-tasks like feature matching
+                                                                              thetic data and generalize to unseen real-world data in a zero-
+[14, 52], point tracking [13, 64], triangulation [42], and
+                                                                              shot manner. Post-trained on the CogVideoX base model,
+MVS [78, 81]. End-to-end methods now directly predict
+                                                                              A ETHER achieves state-of-the-art or competitive reconstruc-
+point maps [37, 66] or depth maps from images [4, 76],
+                                                                              tion performance and outperforms baselines in generation
+often incorporating camera parameters [70]. Recently,
+                                                                              and planning tasks, demonstrating the value of incorporating
+diffusion models have achieved breakthroughs in image
+                                                                              reconstruction objectives into world modeling.
+and video generation [27, 35, 43, 73, 77], inspiring novel
+                                                                                  However, limitations remain. Camera pose estimation is
+3D reconstruction approaches that leverage rich 2D priors
+                                                                              less accurate, likely due to incompatibilities between raymap
+[18, 29, 34, 41, 74, 75, 88, 90]. These methods demonstrate
+                                                                              representation and prior video diffusion models. Indoor
+the potential of integrating diffusion-based 2D knowledge
+                                                                              scene reconstruction also lags behind outdoor performance,
+into 3D modeling.
+                                                                              likely due to the predominance of outdoor training data.
+Video Generation. Video generation has evolved from foun-
+                                                                              Additionally, predictions without language prompts often
+dational techniques like DDPM [27, 43] to modern frame-
+                                                                              fail in highly dynamic scenes. Future work can address
+works leveraging diffusion-based techniques. Advances such
+                                                                              these by exploring novel action representations, co-training
+as latent diffusion [51] and diffusion transformers [47] have
+                                                                              with real-world data, and retaining the language prompting
+improved generation quality, while models like Sora [5] and
+                                                                              capabilities of the base model.
+Stable Video Diffusion (SVD) [3] emphasize temporal con-
+sistency. Open-source models, including LTX Video [24],
+CogVideoX [77], and Hunyuan Video [35], offer increased
+flexibility, and techniques like multi-scale architectures (e.g.,
+Acknowledgments                                                            computer vision and pattern recognition workshops, pages
+                                                                           224–236, 2018. 3
+This work is supported by the National Key R&D Program                [13] Carl Doersch, Ankush Gupta, Larisa Markeeva, Adria Re-
+of China (NO.2022ZD0160102) and Shanghai Artificial In-                    casens, Lucas Smaira, Yusuf Aytar, Joao Carreira, Andrew
+telligence Laboratory.                                                     Zisserman, and Yi Yang. Tap-vid: A benchmark for track-
+                                                                           ing any point in a video. Advances in Neural Information
+References                                                                 Processing Systems, 35:13610–13626, 2022. 8
+                                                                      [14] Johan Edstedt, Qiyu Sun, Georg Bökman, Mårten Wadenbäck,
+ [1] Sameer Agarwal, Keir Mierle, et al. Ceres solver: Tutorial &          and Michael Felsberg. Roma: Robust dense feature matching.
+     reference. Google Inc, 2(72):8, 2012. 3                               In Proceedings of the IEEE/CVF Conference on Computer
+ [2] Eloi Alonso, Adam Jelley, Vincent Micheli, Anssi Kanervisto,          Vision and Pattern Recognition, pages 19790–19800, 2024. 8
+     Amos J Storkey, Tim Pearce, and François Fleuret. Diffusion     [15] Tom Erez, Yuval Tassa, and Emanuel Todorov. Infinite-
+     for world modeling: Visual details matter in atari. Advances          horizon model predictive control for periodic tasks with con-
+     in Neural Information Processing Systems, 37:58757–58791,             tacts. Robotics: Science and systems VII, 73, 2012. 2
+     2025. 2                                                          [16] Hao-Shu Fang, Hongjie Fang, Zhenyu Tang, Jirong Liu,
+ [3] Andreas Blattmann, Tim Dockhorn, Sumith Kulal, Daniel                 Chenxi Wang, Junbo Wang, Haoyi Zhu, and Cewu Lu. Rh20t:
+     Mendelevitch, Maciej Kilian, Dominik Lorenz, Yam Levi,                A comprehensive robotic dataset for learning diverse skills in
+     Zion English, Vikram Voleti, Adam Letts, et al. Stable                one-shot. arXiv preprint arXiv:2307.00595, 2023. 2
+     video diffusion: Scaling latent video diffusion models to        [17] Ruili Feng, Han Zhang, Zhantao Yang, Jie Xiao, Zhilei
+     large datasets. arXiv preprint arXiv:2311.15127, 2023. 2, 8           Shu, Zhiheng Liu, Andy Zheng, Yukun Huang, Yu Liu,
+ [4] Aleksei Bochkovskii, Amaël Delaunoy, Hugo Germain, Mar-              and Hongyang Zhang. The matrix: Infinite-horizon world
+     cel Santos, Yichao Zhou, Stephan R Richter, and Vladlen               generation with real-time moving control. arXiv preprint
+     Koltun. Depth pro: Sharp monocular metric depth in less than          arXiv:2412.03568, 2024. 2
+     a second. arXiv preprint arXiv:2410.02073, 2024. 8               [18] Xiao Fu, Wei Yin, Mu Hu, Kaixuan Wang, Yuexin Ma, Ping
+ [5] Tim Brooks, Bill Peebles, Connor Holmes, Will DePue, Yufei            Tan, Shaojie Shen, Dahua Lin, and Xiaoxiao Long. Ge-
+     Guo, Li Jing, David Schnurr, Joe Taylor, Troy Luhman, Eric            owizard: Unleashing the diffusion priors for 3d geometry
+     Luhman, Clarence Ng, Ricky Wang, and Aditya Ramesh.                   estimation from a single image. In European Conference on
+     Video generation models as world simulators. 2024. 8                  Computer Vision, pages 241–258. Springer, 2024. 8
+ [6] Daniel J Butler, Jonas Wulff, Garrett B Stanley, and Michael J   [19] Yasutaka Furukawa, Carlos Hernández, et al. Multi-view
+     Black. A naturalistic open source movie for optical flow              stereo: A tutorial. Foundations and trends® in Computer
+     evaluation. In Computer Vision–ECCV 2012: 12th European               Graphics and Vision, 9(1-2):1–148, 2015. 8
+     Conference on Computer Vision, Florence, Italy, October 7-       [20] Ruiqi Gao, Aleksander Holynski, Philipp Henzler, Arthur
+     13, 2012, Proceedings, Part VI 12, pages 611–625. Springer,           Brussee, Ricardo Martin-Brualla, Pratul Srinivasan,
+     2012. 6, 7                                                            Jonathan T Barron, and Ben Poole. Cat3d: Create anything
+                                                                           in 3d with multi-view diffusion models. arXiv preprint
+ [7] Junyi Chen, Di Huang, Weicai Ye, Wanli Ouyang, and Tong
+                                                                           arXiv:2405.10314, 2024. 7
+     He. Where am i and what will i see: An auto-regressive model
+                                                                      [21] Andreas Geiger, Philip Lenz, Christoph Stiller, and Raquel
+     for spatial localization and view prediction, 2024. 4
+                                                                           Urtasun. Vision meets robotics: The kitti dataset. The in-
+ [8] Yuhua Chen, Cordelia Schmid, and Cristian Sminchisescu.
+                                                                           ternational journal of robotics research, 32(11):1231–1237,
+     Self-supervised learning with geometric constraints in monoc-
+                                                                           2013. 6
+     ular video: Connecting flow, depth, and camera. In Proceed-
+                                                                      [22] Daniel Geng, Charles Herrmann, Junhwa Hur, Forrester Cole,
+     ings of the IEEE/CVF international conference on computer
+                                                                           Serena Zhang, Tobias Pfaff, Tatiana Lopez-Guevara, Carl
+     vision, pages 7063–7072, 2019. 3
+                                                                           Doersch, Yusuf Aytar, Michael Rubinstein, Chen Sun, Oliver
+ [9] Hainan Cui, Xiang Gao, Shuhan Shen, and Zhanyi Hu. Hsfm:              Wang, Andrew Owens, and Deqing Sun. Motion prompting:
+     Hybrid structure-from-motion. In Proceedings of the IEEE              Controlling video generation with motion trajectories, 2024.
+     conference on computer vision and pattern recognition, pages          2, 7
+     1212–1221, 2017. 8                                               [23] David Ha and Jürgen Schmidhuber. World models. arXiv
+[10] Angela Dai, Angel X Chang, Manolis Savva, Maciej Hal-                 preprint arXiv:1803.10122, 2018. 7
+     ber, Thomas Funkhouser, and Matthias Nießner. Scannet:           [24] Yoav HaCohen, Nisan Chiprut, Benny Brazowski, Daniel
+     Richly-annotated 3d reconstructions of indoor scenes. In              Shalem, Dudu Moshe, Eitan Richardson, Eran Levin, Guy
+     Proceedings of the IEEE conference on computer vision and             Shiran, Nir Zabari, Ori Gordon, Poriya Panet, Sapir Weiss-
+     pattern recognition, pages 5828–5839, 2017. 6                         buch, Victor Kulikov, Yaki Bitterman, Zeev Melumian, and
+[11] Decart, Julian Quevedo, Quinn McIntyre, Spruce Campbell,              Ofir Bibi. Ltx-video: Realtime video latent diffusion. arXiv
+     Xinlei Chen, and Robert Wachen. Oasis: A universe in a                preprint arXiv:2501.00103, 2024. 2, 8
+     Transformer. 2024. 2                                             [25] Annika Hagemann, Moritz Knorr, and Christoph Stiller. Deep
+[12] Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabi-                   geometry-aware camera self-calibration from video. In Pro-
+     novich. Superpoint: Self-supervised interest point detection          ceedings of the IEEE/CVF International Conference on Com-
+     and description. In Proceedings of the IEEE conference on             puter Vision, pages 3438–3448, 2023. 3
+[26] Richard Hartley and Andrew Zisserman. Multiple view geom-        [37] Vincent Leroy, Yohann Cabon, and Jérôme Revaud. Ground-
+     etry in computer vision. Cambridge university press, 2003.            ing image matching in 3d with mast3r. In European Confer-
+     8                                                                     ence on Computer Vision, pages 71–91. Springer, 2024. 2, 5,
+[27] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffu-           6, 8
+     sion probabilistic models. Advances in neural information        [38] Ilya Loshchilov and Frank Hutter. Decoupled weight decay
+     processing systems, 33:6840–6851, 2020. 4, 8                          regularization. arXiv preprint arXiv:1711.05101, 2017. 5
+[28] Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu, and Jie         [39] David G Lowe. Distinctive image features from scale-
+     Tang. Cogvideo: Large-scale pretraining for text-to-video gen-        invariant keypoints. International journal of computer vision,
+     eration via transformers. arXiv preprint arXiv:2205.15868,            60:91–110, 2004. 3
+     2022. 2                                                          [40] Cheng Lu, Yuhao Zhou, Fan Bao, Jianfei Chen, Chongxuan
+[29] Wenbo Hu, Xiangjun Gao, Xiaoyu Li, Sijie Zhao, Xiaodong               Li, and Jun Zhu. Dpm-solver++: Fast solver for guided
+     Cun, Yong Zhang, Long Quan, and Ying Shan. Depthcrafter:              sampling of diffusion probabilistic models. arXiv preprint
+     Generating consistent long depth sequences for open-world             arXiv:2211.01095, 2022. 4
+     videos. arXiv preprint arXiv:2409.02095, 2024. 5, 6, 8           [41] Yuanxun Lu, Jingyang Zhang, Tian Fang, Jean-Daniel Nah-
+[30] Ziqi Huang, Yinan He, Jiashuo Yu, Fan Zhang, Chenyang                 mias, Yanghai Tsin, Long Quan, Xun Cao, Yao Yao, and
+     Si, Yuming Jiang, Yuanhan Zhang, Tianxing Wu, Qingyang                Shiwei Li. Matrix3d: Large photogrammetry model all-in-
+     Jin, Nattapol Chanpaisit, et al. Vbench: Comprehensive                one. arXiv preprint arXiv:2502.07685, 2025. 8
+     benchmark suite for video generative models. In Proceedings      [42] Dror Moran, Hodaya Koslowsky, Yoni Kasten, Haggai Maron,
+     of the IEEE/CVF Conference on Computer Vision and Pattern             Meirav Galun, and Ronen Basri. Deep permutation equivari-
+     Recognition, pages 21807–21818, 2024. 7, 8                            ant structure from motion. In Proceedings of the IEEE/CVF
+[31] Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman,               International Conference on Computer Vision, pages 5976–
+     Aditya Ramesh, Aidan Clark, AJ Ostrow, Akila Welihinda,               5986, 2021. 8
+     Alan Hayes, Alec Radford, et al. Gpt-4o system card. arXiv       [43] Alexander Quinn Nichol and Prafulla Dhariwal. Improved
+     preprint arXiv:2410.21276, 2024. 7                                    denoising diffusion probabilistic models. In International
+[32] Yang Jin, Zhicheng Sun, Ningyuan Li, Kun Xu, Hao Jiang,               conference on machine learning, pages 8162–8171. PMLR,
+     Nan Zhuang, Quzhe Huang, Yang Song, Yadong Mu, and                    2021. 8
+     Zhouchen Lin. Pyramidal flow matching for efficient video        [44] Emanuele Palazzolo, Jens Behley, Philipp Lottes, Philippe
+     generative modeling. arXiv preprint arXiv:2410.05954, 2024.           Giguere, and Cyrill Stachniss. Refusion: 3d reconstruction in
+     2, 8                                                                  dynamic environments for rgb-d cameras exploiting residuals.
+[33] Nikita Karaev, Iurii Makarov, Jianyuan Wang, Natalia                  In 2019 IEEE/RSJ International Conference on Intelligent
+     Neverova, Andrea Vedaldi, and Christian Rupprecht. Co-                Robots and Systems (IROS), pages 7855–7862. IEEE, 2019. 6
+     tracker3: Simpler and better point tracking by pseudo-           [45] Linfei Pan, Dániel Baráth, Marc Pollefeys, and Johannes L
+     labelling real videos. arXiv preprint arXiv:2410.11831, 2024.         Schönberger. Global structure-from-motion revisited. In Euro-
+     3                                                                     pean Conference on Computer Vision, pages 58–77. Springer,
+[34] Bingxin Ke, Anton Obukhov, Shengyu Huang, Nando Met-                  2024. 8
+     zger, Rodrigo Caye Daudt, and Konrad Schindler. Repurpos-        [46] Jack Parker-Holder, Philip Ball, Jake Bruce, Vibhavari Dasagi,
+     ing diffusion-based image generators for monocular depth              Kristian Holsheimer, Christos Kaplanis, Alexandre Moufarek,
+     estimation. In Proceedings of the IEEE/CVF Conference on              Guy Scully, Jeremy Shar, Jimmy Shi, Stephen Spencer, Jes-
+     Computer Vision and Pattern Recognition, pages 9492–9502,             sica Yung, Michael Dennis, Sultan Kenjeyev, Shangbang
+     2024. 4, 8                                                            Long, Vlad Mnih, Harris Chan, Maxime Gazeau, Bonnie Li,
+[35] Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo                  Fabio Pardo, Luyu Wang, Lei Zhang, Frederic Besse, Tim
+     Dai, Jin Zhou, Jiangfeng Xiong, Xin Li, Bo Wu, Jianwei                Harley, Anna Mitenkova, Jane Wang, Jeff Clune, Demis Has-
+     Zhang, Kathrina Wu, Qin Lin, Aladdin Wang, Andong Wang,               sabis, Raia Hadsell, Adrian Bolton, Satinder Singh, and Tim
+     Changlin Li, Duojun Huang, Fang Yang, Hao Tan, Hongmei                Rocktäschel. Genie 2: A large-scale foundation world model.
+     Wang, Jacob Song, Jiawang Bai, Jianbing Wu, Jinbao Xue,               2024. 2, 7
+     Joey Wang, Junkun Yuan, Kai Wang, Mengyang Liu, Pengyu           [47] William Peebles and Saining Xie. Scalable diffusion models
+     Li, Shuai Li, Weiyan Wang, Wenqing Yu, Xinchi Deng, Yang              with transformers. In Proceedings of the IEEE/CVF inter-
+     Li, Yanxin Long, Yi Chen, Yutao Cui, Yuanbo Peng, Zhen-               national conference on computer vision, pages 4195–4205,
+     tao Yu, Zhiyu He, Zhiyong Xu, Zixiang Zhou, Zunnan Xu,                2023. 8
+     Yangyu Tao, Qinglin Lu, Songtao Liu, Dax Zhou, Hongfa            [48] Adam Polyak, Amit Zohar, Andrew Brown, Andros Tjandra,
+     Wang, Yong Yang, Di Wang, Yuhong Liu, Jie Jiang, and Cae-             Animesh Sinha, Ann Lee, Apoorv Vyas, Bowen Shi, Chih-
+     sar Zhong. Hunyuanvideo: A systematic framework for large             Yao Ma, Ching-Yao Chuang, David Yan, Dhruv Choudhary,
+     video generative models, 2024. 2, 8                                   Dingkang Wang, Geet Sethi, Guan Pang, Haoyu Ma, Ishan
+[36] Johannes Kopf, Xuejian Rong, and Jia-Bin Huang. Ro-                   Misra, Ji Hou, Jialiang Wang, Kiran Jagadeesh, Kunpeng
+     bust consistent video depth estimation. In Proceedings of             Li, Luxin Zhang, Mannat Singh, Mary Williamson, Matt
+     the IEEE/CVF Conference on Computer Vision and Pattern                Le, Matthew Yu, Mitesh Kumar Singh, Peizhao Zhang, Pe-
+     Recognition, pages 1611–1621, 2021. 6                                 ter Vajda, Quentin Duval, Rohit Girdhar, Roshan Sumbaly,
+     Sai Saketh Rambhatla, Sam Tsai, Samaneh Azadi, Samyak                  Taming diffusion models for monocular depth estimation.
+     Datta, Sanyuan Chen, Sean Bell, Sharadh Ramaswamy, Shelly              arXiv preprint arXiv:2501.02576, 2025. 4
+     Sheynin, Siddharth Bhattacharya, Simran Motwani, Tao Xu,          [58] Jürgen Sturm, Nikolas Engelhard, Felix Endres, Wolfram
+     Tianhe Li, Tingbo Hou, Wei-Ning Hsu, Xi Yin, Xiaoliang                 Burgard, and Daniel Cremers. A benchmark for the evalua-
+     Dai, Yaniv Taigman, Yaqiao Luo, Yen-Cheng Liu, Yi-Chiao                tion of rgb-d slam systems. In 2012 IEEE/RSJ international
+     Wu, Yue Zhao, Yuval Kirstain, Zecheng He, Zijian He, Al-               conference on intelligent robots and systems, pages 573–580.
+     bert Pumarola, Ali Thabet, Artsiom Sanakoyeu, Arun Mallya,             IEEE, 2012. 6, 7
+     Baishan Guo, Boris Araya, Breena Kerr, Carleigh Wood, Ce          [59] Jianlin Su, Murtadha Ahmed, Yu Lu, Shengfeng Pan, Wen
+     Liu, Cen Peng, Dimitry Vengertsev, Edgar Schonfeld, El-                Bo, and Yunfeng Liu. Roformer: Enhanced transformer with
+     liot Blanchard, Felix Juefei-Xu, Fraylie Nord, Jeff Liang,             rotary position embedding. Neurocomputing, 568:127063,
+     John Hoffman, Jonas Kohler, Kaolin Fire, Karthik Sivakumar,            2024. 5
+     Lawrence Chen, Licheng Yu, Luya Gao, Markos Georgopou-            [60] Wan Team. Wan: Open and advanced large-scale video gen-
+     los, Rashel Moritz, Sara K. Sampson, Shikai Li, Simone                 erative models. 2025. 2
+     Parmeggiani, Steve Fine, Tara Fowler, Vladan Petrovic, and        [61] Zachary Teed and Jia Deng. Raft: Recurrent all-pairs field
+     Yuming Du. Movie gen: A cast of media foundation models,               transforms for optical flow. In Computer Vision–ECCV 2020:
+     2025. 1                                                                16th European Conference, Glasgow, UK, August 23–28,
+[49] René Ranftl, Katrin Lasinger, David Hafner, Konrad                    2020, Proceedings, Part II 16, pages 402–419. Springer, 2020.
+     Schindler, and Vladlen Koltun. Towards robust monocular                3
+     depth estimation: Mixing datasets for zero-shot cross-dataset     [62] Veo-Team, :, Agrim Gupta, Ali Razavi, Andeep Toor, Ankush
+     transfer. IEEE transactions on pattern analysis and machine            Gupta, Dumitru Erhan, Eleni Shaw, Eric Lau, Frank Belletti,
+     intelligence, 44(3):1623–1637, 2020. 5                                 Gabe Barth-Maron, Gregory Shaw, Hakan Erdogan, Hakim
+[50] Tianhe Ren, Shilong Liu, Ailing Zeng, Jing Lin, Kunchang Li,           Sidahmed, Henna Nandwani, Hernan Moraldo, Hyunjik Kim,
+     He Cao, Jiayu Chen, Xinyu Huang, Yukang Chen, Feng Yan,                Irina Blok, Jeff Donahue, José Lezama, Kory Mathewson,
+     Zhaoyang Zeng, Hao Zhang, Feng Li, Jie Yang, Hongyang                  Kurtis David, Matthieu Kim Lorrain, Marc van Zee, Med-
+     Li, Qing Jiang, and Lei Zhang. Grounded sam: Assembling                hini Narasimhan, Miaosen Wang, Mohammad Babaeizadeh,
+     open-world models for diverse visual tasks, 2024. 3                    Nelly Papalampidi, Nick Pezzotti, Nilpa Jha, Parker Barnes,
+[51] Robin Rombach, Andreas Blattmann, Dominik Lorenz,                      Pieter-Jan Kindermans, Rachel Hornung, Ruben Villegas,
+     Patrick Esser, and Björn Ommer. High-resolution image                 Ryan Poplin, Salah Zaiem, Sander Dieleman, Sayna Ebrahimi,
+     synthesis with latent diffusion models. In Proceedings of              Scott Wisdom, Serena Zhang, Shlomi Fruchter, Signe Nørly,
+     the IEEE/CVF conference on computer vision and pattern                 Weizhe Hua, Xinchen Yan, Yuqing Du, and Yutian Chen. Veo
+     recognition, pages 10684–10695, 2022. 8                                2. 2024. 1
+                                                                       [63] Hengyi Wang and Lourdes Agapito. 3d reconstruction with
+[52] Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz,
+                                                                            spatial memory. arXiv preprint arXiv:2408.16061, 2024. 2,
+     and Andrew Rabinovich. Superglue: Learning feature match-
+                                                                            5, 6
+     ing with graph neural networks. In Proceedings of the
+     IEEE/CVF conference on computer vision and pattern recog-         [64] Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and
+     nition, pages 4938–4947, 2020. 8                                       David Novotny. Vggsfm: Visual geometry grounded deep
+                                                                            structure from motion. In Proceedings of the IEEE/CVF con-
+[53] Johannes L Schonberger and Jan-Michael Frahm. Structure-
+                                                                            ference on computer vision and pattern recognition, pages
+     from-motion revisited. In Proceedings of the IEEE confer-
+                                                                            21686–21697, 2024. 6, 8
+     ence on computer vision and pattern recognition, pages 4104–
+                                                                       [65] Qianqian Wang, Yifei Zhang, Aleksander Holynski, Alexei A
+     4113, 2016. 8
+                                                                            Efros, and Angjoo Kanazawa. Continuous 3d perception
+[54] Johannes L Schönberger, Enliang Zheng, Jan-Michael Frahm,             model with persistent state. arXiv preprint arXiv:2501.12387,
+     and Marc Pollefeys. Pixelwise view selection for unstructured          2025. 2, 5, 6
+     multi-view stereo. In Computer Vision–ECCV 2016: 14th             [66] Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris
+     European Conference, Amsterdam, The Netherlands, Octo-                 Chidlovskii, and Jerome Revaud. Dust3r: Geometric 3d
+     ber 11-14, 2016, Proceedings, Part III 14, pages 501–518.              vision made easy. In Proceedings of the IEEE/CVF Con-
+     Springer, 2016. 8                                                      ference on Computer Vision and Pattern Recognition, pages
+[55] Jiahao Shao, Yuanbo Yang, Hongyu Zhou, Youmin Zhang,                   20697–20709, 2024. 2, 5, 6, 8
+     Yujun Shen, Vitor Guizilini, Yue Wang, Matteo Poggi, and          [67] Zhou Wang, Eero P Simoncelli, and Alan C Bovik. Multiscale
+     Yiyi Liao. Learning temporally consistent video depth from             structural similarity for image quality assessment. In The
+     video diffusion priors. arXiv preprint arXiv:2406.01493,               Thrity-Seventh Asilomar Conference on Signals, Systems &
+     2024. 5, 6                                                             Computers, 2003, pages 1398–1402. Ieee, 2003. 5, 7
+[56] Leslie N Smith and Nicholay Topin. Super-convergence: Very        [68] Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P
+     fast training of neural networks using large learning rates. In        Simoncelli. Image quality assessment: from error visibility to
+     Artificial intelligence and machine learning for multi-domain          structural similarity. IEEE transactions on image processing,
+     operations applications, pages 369–386. SPIE, 2019. 5                  13(4):600–612, 2004. 7
+[57] Ziyang Song, Zerong Wang, Bo Li, Hao Zhang, Ruijie Zhu,           [69] Zhouxia Wang, Ziyang Yuan, Xintao Wang, Yaowei Li, Tian-
+     Li Liu, Peng-Tao Jiang, and Tianzhu Zhang. Depthmaster:                shui Chen, Menghan Xia, Ping Luo, and Ying Shan. Mo-
+     tionctrl: A unified and flexible motion controller for video    [83] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman,
+     generation. 2023. 2                                                  and Oliver Wang. The unreasonable effectiveness of deep
+[70] Xingkui Wei, Yinda Zhang, Zhuwen Li, Yanwei Fu, and                  features as a perceptual metric. In Proceedings of the IEEE
+     Xiangyang Xue. Deepsfm: Structure from motion via deep               conference on computer vision and pattern recognition, pages
+     bundle adjustment. In Computer Vision–ECCV 2020: 16th                586–595, 2018. 7
+     European Conference, Glasgow, UK, August 23–28, 2020,           [84] Yuang Zhang, Jiaxi Gu, Li-Wen Wang, Han Wang, Junqi
+     Proceedings, Part I 16, pages 230–247. Springer, 2020. 8             Cheng, Yuefeng Zhu, and Fangyuan Zou. Mimicmotion:
+[71] Greg Welch, Gary Bishop, et al. An introduction to the kalman        High-quality human motion video generation with confidence-
+     filter. 1995. 7                                                      aware pose guidance, 2024. 2
+[72] Rundi Wu, Ruiqi Gao, Ben Poole, Alex Trevithick, Changxi        [85] Zhoutong Zhang, Forrester Cole, Zhengqi Li, Michael Ru-
+     Zheng, Jonathan T Barron, and Aleksander Holynski. Cat4d:            binstein, Noah Snavely, and William T Freeman. Structure
+     Create anything in 4d with multi-view video diffusion models.        and motion from casual videos. In European Conference on
+     arXiv preprint arXiv:2411.18613, 2024. 7                             Computer Vision, pages 20–37. Springer, 2022. 6
+[73] Wanghan Xu, Xiaoyu Yue, Zidong Wang, Yao Teng, Wenlong          [86] Wang Zhao, Shaohui Liu, Hengkai Guo, Wenping Wang, and
+     Zhang, Xihui Liu, Luping Zhou, Wanli Ouyang, and Lei                 Yong-Jin Liu. Particlesfm: Exploiting dense point trajectories
+     Bai. Exploring representation-aligned latent space for better        for localizing moving cameras in the wild. In European
+     generation. arXiv preprint arXiv:2502.00359, 2025. 8                 Conference on Computer Vision, pages 523–542. Springer,
+[74] Honghui Yang, Di Huang, Wei Yin, Chunhua Shen, Haifeng               2022. 2, 6
+     Liu, Xiaofei He, Binbin Lin, Wanli Ouyang, and Tong He.         [87] Yanli Zhao, Andrew Gu, Rohan Varma, Liang Luo, Chien-
+     Depth any video with scalable synthetic data. arXiv preprint         Chin Huang, Min Xu, Less Wright, Hamid Shojanazeri, Myle
+     arXiv:2410.10815, 2024. 2, 4, 6, 8                                   Ott, Sam Shleifer, et al. Pytorch fsdp: experiences on scaling
+[75] Honghui Yang, Sha Zhang, Di Huang, Xiaoyang Wu, Haoyi                fully sharded data parallel. arXiv preprint arXiv:2304.11277,
+     Zhu, Tong He, Shixiang Tang, Hengshuang Zhao, Qibo Qiu,              2023. 5
+     Binbin Lin, et al. Unipad: A universal pre-training paradigm    [88] Haoyi Zhu, Honghui Yang, Xiaoyang Wu, Di Huang, Sha
+     for autonomous driving. In Proceedings of the IEEE/CVF               Zhang, Xianglong He, Hengshuang Zhao, Chunhua Shen, Yu
+     Conference on Computer Vision and Pattern Recognition,               Qiao, Tong He, et al. Ponderv2: Pave the way for 3d foun-
+     pages 15238–15250, 2024. 8                                           dation model with a universal pre-training paradigm. arXiv
+[76] Lihe Yang, Bingyi Kang, Zilong Huang, Xiaogang Xu, Jiashi            preprint arXiv:2310.08586, 2023. 8
+     Feng, and Hengshuang Zhao. Depth anything: Unleashing           [89] Haoyi Zhu, Yating Wang, Di Huang, Weicai Ye, Wanli
+     the power of large-scale unlabeled data. In Proceedings of           Ouyang, and Tong He. Point cloud matters: Rethinking
+     the IEEE/CVF Conference on Computer Vision and Pattern               the impact of different observation spaces on robot learn-
+     Recognition, pages 10371–10381, 2024. 8                              ing. Advances in Neural Information Processing Systems, 37:
+[77] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu              77799–77830, 2024. 2
+     Huang, Jiazheng Xu, Yuanming Yang, Wenyi Hong, Xiao-            [90] Haoyi Zhu, Honghui Yang, Yating Wang, Jiange Yang,
+     han Zhang, Guanyu Feng, et al. Cogvideox: Text-to-video              Limin Wang, and Tong He. Spa: 3d spatial-awareness
+     diffusion models with an expert transformer. arXiv preprint          enables effective embodied representation. arXiv preprint
+     arXiv:2408.06072, 2024. 2, 4, 5, 7, 8                                arXiv:2410.08208, 2024. 2, 8
+[78] Yao Yao, Zixin Luo, Shiwei Li, Tian Fang, and Long Quan.
+     Mvsnet: Depth inference for unstructured multi-view stereo.
+     In Proceedings of the European conference on computer vi-
+     sion (ECCV), pages 767–783, 2018. 8
+[79] Jiwen Yu, Yiran Qin, Xintao Wang, Pengfei Wan, Di Zhang,
+     and Xihui Liu. Gamefactory: Creating new games with gen-
+     erative interactive videos, 2025. 2
+[80] Zehao Yu, Songyou Peng, Michael Niemeyer, Torsten Sattler,
+     and Andreas Geiger. Monosdf: Exploring monocular geomet-
+     ric cues for neural implicit surface reconstruction. Advances
+     in neural information processing systems, 35:25018–25032,
+     2022. 6
+[81] Jingyang Zhang, Shiwei Li, Zixin Luo, Tian Fang, and Yao
+     Yao. Vis-mvsnet: Visibility-aware multi-view stereo network.
+     International Journal of Computer Vision, 131(1):199–214,
+     2023. 8
+[82] Junyi Zhang, Charles Herrmann, Junhwa Hur, Varun Jampani,
+     Trevor Darrell, Forrester Cole, Deqing Sun, and Ming-Hsuan
+     Yang. Monst3r: A simple approach for estimating geometry
+     in the presence of motion. arXiv preprint arXiv:2410.03825,
+     2024. 2, 5, 6
+A. Author Contributions                                         Robustness in Points Trajectory Estimation Similarly, our
+                                                                video slicing is performed based on optical flow magnitude
+All authors contributed equally.                                and forward-backward error. In addition, we discard frames
+• Network Architecture and Model Training                       with an insufficient number of keypoints. These steps yield
+  Haoyi Zhu (Shanghai AI Lab, USTC),                            a video sequence that is both rich in keypoints and tempo-
+  Junyi Chen (Shanghai AI Lab, SJTU),                           rally coherent (i.e., without frame discontinuities). Such a
+                                                                sequence is highly conducive to tracking estimation methods
+• Data Collection and Automatic Labeling Pipeline
+                                                                and these operations also serve to minimize the uncertainty
+  Yifan Wang (Shanghai AI Lab, SJTU),
+                                                                associated with the tracking process.
+  Jianjun Zhou (ZJU, Shanghai AI Lab, SII),
+                                                                Robustness in Failure Sequence Filtering As a final step,
+  Wenzhang Chang (Shanghai AI Lab, USTC),
+                                                                we filter out erroneous estimations using three key criteria.
+  Zizun Li (Shanghai AI Lab, USTC),
+                                                                We discard an entire sequence if it exhibits an anomalous
+  Yang Zhou (Shanghai AI Lab, FDU),
+                                                                focal length, if its reprojection error relative to point tracking
+• Model Evaluation                                              exceeds a predefined threshold, or if its geometric consis-
+  Haoyi Zhu (Shanghai AI Lab, USTC),                            tency error surpasses a specified limit.
+  Wenzheng Chang (Shanghai AI Lab, USTC),                       Conclusion on Overall Robustness Our method consis-
+                                                                tently yields accurate and clean camera poses with minimal
+• Paper (figures, visualizations, writing)                      noise. Furthermore, the safeguarding operations detailed
+  Haoyi Zhu (Shanghai AI Lab, USTC),                            above ensure that our processed data is virtually free of fail-
+  Wenzheng Chang (Shanghai AI Lab, USTC),                       ure cases. This outcome is the key to the robustness of our
+  Junyi Chen (Shanghai AI Lab, SJTU),                           approach.
+  Jianjun Zhou (ZJU, Shanghai AI Lab, SII),
+  Yifan Wang (Shanghai AI Lab, SJTU),                           C. Raymap to Camera Parameters Algorithm
+  Tong He (Shanghai AI Lab),                                    We adopt a direct approach to recover camera parameters
+                                                                from raymaps, as shown in Algorithm 1. For more details,
+• Leadership (managed and advised on the project)
+                                                                please refer to our GitHub repository.
+  Tong He (Shanghai AI Lab),
+
+• Consultant (provided valuable advice)                         Algorithm 1 Raymap to camera parameters conversion.
+  Chunhua Shen (ZJU),                                           # Inputs: ray_o (N,H,W,3), ray_d (N,H,W,3)
+                                                                # Outputs: extrinsics (N,4,4), intrinsic (N,3,3)
+  Jiangmiao Pang (Shanghai AI Lab)
+                                                                # 1. Estimate Camera Position and Orientation
+                                                                # ------------------------------------------
+We also want to thank Mingyu Liu and Kaipeng Zhang for          c = mean(ray_o.reshape(N,-1,3), dim=1) # camera center
+the helpful discussion.                                         # Look-at point is average of ray endpoints
+                                                                p = mean((ray_o + ray_d).reshape(N,-1,3), dim=1)
+
+B. Robustness of Data Annotation Pipeline                       # Camera coordinate frame
+                                                                z = normalize(p - c) # Forward axis (N,3)
+                                                                x = normalize(mean(ray_d[:,:,-1], dim=1) - mean(ray_d
+Here we detail three key design choices in our methodology           [:,:,0], dim=1)) # Right axis (N,3)
+that were specifically implemented to enhance its robustness    y = normalize(cross(z, x)) # Up axis (N,3)
+                                                                x = normalize(cross(y, z)) # Ensure orthogonality
+against common sources of uncertainty in dynamic RGB-D
+                                                                # 2. Construct Poses Matrix
+processing.                                                     # -----------------------------
+Robustness in Dynamic Masking Grounding SAM 2 often             R = stack([x, y, z], dim=2) # Rotation (N,3,3)
+                                                                t = c.unsqueeze(-1) # Translation (N,3,1)
+yields erroneous results for out-of-domain semantic inputs.     poses = eye(4).repeat(N,1,1)
+                                                                poses[:,:3,:3] = R
+To enhance the robustness of this process, we select prompts    poses[:,:3,3] = c
+with low uncertainty and discard frames with a high mask-       # 3. Construct Intrinsics Matrix
+to-image ratio. This approach improves the reliability of our   # ----------------------------
+                                                                intrinsics = eye(3).repeat(N,1,1)
+dynamic mask generation, thereby increasing the robustness      intrinsics[:,0,0] = norm(p - c) # Focal length
+of all subsequent operations.                                   intrinsics[:,1,1] = norm(p - c) # Assume fx = fy
+                                                                intrinsics[:,0,2] = W / 2 # Principal point
+Robustness Against Inaccurate Flow Estimation In our            intrinsics[:,1,2] = H / 2 # Assume at center
+video slicing process, we utilize optical flow magnitude and    extrinsics = inverse(poses)
+the forward-backward error as key metrics. This approach        return extrinsics, intrinsics
+mitigates the uncertainty inherent in flow estimation during
+coarse camera pose estimation, leading to more robust initial   normalize: L2 normalization; cross: cross product; eye: identity matrix.
+annotations.
+D. Generation Experiments Details                                     This approach provides CogVideoX with more detailed
+                                                                   camera motion descriptions compared to the action-free set-
+Prediction Validation Dataset Construction. For the val-           ting, serving as an equivalent to Aether’s explicit action
+idation set of prediction tasks, we collected 93 in-domain         conditions.
+scenes and 43 out-of-domain scenes, with each scene corre-
+sponding to a synthetic video clip. The in-domain scenes are
+collected from the same synthetic environments used in the         VBench Evaluation Protocol. We adopt VBench as our
+training dataset, while the out-of-domain scenes are sourced       evaluation metric system for prediction tasks. Given the
+from entirely different synthetic environments that are not        differences in input settings between Aether and CogVideoX,
+present in the training data.                                      we evaluate the generated videos under the custom input
+                                                                   configuration of VBench across six dimensions:
+                                                                       1) Subject Consistency: Evaluates the temporal consis-
+Video Prediction Task Settings. For prediction tasks with-         tency of main subjects
+out action conditions, both Aether and CogVideoX take the              2) Background Consistency: Measures the stability and
+first frame as input. However, since CogVideoX tends to            coherence of scene backgrounds
+generate static scenes without text prompts, we utilize GPT-           3) Motion Smoothness: Assesses the fluidity and natural-
+4o to generate text annotations for each image. The prompt         ness of movements
+for GPT-4o is designed to:                                             4) Dynamic Degree: Quantifies the level of motion and
+    1) Generate text labels describing the scene content 2)        activity
+Predict the potential motion patterns of each object 3) Predict        5) Aesthetic Quality: Measures the visual appeal and
+the most likely camera trajectory based on the image content       artistic merit
+4) For scenes with clear subjects, predict camera movements            6) Imaging Quality: Evaluates the technical quality of
+that follow the subject 5) For scenes without prominent            video generation
+subjects, predict reasonable camera movements based on                 The final score is computed as a weighted average of
+the scene context 6) Emphasize dynamic video generation            these dimensions using the official VBench weights:
+with camera movements that closely track subjects or rapidly
+                                                                   • Subject Consistency: 1.0
+move to showcase the scene
+                                                                   • Background Consistency: 1.0
+    The generated text labels and the first frame serve as in-     • Motion Smoothness: 1.0
+put for CogVideoX, with a negative prompt set to “static           • Dynamic Degree: 0.5
+background, static camera, slow motion, slow camera move-          • Aesthetic Quality: 1.0
+ment, low dynamic degree” and a guidance scale of 6.0. In          • Imaging Quality: 1.0
+contrast, Aether only takes the first frame as input, and sets
+                                                                       Based on the VBench evaluation results, as shown in
+obs guidance scale to 3.0.
+                                                                   Tables 3 and 4, Aether demonstrates superior overall perfor-
+                                                                   mance compared to CogVideoX across these metrics.
+Action Conditioned Video Prediction Task Settings. For
+action conditioned prediction tasks, Aether accepts both the       Video Planning Settings. For planning tasks, we construct
+first frame as observation image input and the camera tra-         a validation set following a similar approach to the prediction
+jectory of the video clip as action-conditioned input. To          tasks, comprising 80 in-domain scenes and 40 out-of-domain
+ensure fair comparison, we use GPT-4o to generate detailed         scenes from synthetic environments. For each video clip, we
+text annotations for both the initial and final frames of each     extract the initial and final frames as inputs for both Aether
+video clip. These annotations serve as text prompts for            and Aether-no-depth models.
+CogVideoX, providing comprehensive camera trajectory de-              For action-conditioned tasks, we evaluate model perfor-
+scriptions. The prompt template for GPT-4o is designed             mance using pixel-wise metrics (PSNR, SSIM, MS-SSIM,
+to:                                                                and LPIPS) as shown in Table 5. For action-free tasks, we
+    1) Describe the initial frame in detail 2) Predict the video   employ the VBench evaluation metrics as presented in Ta-
+content based on both frames, including: - Object move-            ble 6. Both evaluation protocols demonstrate that Aether
+ments and interactions - Scene dynamics - Camera motion            consistently outperforms the Aether-no-depth model, vali-
+patterns 3) Analyze the differences between the start and          dating the effectiveness of our approach.
+end frames to: - Determine the precise camera movement
+trajectory - For scenes with clear subjects, describe how          E. Additional Losses in Stage 2 Training
+the camera follows them - For scenes without prominent
+subjects, predict the most probable camera movements 4)            In our second training stage, we decode the latent represen-
+Emphasize dynamic scene generation with active camera              tations into image space and employ three distinct losses:
+movements                                                          MS-SSIM loss for color videos, Scale- and Shift-Invariant
+(SSI) loss for depth videos, and Pointmap loss for raymaps.        E.3. Pointmap Loss for Raymaps
+Each loss is tailored to the unique characteristics of the re-
+                                                                   Raymaps encode 3D spatial information, and their alignment
+spective modality, ensuring effective supervision across all
+                                                                   requires a loss invariant to scale and translation. We trans-
+tasks.
+                                                                   form predicted disparity and raymaps into 3D pointmaps P
+                                                                   using:
+E.1. Multi-Scale Structural Similarity (MS-SSIM)
+                                                                                       P = D · Rd + Ro ,
+     Loss for Color Videos
+For color videos, we use the Multi-Scale Structural Simi-          where D is the depth, Rd is the ray direction, and Ro is
+larity (MS-SSIM) loss to preserve perceptual quality and           the ray origin. The pointmap loss minimizes the difference
+structural coherence across multiple scales. Unlike pixel-         between predicted and ground truth pointmaps:
+wise losses, MS-SSIM captures luminance, contrast, and                                          N
+structural differences between predicted Î and ground truth                                 1 X
+                                                                               Lpointmap =         wi ∥P̂i − Pi ∥p ,
+I frames. At each scale, the structural similarity index is                                  N i=1
+computed as:
+                                                                   where wi is a weight inversely proportional to depth, p is
+                     (2µ ˆµI + C1 )(2σII
+                                       ˆ + C2 )                    the norm type (e.g., L1 or L2 ), and N is the number of
+     SSIM(Î, I) = 2 I 2                            ,              valid points. This loss ensures accurate 3D spatial align-
+                  (µIˆ + µI + C1 )(σIˆ + σI2 + C2 )
+                                     2
+                                                                   ment, which is critical for raymap-based tasks. Note that
+where µIˆ, µI are local means, σIˆ, σI are standard deviations,    the pointmap loss only back-propagates gradients to raymap
+σII
+  ˆ is the cross-covariance, and C1 , C2 are constants to
+                                                                   latents, and we stop the disparity gradients during pointmap
+stabilize division. MS-SSIM is computed across multiple            projection.
+scales by downsampling the input, with weights {wi }:
+                                                                   F. More Ablation Study
+                                M
+                                Y                                  Acknowledging the importance of ablation studies and work-
+                 MS-SSIM =            SSIMw
+                                          i .
+                                           i
+
+                                                                   ing within our computational resources, we conducted a key
+                                i=1
+                                                                   ablation in Sec. 5.2, where the depth component was re-
+The MS-SSIM loss is defined as:                                    moved during training. Results presented in Tab. 5 and 6
+                                                                   demonstrate that excluding the 4D reconstruction target from
+                LMS-SSIM = 1 − MS-SSIM.                            the multi-task co-training leads to a notable degradation in
+                                                                   visual planning performance. This finding strongly supports
+This loss is particularly effective for color videos, as it em-    our paper’s central claim regarding the effective integration
+phasizes structural similarity over pixel-wise accuracy.           of reconstruction and generation within a unified framework.
+                                                                   Qualitative results further illustrating this are provided in
+E.2. Scale- and Shift-Invariant (SSI) Loss for Depth               Fig 7.
+      Videos
+                                                                   G. More analysis in Sec. 4
+Depth predictions often suffer from scale and shift ambigui-
+ties. To address this, we use a Scale- and Shift-Invariant (SSI)   Our model performs well on the Sintel and Kitti datasets
+loss, which aligns the predicted depth D̂ with the ground          but is comparatively weaker on BONN. The trend is also
+truth D by computing optimal scale s and shift t as follows:       observed in other diffusion-based methods. We suggest
+                                                                   two primary reasons for this. First, BONN’s scene type
+          s, t = arg min ∥M ⊙ (sD̂ + t − D)∥2 ,                    is indoor. This may be less compatible with the learned
+                      s,t
+                                                                   priors of video diffusion models. Second, as an older dataset,
+                                                                   BONN exhibits lower image quality and contains artifacts
+where M is a binary mask for valid pixels, and ⊙ is the            such as motion blur. Diffusion models can be particularly
+element-wise product. The SSI loss combines a data term            sensitive to such image characteristics, potentially impacting
+and a gradient regularization term:                                their performance.
+                  LSSI = Ldata + αLgradient ,
+                                                                   H. More Training data details
+where α balances the contribution of gradient regulariza-          Our synthetic data collection approach directly follows DA-
+tion. The gradient term enforces local smoothness in depth         V and TheMatrix, capturing RGB-D videos from AAA
+predictions, ensuring geometric consistency.                       games such as Cyberpunk2077 and Horizon5. The initial raw
+                                                                 Aether
+                                                                 (Ours)
+
+  Front      Right                           Top             Left
+                                                                 CUT3R
+
+
+
+
+                                                                 Aether
+                                                                 (Ours)
+
+                                                Top       Left   CUT3R
+ Front     Right
+
+
+
+
+          Figure 5. More reconstruction visualizations.
+
+
+
+
+OBS                                                                 GOAL
+
+
+
+
+OBS                                                                 GOAL
+
+
+
+           Figure 6. More visual planning examples.
+                                No Depth Aether No Depth Aether
+          OBS. IMAGE
+
+
+
+
+          OBS. IMAGE
+                                             Figure 7. Qualitative results for ablation study. Please zoom in.
+
+
+dataset contained about 12.5 million frames. After undergo-
+ing camera pose annotation and filtering, this collection was
+refined to approximately 8.9 million well-annotated frames,
+which were subsequently used for training. Our camera pose
+estimation is comparable to other feed-forward methods,
+which typically trade the higher accuracy of optimization-
+based techniques for superior run-time efficiency. Reduced
+performance on ScanNet is likely due to the domain gap
+from synthetic training data, alongside ScanNet’s imperfect
+annotations and motion blur.
+
+I. Running time differences.
+See Tab. 7.
+   Table 7. Reconstruction running FPS differences on A100.
+
+ Method    DUSt3R-GA MASt3R-GA MonST3R-GA Aether (Ours)
+ Resolution 144 × 512   144 × 512                          144 × 512   480 × 640
+ FPS           0.76        0.31                               0.35        6.14
+

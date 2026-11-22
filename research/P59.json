@@ -1,0 +1,30 @@
+{
+  "id": "P59",
+  "slug": "RialTo",
+  "arxiv_id": "2403.03949",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2403.03949",
+  "accessed": "2026-11-11",
+  "title": "Reconciling Reality through Simulation: A Real-to-Sim-to-Real Approach for Robust Manipulation",
+  "authors": [
+    "Torne, Marcel",
+    "Simeonov, Anthony",
+    "Li, Zechu",
+    "Chan, April",
+    "Chen, Tao",
+    "Gupta, Abhishek",
+    "Agrawal, Pulkit"
+  ],
+  "publication_date": "2024/03/06",
+  "submitted_date": "2024/11/24",
+  "abstract": " Imitation learning methods need significant human supervision to learn policies robust to changes in object poses, physical disturbances, and visual distractors. Reinforcement learning, on the other hand, can explore the environment autonomously to learn robust behaviors but may require impractical amounts of unsafe real-world data collection. To learn performant, robust policies without the burden of unsafe real-world data collection or extensive human supervision, we propose RialTo, a system for robustifying real-world imitation learning policies via reinforcement learning in \"digital twin\" simulation environments constructed on the fly from small amounts of real-world data. To enable this real-to-sim-to-real pipeline, RialTo proposes an easy-to-use interface for quickly scanning and constructing digital twins of real-world environments. We also introduce a novel \"inverse distillation\" procedure for bringing real-world demonstrations into simulated environments for efficient fine-tuning, with minimal human intervention and engineering required. We evaluate RialTo across a variety of robotic manipulation problems in the real world, such as robustly stacking dishes on a rack, placing books on a shelf, and six other tasks. RialTo increases (over 67%) in policy robustness without requiring extensive human data collection. Project website and videos at this https URL",
+  "submission_history": "Submission history From: Marcel Torne [ view email ] [v1] Wed, 6 Mar 2024 18:55:36 UTC (26,069 KB) [v2] Tue, 29 Oct 2024 04:41:49 UTC (26,305 KB) [v3] Sun, 24 Nov 2024 02:02:33 UTC (26,306 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2403.03949v3",
+  "local_pdf": "papers/P59_RialTo_2403.03949v3.pdf",
+  "sha256": "db7e57f6b298b535e912df1098c33669ffd4366935ea60c422cd161b1e0797ce",
+  "bytes": 14181785,
+  "pages": 23,
+  "text_file": "research/P59_RialTo.txt",
+  "status": "downloaded_and_text_extracted"
+}

@@ -1,0 +1,29 @@
+{
+ "iso10218_1": {
+  "checked": "2026-11-22",
+  "final": "https://www.iso.org/standard/73933.html",
+  "status": 403
+ },
+ "iso_bundle": {
+  "checked": "2026-11-22",
+  "final": "https://www.iso.org/publication/PUB200102.html",
+  "status": 403
+ },
+ "kennedy2001": {
+  "checked": "2026-11-22",
+  "crossref_title": "Bayesian Calibration of Computer Models",
+  "final": "https://academic.oup.com/jrsssb/article/63/3/425/7083367",
+  "status": 403
+ },
+ "simpy": {
+  "checked": "2026-11-22",
+  "final": "https://simpy.readthedocs.io/en/latest/",
+  "status": 200
+ },
+ "skogestad2004": {
+  "checked": "2026-11-22",
+  "crossref_title": "Control structure design for complete chemical plants",
+  "final": "https://skoge.folk.ntnu.no/publications/2004/control_structure_design_cce/cce04_skogestad.pdf",
+  "status": 200
+ }
+}

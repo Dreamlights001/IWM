@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>链路看板：STEP、实物扫描与机器人 URDF 的工业世界模型链路</title>
+<style>
+:root{
+ --paper:#eef1f2;      /* drawing-sheet grey */
+ --sheet:#ffffff;
+ --ink:#1e2a30;        /* graphite */
+ --muted:#5b6a72;
+ --rule:#c9d2d6;
+ --steel:#3b6e8f;      /* machinist blue, for links and STEP */
+ --safety:#e3a21a;     /* safety yellow, used once per card for the ID */
+ --scan:#2f8f72;       /* scan green */
+ --robot:#8a4fbf;      /* robot violet */
+ --plc:#b4543a;        /* PLC rust */
+ --data:#6d7b85;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:15.5px/1.75 "Noto Sans CJK SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--steel);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--safety);outline-offset:2px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+/* title block, like the corner block of an engineering drawing */
+.titleblock{border-bottom:2px solid var(--ink);background:var(--sheet)}
+.titleblock .wrap{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding-top:36px;padding-bottom:22px}
+h1{font:600 34px/1.3 "Noto Serif CJK SC","Source Han Serif SC",serif;margin:0;letter-spacing:.5px}
+.lede{margin:10px 0 0;max-width:62ch;color:var(--muted)}
+.stamp{border:1.5px solid var(--ink);font-size:12.5px;line-height:1.6;min-width:250px}
+.stamp div{display:grid;grid-template-columns:72px 1fr;border-top:1px solid var(--rule)}
+.stamp div:first-child{border-top:0}
+.stamp span{padding:4px 8px}
+.stamp span:first-child{border-right:1px solid var(--rule);color:var(--muted)}
+main .wrap{padding-top:28px;padding-bottom:60px}
+section.block{background:var(--sheet);border:1px solid var(--rule);margin:0 0 26px;padding:26px 30px}
+h2{font:600 22px/1.4 "Noto Serif CJK SC","Source Han Serif SC",serif;margin:0 0 6px}
+.block>p{max-width:72ch;margin:6px 0 14px;color:var(--muted)}
+.notice{border-left:4px solid var(--safety);background:#fbf6ea;padding:12px 16px;margin:0 0 26px;max-width:none}
+.notice b{color:var(--ink)}
+/* figure */
+.fig{overflow-x:auto}
+.fig svg{width:100%;min-width:760px;height:auto;font-family:inherit;font-size:13px}
+.fig .node rect{fill:var(--sheet);stroke:var(--ink);stroke-width:1}
+.fig .node.out rect{fill:#f6f8f9;stroke:var(--rule)}
+.fig a:hover .node.out rect,.fig a:focus .node.out rect{stroke:var(--steel);stroke-width:1.5}
+.fig .node text{fill:var(--ink)}
+.fig .lidt{font-weight:700;fill:var(--ink)}
+.fig .edge{fill:none;stroke-width:1.4;opacity:.55}
+.fig .e-step{stroke:var(--steel)}.fig .e-scan{stroke:var(--scan)}.fig .e-urdf{stroke:var(--robot)}
+.fig .e-plc{stroke:var(--plc)}.fig .e-video{stroke:var(--data)}.fig .e-proc{stroke:#9a7b2f}
+.fig .in-step rect{stroke:var(--steel);stroke-width:2}.fig .in-scan rect{stroke:var(--scan);stroke-width:2}
+.fig .in-urdf rect{stroke:var(--robot);stroke-width:2}.fig .in-plc rect{stroke:var(--plc);stroke-width:2}
+.fig .in-video rect{stroke:var(--data);stroke-width:2}.fig .in-proc rect{stroke:#9a7b2f;stroke-width:2}
+/* matrix */
+.matrix-wrap{overflow-x:auto;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%}
+.matrix{min-width:860px;font-size:14px}
+.matrix th,.matrix td{border-bottom:1px solid var(--rule);padding:8px 10px;text-align:left;vertical-align:middle}
+.matrix thead th{background:#f3f5f6;font-weight:600;font-size:13px;color:var(--muted)}
+.matrix th.in{text-align:center;width:84px}
+.matrix tbody th a{font-weight:700;color:var(--ink);text-decoration:none}
+.matrix tbody th a:hover{text-decoration:underline}
+.matrix td.dot{text-align:center;color:var(--rule)}
+.matrix td.dot.on{color:var(--ink);font-size:15px}
+.matrix td.dot.opt{color:var(--muted);font-size:15px}
+.tag.opt{border-style:dashed;opacity:.85}
+.fig .edge.opt{stroke-dasharray:4 4;opacity:.45}
+.matrix .mroute{color:var(--muted);font-size:13px;white-space:nowrap}
+/* jump list */
+.jump{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 26px;margin-top:6px;font-size:14px}
+.jump a{display:flex;gap:10px;text-decoration:none;color:var(--ink);padding:5px 0;border-bottom:1px dotted var(--rule)}
+.jump a span{font-weight:700;min-width:34px}
+.jump a:hover{color:var(--steel)}
+/* pipeline cards */
+.line{background:var(--sheet);border:1px solid var(--rule);border-top:3px solid var(--ink);margin:0 0 22px;padding:22px 28px 18px;scroll-margin-top:16px}
+.line:target{border-top-color:var(--safety)}
+.line-head{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:start}
+.lid{font:700 20px/1 "Noto Sans CJK SC",sans-serif;background:var(--safety);color:var(--ink);padding:9px 10px;min-width:50px;text-align:center}
+.line h3{margin:0;font:600 19px/1.45 "Noto Serif CJK SC","Source Han Serif SC",serif}
+.route{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+.uses{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:330px}
+.tag{font-size:12.5px;padding:2px 8px;border:1.5px solid;line-height:1.6;white-space:nowrap}
+.tag.in-step{border-color:var(--steel);color:var(--steel)}
+.tag.in-scan{border-color:var(--scan);color:var(--scan)}
+.tag.in-urdf{border-color:var(--robot);color:var(--robot)}
+.tag.in-plc{border-color:var(--plc);color:var(--plc)}
+.tag.in-video{border-color:var(--data);color:var(--data)}
+.tag.in-proc{border-color:#9a7b2f;color:#9a7b2f}
+/* stages: a process strip with arrows, because these steps are a real sequence */
+.stages{list-style:none;counter-reset:st;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:18px 0 16px;padding:0;border:1px solid var(--rule)}
+.stages li{counter-increment:st;position:relative;padding:12px 14px 12px 14px;border-left:1px solid var(--rule);font-size:13.5px;line-height:1.65}
+.stages li:first-child{border-left:0}
+.stages li::before{content:counter(st);display:inline-block;font-weight:700;color:var(--muted);margin-right:6px}
+.stages li:not(:last-child)::after{content:"";position:absolute;right:-7px;top:16px;width:12px;height:12px;background:var(--sheet);border-top:1px solid var(--rule);border-right:1px solid var(--rule);transform:rotate(45deg);z-index:1}
+.stages b{font-weight:600}
+.stages span{display:block;color:var(--muted);margin-top:4px}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 30px;margin:0 0 12px}
+.facts div{border-top:1px solid var(--rule);padding-top:8px}
+.facts dt{font-size:13px;font-weight:600;color:var(--muted)}
+.facts dd{margin:3px 0 0;font-size:14.5px}
+.cite{font-size:12px;font-weight:600;text-decoration:none;border:1px solid var(--rule);padding:0 4px;margin:0 1px;white-space:nowrap;color:var(--steel)}
+.cite:hover{border-color:var(--steel)}
+details.refs{border-top:1px solid var(--rule);padding-top:8px}
+details.refs summary{cursor:pointer;font-weight:600;font-size:14px;padding:4px 0}
+.refcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:8px 36px;margin-top:6px}
+.refcols h4{margin:10px 0 4px;font-size:13px;color:var(--muted);font-weight:600}
+.refcols ul{list-style:none;margin:0;padding:0;font-size:13.5px}
+.refcols li{padding:3px 0;border-bottom:1px dotted #e1e6e8;overflow-wrap:anywhere}
+.repo{font-weight:600}
+.note{color:var(--muted);margin-left:8px}
+.paper{font-weight:700;margin-right:8px}
+.ptitle{color:var(--ink)}
+.src{margin-left:8px;font-size:12.5px}
+.mini{margin-top:6px;font-size:13px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.mini .note{display:none}
+/* plain tables */
+.plain{font-size:14.5px}
+.plain th,.plain td{border-bottom:1px solid var(--rule);padding:10px 12px;text-align:left;vertical-align:top}
+.plain th[scope=row]{white-space:nowrap;font-weight:600;width:150px}
+/* cross-cutting section */
+.sub{font-size:16px;font-weight:600;margin:22px 0 6px}
+.subnote{font-size:13.5px;color:var(--muted);margin:4px 0 10px}
+.caps-wrap{overflow-x:auto}
+.caps{min-width:860px}
+.caps th,.caps td{font-size:13.5px}
+.caps thead th{background:#f3f5f6;font-weight:600;font-size:13px;color:var(--muted)}
+.caps th[scope=row]{white-space:normal;width:200px}
+footer{color:var(--muted);font-size:13px;padding:10px 0 40px}
+@media (max-width:900px){
+ .titleblock .wrap{grid-template-columns:1fr}
+ .stages{grid-template-columns:1fr}
+ .stages li{border-left:0;border-top:1px solid var(--rule)}
+ .stages li:first-child{border-top:0}
+ .stages li:not(:last-child)::after{right:auto;left:18px;top:auto;bottom:-7px;transform:rotate(135deg)}
+ .facts,.refcols,.jump{grid-template-columns:1fr}
+ .line-head{grid-template-columns:auto 1fr}
+ .uses{grid-column:1/-1;justify-content:flex-start;max-width:none}
+ section.block,.line{padding:18px 16px}
+ .wrap{padding:0 14px}
+ h1{font-size:26px}
+}
+@media print{body{background:#fff}.line,section.block{break-inside:avoid-page}details.refs{display:block}}
+</style></head><body>
+<header class="titleblock"><div class="wrap">
+ <div><h1>链路看板：从 STEP、扫描和 URDF 出发</h1>
+ <p class="lede">假设手头有：机床等生产设备的 STEP 文件，这些设备实物的三维扫描，以及一台带 URDF 的机器人（人形、小车或机械臂）。下面列出能用这些输入搭起来的世界模型链路，每条附实现步骤、时延、证据、局限和参考项目。</p></div>
+ <div class="stamp" aria-label="文档信息">
+  <div><span>版本</span><span>2026-11-22</span></div>
+  <div><span>链路数</span><span>9</span></div>
+  <div><span>参考论文</span><span>本地 papers/ 目录，点编号打开 PDF</span></div>
+  <div><span>配套报告</span><span><a href="report.html">report.html</a></span></div>
+ </div>
+</div></header>
+<main><div class="wrap">
+<p class="notice"><b>本看板只列举链路，不做推荐。</b>链路之间不互斥，常常组合使用；排列顺序按输入从“只用 STEP”到“需要更多现场数据”，不代表优先级。时延数字来自各论文在各自硬件上的报告，不能直接横向比较。形变、流体、断裂与加工不作为单独链路，而是任务条件，见<a href="#cross">跨链路条件</a>一节。</p>
+
+<section class="block" aria-labelledby="h-map">
+<h2 id="h-map">输入与链路的对应</h2>
+<p>左边是输入，右边是链路。实线表示该链路需要这项输入，虚线表示可选。STEP、扫描和 URDF 是已有的；PLC／NC、视频和工艺信号是部分链路额外需要的。点右边的链路名跳到详情。</p>
+<div class="fig"><svg viewBox="0 0 920 366" role="img" aria-label="输入数据与各链路的对应关系">
+<path class="edge e-step" d="M200 72 C 360 72, 410 52, 554 52"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 52, 554 52"/>
+<path class="edge e-scan opt" d="M200 130 C 360 130, 410 52, 554 52"/>
+<path class="edge e-step" d="M200 72 C 360 72, 410 86, 554 86"/>
+<path class="edge e-scan" d="M200 130 C 360 130, 410 86, 554 86"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 86, 554 86"/>
+<path class="edge e-plc opt" d="M200 246 C 360 246, 410 86, 554 86"/>
+<path class="edge e-scan" d="M200 130 C 360 130, 410 120, 554 120"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 120, 554 120"/>
+<path class="edge e-video opt" d="M200 304 C 360 304, 410 120, 554 120"/>
+<path class="edge e-step" d="M200 72 C 360 72, 410 154, 554 154"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 154, 554 154"/>
+<path class="edge e-plc" d="M200 246 C 360 246, 410 154, 554 154"/>
+<path class="edge e-scan opt" d="M200 130 C 360 130, 410 154, 554 154"/>
+<path class="edge e-step" d="M200 72 C 360 72, 410 188, 554 188"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 188, 554 188"/>
+<path class="edge e-video" d="M200 304 C 360 304, 410 188, 554 188"/>
+<path class="edge e-scan opt" d="M200 130 C 360 130, 410 188, 554 188"/>
+<path class="edge e-scan" d="M200 130 C 360 130, 410 222, 554 222"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 222, 554 222"/>
+<path class="edge e-video" d="M200 304 C 360 304, 410 222, 554 222"/>
+<path class="edge e-plc opt" d="M200 246 C 360 246, 410 222, 554 222"/>
+<path class="edge e-video" d="M200 304 C 360 304, 410 256, 554 256"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 256, 554 256"/>
+<path class="edge e-plc opt" d="M200 246 C 360 246, 410 256, 554 256"/>
+<path class="edge e-proc opt" d="M200 362 C 360 362, 410 256, 554 256"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 290, 554 290"/>
+<path class="edge e-step opt" d="M200 72 C 360 72, 410 290, 554 290"/>
+<path class="edge e-scan opt" d="M200 130 C 360 130, 410 290, 554 290"/>
+<path class="edge e-video opt" d="M200 304 C 360 304, 410 290, 554 290"/>
+<path class="edge e-video" d="M200 304 C 360 304, 410 324, 554 324"/>
+<path class="edge e-urdf" d="M200 188 C 360 188, 410 324, 554 324"/>
+<path class="edge e-scan opt" d="M200 130 C 360 130, 410 324, 554 324"/>
+<g class="node in-step"><rect x="30" y="60" width="170" height="26" rx="4"/><text x="42" y="78">STEP 文件</text></g>
+<g class="node in-scan"><rect x="30" y="118" width="170" height="26" rx="4"/><text x="42" y="136">实物扫描</text></g>
+<g class="node in-urdf"><rect x="30" y="176" width="170" height="26" rx="4"/><text x="42" y="194">机器人 URDF</text></g>
+<g class="node in-plc"><rect x="30" y="234" width="170" height="26" rx="4"/><text x="42" y="252">PLC／NC</text></g>
+<g class="node in-video"><rect x="30" y="292" width="170" height="26" rx="4"/><text x="42" y="310">视频＋动作</text></g>
+<g class="node in-proc"><rect x="30" y="350" width="170" height="26" rx="4"/><text x="42" y="368">工艺信号</text></g>
+<a href="#L1"><g class="node out"><rect x="560" y="40" width="350" height="26" rx="4"/><text x="570" y="58"><tspan class="lidt">L1</tspan>  STEP 资产化＋物理仿真作为世界模型</text></g></a>
+<a href="#L2"><g class="node out"><rect x="560" y="74" width="350" height="26" rx="4"/><text x="570" y="92"><tspan class="lidt">L2</tspan>  扫描配准到 STEP 资产，并校准成数字孪生</text></g></a>
+<a href="#L3"><g class="node out"><rect x="560" y="108" width="350" height="26" rx="4"/><text x="570" y="126"><tspan class="lidt">L3</tspan>  没有 STEP 的设备：扫描单体化后生成资产</text></g></a>
+<a href="#L4"><g class="node out"><rect x="560" y="142" width="350" height="26" rx="4"/><text x="570" y="160"><tspan class="lidt">L4</tspan>  设备逻辑联仿：PLC／NC 接入仿真，再接产线离散事件</text></g></a>
+<a href="#L6"><g class="node out"><rect x="560" y="176" width="350" height="26" rx="4"/><text x="570" y="194"><tspan class="lidt">L6</tspan>  仿真＋学习混合：残差、外观与快速代理</text></g></a>
+<a href="#L7"><g class="node out"><rect x="560" y="210" width="350" height="26" rx="4"/><text x="570" y="228"><tspan class="lidt">L7</tspan>  扫描场景中的三维动作条件动力学</text></g></a>
+<a href="#L8"><g class="node out"><rect x="560" y="244" width="350" height="26" rx="4"/><text x="570" y="262"><tspan class="lidt">L8</tspan>  JEPA 特征空间世界模型</text></g></a>
+<a href="#L9"><g class="node out"><rect x="560" y="278" width="350" height="26" rx="4"/><text x="570" y="296"><tspan class="lidt">L9</tspan>  潜变量模型式强化学习（单工位任务）</text></g></a>
+<a href="#L10"><g class="node out"><rect x="560" y="312" width="350" height="26" rx="4"/><text x="570" y="330"><tspan class="lidt">L10</tspan>  视频世界模型：合成数据与策略评估</text></g></a>
+</svg></div>
+</section>
+
+<section class="block" aria-labelledby="h-matrix">
+<h2 id="h-matrix">需要哪些输入</h2>
+<p>● 表示需要，○ 表示可选。“所属路线”对应 <a href="report.html#wmroutes">报告第 03 节</a> 的六条世界模型路线。</p>
+<div class="matrix-wrap"><table class="matrix"><thead><tr><th scope="col">链路</th><th scope="col">名称</th><th scope="col">所属路线</th><th scope="col" class="in">STEP 文件</th><th scope="col" class="in">实物扫描</th><th scope="col" class="in">机器人 URDF</th><th scope="col" class="in">PLC／NC 程序或日志</th><th scope="col" class="in">现场视频＋动作记录</th><th scope="col" class="in">工艺信号（力、热、压力）</th></tr></thead><tbody><tr><th scope="row"><a href="#L1">L1</a></th><td class="mname">STEP 资产化＋物理仿真作为世界模型</td><td class="mroute">显式仿真</td><td class="dot on" aria-label="STEP 文件：需要">●</td><td class="dot opt" aria-label="实物扫描：可选">○</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot" aria-label="PLC／NC 程序或日志：不用"></td><td class="dot" aria-label="现场视频＋动作记录：不用"></td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L2">L2</a></th><td class="mname">扫描配准到 STEP 资产，并校准成数字孪生</td><td class="mroute">显式仿真＋空间智能</td><td class="dot on" aria-label="STEP 文件：需要">●</td><td class="dot on" aria-label="实物扫描：需要">●</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot opt" aria-label="PLC／NC 程序或日志：可选">○</td><td class="dot" aria-label="现场视频＋动作记录：不用"></td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L3">L3</a></th><td class="mname">没有 STEP 的设备：扫描单体化后生成资产</td><td class="mroute">空间智能→显式仿真</td><td class="dot" aria-label="STEP 文件：不用"></td><td class="dot on" aria-label="实物扫描：需要">●</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot" aria-label="PLC／NC 程序或日志：不用"></td><td class="dot opt" aria-label="现场视频＋动作记录：可选">○</td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L4">L4</a></th><td class="mname">设备逻辑联仿：PLC／NC 接入仿真，再接产线离散事件</td><td class="mroute">显式仿真＋结构化流程</td><td class="dot on" aria-label="STEP 文件：需要">●</td><td class="dot opt" aria-label="实物扫描：可选">○</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot on" aria-label="PLC／NC 程序或日志：需要">●</td><td class="dot" aria-label="现场视频＋动作记录：不用"></td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L6">L6</a></th><td class="mname">仿真＋学习混合：残差、外观与快速代理</td><td class="mroute">显式仿真＋学习</td><td class="dot on" aria-label="STEP 文件：需要">●</td><td class="dot opt" aria-label="实物扫描：可选">○</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot" aria-label="PLC／NC 程序或日志：不用"></td><td class="dot on" aria-label="现场视频＋动作记录：需要">●</td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L7">L7</a></th><td class="mname">扫描场景中的三维动作条件动力学</td><td class="mroute">空间智能</td><td class="dot" aria-label="STEP 文件：不用"></td><td class="dot on" aria-label="实物扫描：需要">●</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot opt" aria-label="PLC／NC 程序或日志：可选">○</td><td class="dot on" aria-label="现场视频＋动作记录：需要">●</td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L8">L8</a></th><td class="mname">JEPA 特征空间世界模型</td><td class="mroute">JEPA</td><td class="dot" aria-label="STEP 文件：不用"></td><td class="dot" aria-label="实物扫描：不用"></td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot opt" aria-label="PLC／NC 程序或日志：可选">○</td><td class="dot on" aria-label="现场视频＋动作记录：需要">●</td><td class="dot opt" aria-label="工艺信号（力、热、压力）：可选">○</td></tr><tr><th scope="row"><a href="#L9">L9</a></th><td class="mname">潜变量模型式强化学习（单工位任务）</td><td class="mroute">潜变量控制</td><td class="dot opt" aria-label="STEP 文件：可选">○</td><td class="dot opt" aria-label="实物扫描：可选">○</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot" aria-label="PLC／NC 程序或日志：不用"></td><td class="dot opt" aria-label="现场视频＋动作记录：可选">○</td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr><tr><th scope="row"><a href="#L10">L10</a></th><td class="mname">视频世界模型：合成数据与策略评估</td><td class="mroute">生成式视频</td><td class="dot" aria-label="STEP 文件：不用"></td><td class="dot opt" aria-label="实物扫描：可选">○</td><td class="dot on" aria-label="机器人 URDF：需要">●</td><td class="dot" aria-label="PLC／NC 程序或日志：不用"></td><td class="dot on" aria-label="现场视频＋动作记录：需要">●</td><td class="dot" aria-label="工艺信号（力、热、压力）：不用"></td></tr></tbody></table></div>
+</section>
+
+
+
+<article class="line" id="L1">
+  <header class="line-head">
+    <span class="lid">L1</span>
+    <div><h3>STEP 资产化＋物理仿真作为世界模型</h3><p class="route">所属路线：显式仿真</p></div>
+    <div class="uses"><span class="tag in-step">STEP 文件</span><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-scan" title="可选">实物扫描（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>STEP 清理</b><span>去掉螺钉、倒角等小特征；拆出运动部件（轴、门、卡盘、夹具、按钮）；统一单位与坐标系</span></li><li><b>导出视觉网格与碰撞体</b><span>视觉用细网格；碰撞体做凸分解或用简单形状；装夹面、按钮、插接面保留能分辨任务公差的几何</span></li><li><b>写关节与驱动</b><span>机床轴、门、夹具写成关节（URDF／MJCF／USD），设定行程、限位、驱动方式；机器人直接加载已有 URDF</span></li><li><b>组装场景</b><span>机床、机器人、料架、工件放进同一坐标系；校核质心、惯量、摩擦</span></li><li><b>推演与规划</b><span>仿真器作为转移函数：给定动作推演结果，做 MPC 或离线评估策略</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>机器人与机床部件的运动、接触、夹持；PLC 逻辑接入后还包括设备模式与事件（见 L4）</dd></div>
+    <div><dt>时延与成本</dt><dd>MuJoCo MPC 每次规划更新 1–20 ms（仿真中）；DROP 在真实灵巧手上 25–50 Hz（128 线程 CPU）<a class="cite" href="papers/P61_MuJoCo_MPC_Predictive_Sampling_2212.00541v2.pdf" title="Predictive Sampling: Real-time Behaviour Synthesis with MuJoCo">P61</a><a class="cite" href="papers/P62_DROP_2409.14562v4.pdf" title="DROP: Dexterous Reorientation via Online Planning">P62</a></dd></div>
+    <div><dt>已有证据</dt><dd>MuJoCo、Isaac Sim、Gazebo 都能加载 URDF；ManiSkill3 原生支持 URDF 与 MJCF；IndustReal 在仿真中训练插装、齿轮装配并迁移到实机，实机插入成功率 80%、齿轮 97.5% <a class="cite" href="papers/P96_MuJoCo_Physics_Engine.pdf" title="MuJoCo: A physics engine for model-based control">P96</a><a class="cite" href="papers/P09_ManiSkill3_2410.00425v2.pdf" title="ManiSkill3: GPU Parallelized Robotics Simulation and Rendering for Generalizable Embodied AI">P09</a><a class="cite" href="papers/P97_IndustReal_2305.17110v1.pdf" title="IndustReal: Transferring Contact-Rich Assembly Tasks from Simulation to Reality">P97</a></dd></div>
+    <div><dt>局限</dt><dd>每台机型都要人工拆部件、写关节和校参数；STEP 不含质量、摩擦、驱动和延迟；不含形变、流体、切削、磨损等（任务涉及时见下文“跨链路条件”）；仿真与现场会有偏差（见 L2、L3）。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/FreeCAD/FreeCAD">FreeCAD/FreeCAD</a><span class="note">STEP 打开、简化、导出网格</span></li><li><a class="repo" href="https://github.com/galou/freecad.cross">galou/freecad.cross</a><span class="note">FreeCAD 中生成 URDF／xacro</span></li><li><a class="repo" href="https://github.com/ros/solidworks_urdf_exporter">ros/solidworks_urdf_exporter</a><span class="note">SolidWorks 装配导出 URDF</span></li><li><a class="repo" href="https://github.com/Rhoban/onshape-to-robot">Rhoban/onshape-to-robot</a><span class="note">Onshape 装配导出 URDF／SDF／MJCF</span></li><li><a class="repo" href="https://github.com/CadQuery/cadquery">CadQuery/cadquery</a><span class="note">用 Python 读写 STEP（基于 OCCT）</span></li><li><a class="repo" href="https://github.com/SarahWeiii/CoACD">SarahWeiii/CoACD</a><span class="note">凸分解，生成碰撞体</span></li><li><a class="repo" href="https://github.com/kmammou/v-hacd">kmammou/v-hacd</a><span class="note">凸分解，生成碰撞体</span></li><li><a class="repo" href="https://github.com/google-deepmind/mujoco">google-deepmind/mujoco</a><span class="note">物理引擎，可直接加载 URDF</span></li><li><a class="repo" href="https://github.com/google-deepmind/mujoco_menagerie">google-deepmind/mujoco_menagerie</a><span class="note">现成机器人模型（含 Unitree G1／H1、Franka、UR、FANUC CRX 等）</span></li><li><a class="repo" href="https://github.com/google-deepmind/mujoco_mpc">google-deepmind/mujoco_mpc</a><span class="note">以 MuJoCo 为模型的实时 MPC</span></li><li><a class="repo" href="https://github.com/isaac-sim/IsaacSim">isaac-sim/IsaacSim</a><span class="note">USD 场景、URDF 导入、传感器仿真</span></li><li><a class="repo" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab</a><span class="note">并行环境与机器人学习</span></li><li><a class="repo" href="https://github.com/mani-skill/ManiSkill">mani-skill/ManiSkill</a><span class="note">GPU 并行操作仿真</span></li><li><a class="repo" href="https://github.com/gazebosim/gz-sim">gazebosim/gz-sim</a><span class="note">Gazebo，ROS 生态的仿真器</span></li><li><a class="repo" href="https://github.com/ros-controls/ros2_control">ros-controls/ros2_control</a><span class="note">ROS 2 控制框架</span></li><li><a class="repo" href="https://github.com/moveit/moveit2">moveit/moveit2</a><span class="note">机械臂运动规划</span></li><li><a class="repo" href="https://github.com/NVlabs/curobo">NVlabs/curobo</a><span class="note">GPU 运动规划</span></li><li><a class="repo" href="https://github.com/ros-navigation/navigation2">ros-navigation/navigation2</a><span class="note">移动底盘导航</span></li><li><a class="repo" href="https://github.com/leggedrobotics/rsl_rl">leggedrobotics/rsl_rl</a><span class="note">腿式与人形机器人的强化学习</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P96_MuJoCo_Physics_Engine.pdf" title="本地 PDF">P96</a><span class="ptitle">MuJoCo: A physics engine for model-based control（2012）</span><a class="src" href="https://doi.org/10.1109/IROS.2012.6386109">原文</a></li><li><a class="paper" href="papers/P61_MuJoCo_MPC_Predictive_Sampling_2212.00541v2.pdf" title="本地 PDF">P61</a><span class="ptitle">Predictive Sampling: Real-time Behaviour Synthesis with MuJoCo（2022）</span><a class="src" href="https://arxiv.org/abs/2212.00541">原文</a></li><li><a class="paper" href="papers/P62_DROP_2409.14562v4.pdf" title="本地 PDF">P62</a><span class="ptitle">DROP: Dexterous Reorientation via Online Planning（2025）</span><a class="src" href="https://arxiv.org/abs/2409.14562">原文</a></li><li><a class="paper" href="papers/P08_SAPIEN_2003.08515v1.pdf" title="本地 PDF">P08</a><span class="ptitle">SAPIEN: A SimulAted Part-based Interactive ENvironment（2020）</span><a class="src" href="https://arxiv.org/abs/2003.08515">原文</a></li><li><a class="paper" href="papers/P09_ManiSkill3_2410.00425v2.pdf" title="本地 PDF">P09</a><span class="ptitle">ManiSkill3: GPU Parallelized Robotics Simulation and Rendering for Generalizable Embodied AI（2025）</span><a class="src" href="https://arxiv.org/abs/2410.00425">原文</a></li><li><a class="paper" href="papers/P10_Isaac_Lab_2511.04831v1.pdf" title="本地 PDF">P10</a><span class="ptitle">Isaac Lab: A GPU-Accelerated Simulation Framework for Multi-Modal Robot Learning（2025）</span><a class="src" href="https://arxiv.org/abs/2511.04831">原文</a></li><li><a class="paper" href="papers/P97_IndustReal_2305.17110v1.pdf" title="本地 PDF">P97</a><span class="ptitle">IndustReal: Transferring Contact-Rich Assembly Tasks from Simulation to Reality（2023）</span><a class="src" href="https://arxiv.org/abs/2305.17110">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://mujoco.readthedocs.io/en/stable/modeling.html">MuJoCo 建模文档（支持加载 URDF）</a></li><li><a class="doc" href="https://mujoco.readthedocs.io/en/stable/XMLreference.html">MuJoCo XML 参考（网格支持 STL／OBJ）</a></li><li><a class="doc" href="https://docs.isaacsim.omniverse.nvidia.com/latest/importer_exporter/ext_isaacsim_asset_importer_urdf.html">Isaac Sim URDF 导入</a></li><li><a class="doc" href="https://docs.isaacsim.omniverse.nvidia.com/latest/importer_exporter/ext_isaacsim_asset_importer_mjcf.html">Isaac Sim MJCF 导入</a></li><li><a class="doc" href="https://gazebosim.org/docs/latest/spawn_urdf/">Gazebo 加载 URDF</a></li><li><a class="doc" href="https://onshape-to-robot.readthedocs.io/en/latest/">onshape-to-robot 文档</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L2">
+  <header class="line-head">
+    <span class="lid">L2</span>
+    <div><h3>扫描配准到 STEP 资产，并校准成数字孪生</h3><p class="route">所属路线：显式仿真＋空间智能</p></div>
+    <div class="uses"><span class="tag in-step">STEP 文件</span><span class="tag in-scan">实物扫描</span><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-plc" title="可选">PLC／NC 程序或日志（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>扫描现场</b><span>激光或多视角相机扫描机床、工位与通道；记录尺度基准</span></li><li><b>重建</b><span>得到点云或高斯（大范围可用激光惯导，局部用 SfM／前馈重建）</span></li><li><b>与 STEP 配准</b><span>把 L1 的 STEP 资产与扫描点云做 ICP 配准，得到每台设备在现场的实际位姿；扫描里 STEP 没有的东西（线缆、护罩、料架）另作静态物体</span></li><li><b>外观与观测</b><span>用扫描得到的高斯渲染现场外观，使仿真图像接近真实相机</span></li><li><b>辨识与同步</b><span>用少量真实动作辨识摩擦、惯量、驱动增益、延迟；运行时用编码器与 PLC 信号持续把仿真状态拉回现场</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>与 L1 相同，但初态、布局和外观来自现场，可与真实观测逐帧比较</dd></div>
+    <div><dt>时延与成本</dt><dd>Real-is-Sim 的数字孪生以 60 Hz 与现场同步 <a class="cite" href="papers/P58_Real_is_Sim_2504.03597v2.pdf" title="Real-is-Sim: Bridging the Sim-to-Real Gap with a Dynamic Digital Twin">P58</a>；RialTo 搭一个场景约 15 分钟人工，每个任务训练约 2 天 <a class="cite" href="papers/P59_RialTo_2403.03949v3.pdf" title="Reconciling Reality through Simulation: A Real-to-Sim-to-Real Approach for Robust Manipulation">P59</a></dd></div>
+    <div><dt>已有证据</dt><dd>RialTo 扫描后导出 USD 到 Isaac Sim；ASID 主动设计少量真实交互来辨识物理参数；Real-is-Sim 用高斯＋粒子仿真器持续同步；DreMa、Robo-GS 用高斯渲染、物理引擎推进 <a class="cite" href="papers/P59_RialTo_2403.03949v3.pdf" title="Reconciling Reality through Simulation: A Real-to-Sim-to-Real Approach for Robust Manipulation">P59</a><a class="cite" href="papers/P60_ASID_2404.12308v2.pdf" title="ASID: Active Exploration for System Identification in Robotic Manipulation">P60</a><a class="cite" href="papers/P58_Real_is_Sim_2504.03597v2.pdf" title="Real-is-Sim: Bridging the Sim-to-Real Gap with a Dynamic Digital Twin">P58</a><a class="cite" href="papers/P23_DreMa_2412.14957v2.pdf" title="Dream to Manipulate: Compositional World Models Empowering Robot Imitation Learning with Imagination">P23</a><a class="cite" href="papers/P22_Robo_GS_2408.14873v2.pdf" title="Robo-GS: A Physics Consistent Spatial-Temporal Model for Robotic Arm with Hybrid Representation">P22</a></dd></div>
+    <div><dt>局限</dt><dd>机床多为反光金属和透明防护罩，扫描与重建容易出错；ASID 假设真实动力学落在已知参数化模型内；Real-is-Sim 的同步依赖视觉校正，封闭机床内部看不到。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/colmap/colmap">colmap/colmap</a><span class="note">SfM／MVS 相机位姿与稠密重建</span></li><li><a class="repo" href="https://github.com/isl-org/Open3D">isl-org/Open3D</a><span class="note">点云处理与配准</span></li><li><a class="repo" href="https://github.com/hku-mars/FAST_LIO">hku-mars/FAST_LIO</a><span class="note">激光惯导里程计，用于大范围扫描</span></li><li><a class="repo" href="https://github.com/facebookresearch/vggt">facebookresearch/vggt</a><span class="note">前馈相机、深度与点图预测</span></li><li><a class="repo" href="https://github.com/naver/dust3r">naver/dust3r</a><span class="note">前馈多视图重建</span></li><li><a class="repo" href="https://github.com/nerfstudio-project/gsplat">nerfstudio-project/gsplat</a><span class="note">CUDA 高斯渲染库</span></li><li><a class="repo" href="https://github.com/graphdeco-inria/gaussian-splatting">graphdeco-inria/gaussian-splatting</a><span class="note">3DGS 原始实现</span></li><li><a class="repo" href="https://github.com/nerfstudio-project/nerfstudio">nerfstudio-project/nerfstudio</a><span class="note">重建训练框架</span></li><li><a class="repo" href="https://github.com/NVlabs/FoundationPose">NVlabs/FoundationPose</a><span class="note">已知 CAD 的 6D 位姿估计与跟踪</span></li><li><a class="repo" href="https://github.com/rai-opensource/embodied_gaussians">rai-opensource/embodied_gaussians</a><span class="note">Real-is-Sim 使用的高斯＋粒子仿真器</span></li><li><a class="repo" href="https://github.com/real-to-sim-to-real/RialToGUI">real-to-sim-to-real/RialToGUI</a><span class="note">RialTo 的扫描建孪生界面</span></li><li><a class="repo" href="https://github.com/real-to-sim-to-real/RialToPolicyLearning">real-to-sim-to-real/RialToPolicyLearning</a><span class="note">RialTo 策略学习流程</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P59_RialTo_2403.03949v3.pdf" title="本地 PDF">P59</a><span class="ptitle">Reconciling Reality through Simulation: A Real-to-Sim-to-Real Approach for Robust Manipulation（2024）</span><a class="src" href="https://arxiv.org/abs/2403.03949">原文</a></li><li><a class="paper" href="papers/P60_ASID_2404.12308v2.pdf" title="本地 PDF">P60</a><span class="ptitle">ASID: Active Exploration for System Identification in Robotic Manipulation（2024）</span><a class="src" href="https://arxiv.org/abs/2404.12308">原文</a></li><li><a class="paper" href="papers/P58_Real_is_Sim_2504.03597v2.pdf" title="本地 PDF">P58</a><span class="ptitle">Real-is-Sim: Bridging the Sim-to-Real Gap with a Dynamic Digital Twin（2025）</span><a class="src" href="https://arxiv.org/abs/2504.03597">原文</a></li><li><a class="paper" href="papers/P23_DreMa_2412.14957v2.pdf" title="本地 PDF">P23</a><span class="ptitle">Dream to Manipulate: Compositional World Models Empowering Robot Imitation Learning with Imagination（2025）</span><a class="src" href="https://arxiv.org/abs/2412.14957">原文</a></li><li><a class="paper" href="papers/P22_Robo_GS_2408.14873v2.pdf" title="本地 PDF">P22</a><span class="ptitle">Robo-GS: A Physics Consistent Spatial-Temporal Model for Robotic Arm with Hybrid Representation（2024）</span><a class="src" href="https://arxiv.org/abs/2408.14873">原文</a></li><li><a class="paper" href="papers/P36_VGGT_2503.11651v1.pdf" title="本地 PDF">P36</a><span class="ptitle">VGGT: Visual Geometry Grounded Transformer（2025）</span><a class="src" href="https://arxiv.org/abs/2503.11651">原文</a></li><li><a class="paper" href="papers/P16_3D_Gaussian_Splatting_2308.04079v1.pdf" title="本地 PDF">P16</a><span class="ptitle">3D Gaussian Splatting for Real-Time Radiance Field Rendering（2023）</span><a class="src" href="https://arxiv.org/abs/2308.04079">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://www.open3d.org/docs/release/tutorial/pipelines/icp_registration.html">Open3D ICP 配准教程</a></li><li><a class="doc" href="https://real-is-sim.github.io/">Real-is-Sim 项目页</a></li><li><a class="doc" href="https://real-to-sim-to-real.github.io/RialTo/">RialTo 项目页</a></li><li><a class="doc" href="https://weirdlabuw.github.io/asid/">ASID 项目页</a></li><li><a class="doc" href="https://embodied-gaussians.github.io/">Embodied Gaussians 项目页</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L3">
+  <header class="line-head">
+    <span class="lid">L3</span>
+    <div><h3>没有 STEP 的设备：扫描单体化后生成资产</h3><p class="route">所属路线：空间智能→显式仿真</p></div>
+    <div class="uses"><span class="tag in-scan">实物扫描</span><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-video" title="可选">现场视频＋动作记录（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>扫描并重建</b><span>同 L2 的前两步</span></li><li><b>单体化</b><span>把整片场景拆成对象实例：给高斯打实例标签，或用 2D 分割提升到 3D</span></li><li><b>补全</b><span>补上被遮挡面、底面和接触面，得到完整对象</span></li><li><b>恢复关节</b><span>从多个构型（门开／关、夹具开／合）的扫描中恢复部件与关节</span></li><li><b>转成可仿真资产</b><span>估计或人工指定质量、摩擦，生成碰撞体，导出 URDF／USD，进入 L1</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>与 L1 相同；资产精度取决于扫描与补全质量</dd></div>
+    <div><dt>时延与成本</dt><dd>SAGA 一次可提示三维分割约 4 ms <a class="cite" href="papers/P90_SAGA_2312.00860v3.pdf" title="Segment Any 3D Gaussians">P90</a>；SceneAgent 转换一个场景需要反复调用 VLM，速度慢 <a class="cite" href="papers/P94_SceneAgent_2610.34745v1.pdf" title="SceneAgent: An Agentic Pipeline from 3D and 4D Captures to Simulation Environments">P94</a></dd></div>
+    <div><dt>已有证据</dt><dd>Gaussian Grouping、SAGA、OpenGaussian 给出实例标签；InstaScene、DecoupledGaussian 补全对象；SceneAgent 从扫描生成含物理参数和关节的 OpenUSD；ArticulatedGS、ArtiTwinSplat 从多构型恢复关节 <a class="cite" href="papers/P89_Gaussian_Grouping_2312.00732v2.pdf" title="Gaussian Grouping: Segment and Edit Anything in 3D Scenes">P89</a><a class="cite" href="papers/P90_SAGA_2312.00860v3.pdf" title="Segment Any 3D Gaussians">P90</a><a class="cite" href="papers/P91_OpenGaussian_2406.02058v2.pdf" title="OpenGaussian: Towards Point-Level 3D Gaussian-based Open Vocabulary Understanding">P91</a><a class="cite" href="papers/P92_InstaScene_2507.08416v2.pdf" title="InstaScene: Towards Complete 3D Instance Decomposition and Reconstruction from Cluttered Scenes">P92</a><a class="cite" href="papers/P93_DecoupledGaussian_2503.05484v1.pdf" title="DecoupledGaussian: Object-Scene Decoupling for Physics-Based Interaction">P93</a><a class="cite" href="papers/P94_SceneAgent_2610.34745v1.pdf" title="SceneAgent: An Agentic Pipeline from 3D and 4D Captures to Simulation Environments">P94</a><a class="cite" href="papers/P26_ArticulatedGS_2503.08135v2.pdf" title="ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects using 3D Gaussian Splatting">P26</a><a class="cite" href="papers/P27_ArtiTwinSplat_2606.24628v1.pdf" title="ArtiTwinSplat: Interactable Digital Twin Reconstruction via Gaussian Splatting from RGB-D videos">P27</a></dd></div>
+    <div><dt>局限</dt><dd>没有一种方法同时完成实例分离、补全、关节恢复并在工业场景中验证；透明、高反射物体普遍失效；物理参数未经实测校准；锁止、驱动、PLC 语义不能从外观恢复。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/facebookresearch/sam2">facebookresearch/sam2</a><span class="note">图像与视频分割</span></li><li><a class="repo" href="https://github.com/facebookresearch/sam3">facebookresearch/sam3</a><span class="note">可提示的概念分割</span></li><li><a class="repo" href="https://github.com/facebookresearch/sam-3d-objects">facebookresearch/sam-3d-objects</a><span class="note">单张图像重建物体三维</span></li><li><a class="repo" href="https://github.com/lkeab/gaussian-grouping">lkeab/gaussian-grouping</a><span class="note">给每个高斯打实例标签</span></li><li><a class="repo" href="https://github.com/Jumpat/SegAnyGAussians">Jumpat/SegAnyGAussians</a><span class="note">可提示的三维高斯分割</span></li><li><a class="repo" href="https://github.com/yanmin-wu/OpenGaussian">yanmin-wu/OpenGaussian</a><span class="note">开放词表三维实例</span></li><li><a class="repo" href="https://github.com/zju3dv/InstaScene">zju3dv/InstaScene</a><span class="note">实例分解并补全</span></li><li><a class="repo" href="https://github.com/wangmiaowei/DecoupledGaussian">wangmiaowei/DecoupledGaussian</a><span class="note">物体与接触面分离</span></li><li><a class="repo" href="https://github.com/WEIRDLabUW/urdformer">WEIRDLabUW/urdformer</a><span class="note">由图像生成关节资产</span></li><li><a class="repo" href="https://github.com/vlongle/articulate-anything">vlongle/articulate-anything</a><span class="note">由图像或视频生成关节资产</span></li><li><a class="repo" href="https://github.com/hbb1/2d-gaussian-splatting">hbb1/2d-gaussian-splatting</a><span class="note">几何更准确的高斯，便于取网格</span></li><li><a class="repo" href="https://github.com/Anttwo/SuGaR">Anttwo/SuGaR</a><span class="note">从高斯提取网格</span></li><li><a class="repo" href="https://github.com/SarahWeiii/CoACD">SarahWeiii/CoACD</a><span class="note">凸分解，生成碰撞体</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P89_Gaussian_Grouping_2312.00732v2.pdf" title="本地 PDF">P89</a><span class="ptitle">Gaussian Grouping: Segment and Edit Anything in 3D Scenes（2024）</span><a class="src" href="https://arxiv.org/abs/2312.00732">原文</a></li><li><a class="paper" href="papers/P90_SAGA_2312.00860v3.pdf" title="本地 PDF">P90</a><span class="ptitle">Segment Any 3D Gaussians（2025）</span><a class="src" href="https://arxiv.org/abs/2312.00860">原文</a></li><li><a class="paper" href="papers/P91_OpenGaussian_2406.02058v2.pdf" title="本地 PDF">P91</a><span class="ptitle">OpenGaussian: Towards Point-Level 3D Gaussian-based Open Vocabulary Understanding（2024）</span><a class="src" href="https://arxiv.org/abs/2406.02058">原文</a></li><li><a class="paper" href="papers/P92_InstaScene_2507.08416v2.pdf" title="本地 PDF">P92</a><span class="ptitle">InstaScene: Towards Complete 3D Instance Decomposition and Reconstruction from Cluttered Scenes（2025）</span><a class="src" href="https://arxiv.org/abs/2507.08416">原文</a></li><li><a class="paper" href="papers/P93_DecoupledGaussian_2503.05484v1.pdf" title="本地 PDF">P93</a><span class="ptitle">DecoupledGaussian: Object-Scene Decoupling for Physics-Based Interaction（2025）</span><a class="src" href="https://arxiv.org/abs/2503.05484">原文</a></li><li><a class="paper" href="papers/P94_SceneAgent_2610.34745v1.pdf" title="本地 PDF">P94</a><span class="ptitle">SceneAgent: An Agentic Pipeline from 3D and 4D Captures to Simulation Environments（2026）</span><a class="src" href="https://arxiv.org/abs/2610.34745">原文</a></li><li><a class="paper" href="papers/P95_WorldAct_2605.15843v2.pdf" title="本地 PDF">P95</a><span class="ptitle">WorldAct: Activating Monolithic 3D Worlds into Interactive-Ready Object-Centric Scenes（2026）</span><a class="src" href="https://arxiv.org/abs/2605.15843">原文</a></li><li><a class="paper" href="papers/P26_ArticulatedGS_2503.08135v2.pdf" title="本地 PDF">P26</a><span class="ptitle">ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects using 3D Gaussian Splatting（2025）</span><a class="src" href="https://arxiv.org/abs/2503.08135">原文</a></li><li><a class="paper" href="papers/P27_ArtiTwinSplat_2606.24628v1.pdf" title="本地 PDF">P27</a><span class="ptitle">ArtiTwinSplat: Interactable Digital Twin Reconstruction via Gaussian Splatting from RGB-D videos（2026）</span><a class="src" href="https://arxiv.org/abs/2606.24628">原文</a></li><li><a class="paper" href="papers/P14_URDFormer_2405.11656v3.pdf" title="本地 PDF">P14</a><span class="ptitle">URDFormer: A Pipeline for Constructing Articulated Simulation Environments from Real-World Images（2024）</span><a class="src" href="https://arxiv.org/abs/2405.11656">原文</a></li><li><a class="paper" href="papers/P15_Articulate_Anything_2410.13882v4.pdf" title="本地 PDF">P15</a><span class="ptitle">Articulate-Anything: Automatic Modeling of Articulated Objects via a Vision-Language Foundation Model（2025）</span><a class="src" href="https://arxiv.org/abs/2410.13882">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://www.open3d.org/docs/release/tutorial/pipelines/icp_registration.html">Open3D ICP 配准教程</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L4">
+  <header class="line-head">
+    <span class="lid">L4</span>
+    <div><h3>设备逻辑联仿：PLC／NC 接入仿真，再接产线离散事件</h3><p class="route">所属路线：显式仿真＋结构化流程</p></div>
+    <div class="uses"><span class="tag in-step">STEP 文件</span><span class="tag in-urdf">机器人 URDF</span><span class="tag in-plc">PLC／NC 程序或日志</span><span class="tag opt in-scan" title="可选">实物扫描（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>设备 I/O 映射</b><span>把 L1 资产中的门、夹具、按钮、轴与 PLC／NC 的输入输出变量一一对应</span></li><li><b>接入控制器</b><span>软件在环：虚拟 PLC／NC 运行真实程序或行为模型；或硬件在环：真实控制器连仿真对象</span></li><li><b>统一时钟</b><span>物理步长、PLC 扫描周期、NC 插补周期在同一主循环或 FMI 联仿中对齐；记录请求、确认、到位三类事件</span></li><li><b>产线层</b><span>工单、工艺路线、缓存、搬运、故障进离散事件队列；详细仿真的机床由仿真反馈完工，其余用校准过的周期模型</span></li><li><b>反事实</b><span>换单、换路由、机床停机、机器人阻塞、返工的多场景推演</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>设备模式、互锁、报警、程序推进、完工事件；吞吐、在制品、延期、资源争用</dd></div>
+    <div><dt>时延与成本</dt><dd>离散事件层运行很快；SIL 若控制器只支持实时时钟，则按实时推进；HIL 受真实通信周期约束 <a class="cite" href="papers/P98_Co_Simulation_Survey_1702.00686v1.pdf" title="Co-simulation: State of the art">P98</a></dd></div>
+    <div><dt>已有证据</dt><dd>Siemens 指南示范 PLCSIM Advanced 运行 PLC 程序、SIMIT 模拟驱动、NX MCD 做机械仿真；LLM 智能体已能半自动生成 PLC 变量到仿真对象的映射；AWMP 在排产中预测外生订单 <a class="cite" href="https://cache.industry.siemens.com/dl/files/864/109963864/att_1277519/v1/Guideline_VC_SIMIT_PSA_MCD_V1.0.0.pdf" title="Siemens Virtual Commissioning Guideline, 109963864">S30</a><a class="cite" href="papers/P66_LLM_Virtual_Commissioning_2606.03255v1.pdf" title="Multi-Agent Framework Leveraging Knowledge Graphs for Virtual Commissioning Models">P66</a><a class="cite" href="papers/P38_AWMP_Dynamic_Scheduling_2610.29308v1.pdf" title="LLM-Based Exogenous World Modeling for Dynamic Scheduling">P38</a></dd></div>
+    <div><dt>局限</dt><dd>需要拿到 PLC／NC 程序或至少 I/O 变量表；商用虚拟控制器与特定机型绑定；规则维护成本高；日志中的相关关系不等于干预因果。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/Autonomy-Logic/openplc-runtime">Autonomy-Logic/openplc-runtime</a><span class="note">OpenPLC Runtime v4，开源软 PLC</span></li><li><a class="repo" href="https://github.com/LinuxCNC/linuxcnc">LinuxCNC/linuxcnc</a><span class="note">开源 CNC 控制器，带仿真配置</span></li><li><a class="repo" href="https://github.com/FreeOpcUa/opcua-asyncio">FreeOpcUa/opcua-asyncio</a><span class="note">Python OPC UA</span></li><li><a class="repo" href="https://github.com/open62541/open62541">open62541/open62541</a><span class="note">C 语言 OPC UA</span></li><li><a class="repo" href="https://github.com/mtconnect/cppagent">mtconnect/cppagent</a><span class="note">MTConnect 代理</span></li><li><a class="repo" href="https://github.com/CATIA-Systems/FMPy">CATIA-Systems/FMPy</a><span class="note">在 Python 中运行 FMU</span></li><li><a class="repo" href="https://github.com/INTO-CPS-Association/maestro">INTO-CPS-Association/maestro</a><span class="note">FMI 联仿主控</span></li><li><a class="repo" href="https://github.com/OpenModelica/OpenModelica">OpenModelica/OpenModelica</a><span class="note">Modelica 建模与 FMU 导出</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P66_LLM_Virtual_Commissioning_2606.03255v1.pdf" title="本地 PDF">P66</a><span class="ptitle">Multi-Agent Framework Leveraging Knowledge Graphs for Virtual Commissioning Models（2026）</span><a class="src" href="https://arxiv.org/abs/2606.03255">原文</a></li><li><a class="paper" href="papers/P98_Co_Simulation_Survey_1702.00686v1.pdf" title="本地 PDF">P98</a><span class="ptitle">Co-simulation: State of the art（2017）</span><a class="src" href="https://arxiv.org/abs/1702.00686">原文</a></li><li><a class="paper" href="papers/P99_NIST_CMSD.pdf" title="本地 PDF">P99</a><span class="ptitle">A Core Manufacturing Simulation Data Information Model for Manufacturing Applications（2006）</span><a class="src" href="https://www.nist.gov/publications/core-manufacturing-simulation-data-information-model-manufacturing-applications">原文</a></li><li><a class="paper" href="papers/P38_AWMP_Dynamic_Scheduling_2610.29308v1.pdf" title="本地 PDF">P38</a><span class="ptitle">LLM-Based Exogenous World Modeling for Dynamic Scheduling（2026）</span><a class="src" href="https://arxiv.org/abs/2610.29308">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://www.siemens.com/en-us/products/simatic/s7-plcsim-advanced/">Siemens S7-PLCSIM Advanced</a></li><li><a class="doc" href="https://cache.industry.siemens.com/dl/files/864/109963864/att_1277519/v1/Guideline_VC_SIMIT_PSA_MCD_V1.0.0.pdf">Siemens 虚拟调试指南（PLCSIM Advanced＋SIMIT＋NX MCD）</a></li><li><a class="doc" href="https://cache.industry.siemens.com/dl/files/129/109988129/att_1326187/v1/ONE_828D_cmvm_sys_man_0325_en-US.pdf?download=true">SINUMERIK 虚拟机床系统手册</a></li><li><a class="doc" href="http://linuxcnc.org/docs/html/getting-started/running-linuxcnc.html">LinuxCNC 仿真配置说明</a></li><li><a class="doc" href="https://linuxcnc.org/docs/stable/html/code/code-notes.html#_architecture_overview">LinuxCNC 架构概览</a></li><li><a class="doc" href="https://reference.opcfoundation.org/specs/OPC-40501-1/6">OPC UA for Machine Tools</a></li><li><a class="doc" href="https://www.mtconnect.org/">MTConnect</a></li><li><a class="doc" href="https://fmi-standard.org/docs/3.0.2/">FMI 3.0.2 规范</a></li><li><a class="doc" href="https://simpy.readthedocs.io/en/latest/">SimPy 文档（离散事件仿真）</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L6">
+  <header class="line-head">
+    <span class="lid">L6</span>
+    <div><h3>仿真＋学习混合：残差、外观与快速代理</h3><p class="route">所属路线：显式仿真＋学习</p></div>
+    <div class="uses"><span class="tag in-step">STEP 文件</span><span class="tag in-urdf">机器人 URDF</span><span class="tag in-video">现场视频＋动作记录</span><span class="tag opt in-scan" title="可选">实物扫描（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>以 L1／L2 为底</b><span>仿真负责已知物理和设备逻辑</span></li><li><b>残差</b><span>用真实数据学习仿真与现场之间的偏差</span></li><li><b>外观</b><span>仿真渲染图转成照片级图像，缩小视觉差距</span></li><li><b>快速代理</b><span>用仿真数据训练图网络或三维动力学模型，替代慢的求解器</span></li><li><b>对照</b><span>与原仿真、真实数据分别比较，确认代理没有引入新偏差</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>与 L1 相同，但更接近现场或更快</dd></div>
+    <div><dt>时延与成本</dt><dd>MeshGraphNets 比原求解器快 11–289 倍；Cosmos-Transfer1 生成 5 秒 1280×704 视频，1 张 B200 约 142 s，64 张约 4.2 s <a class="cite" href="papers/P32_MeshGraphNets_2010.03409v4.pdf" title="Learning Mesh-Based Simulation with Graph Networks">P32</a><a class="cite" href="papers/P64_Cosmos_Transfer1_2503.14492v2.pdf" title="Cosmos-Transfer1: Conditional World Generation with Adaptive Multimodal Control">P64</a></dd></div>
+    <div><dt>已有证据</dt><dd>在解析仿真上学习残差优于纯解析和纯学习模型；GNS、MeshGraphNets 学习粒子与网格物理 <a class="cite" href="papers/P63_Simulator_Residual_Pushing_1808.03246v1.pdf" title="Augmenting Physical Simulators with Stochastic Neural Networks: Case Study of Planar Pushing and Bouncing">P63</a><a class="cite" href="papers/P31_Graph_Network_Simulator_2002.09405v2.pdf" title="Learning to Simulate Complex Physics with Graph Networks">P31</a><a class="cite" href="papers/P32_MeshGraphNets_2010.03409v4.pdf" title="Learning Mesh-Based Simulation with Graph Networks">P32</a></dd></div>
+    <div><dt>局限</dt><dd>学到的代理会继承仿真偏差：只用仿真数据预训练的 PointWorld 不能零样本泛化到真实场景 <a class="cite" href="papers/P44_PointWorld_2601.03782v1.pdf" title="PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation">P44</a>；Cosmos-Transfer1 只重新渲染给定的仿真画面，不做动作条件预测。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/google-deepmind/deepmind-research">google-deepmind/deepmind-research</a><span class="note">GNS 与 MeshGraphNets（learning_to_simulate、meshgraphnets 目录）</span></li><li><a class="repo" href="https://github.com/nvidia-cosmos/cosmos-transfer1">nvidia-cosmos/cosmos-transfer1</a><span class="note">Cosmos-Transfer1，仿真画面转照片级</span></li><li><a class="repo" href="https://github.com/NVlabs/PointWorld">NVlabs/PointWorld</a><span class="note">动作条件三维点流</span></li><li><a class="repo" href="https://github.com/google-deepmind/mujoco">google-deepmind/mujoco</a><span class="note">物理引擎，可直接加载 URDF</span></li><li><a class="repo" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab</a><span class="note">并行环境与机器人学习</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P63_Simulator_Residual_Pushing_1808.03246v1.pdf" title="本地 PDF">P63</a><span class="ptitle">Augmenting Physical Simulators with Stochastic Neural Networks: Case Study of Planar Pushing and Bouncing（2018）</span><a class="src" href="https://arxiv.org/abs/1808.03246">原文</a></li><li><a class="paper" href="papers/P31_Graph_Network_Simulator_2002.09405v2.pdf" title="本地 PDF">P31</a><span class="ptitle">Learning to Simulate Complex Physics with Graph Networks（2020）</span><a class="src" href="https://arxiv.org/abs/2002.09405">原文</a></li><li><a class="paper" href="papers/P32_MeshGraphNets_2010.03409v4.pdf" title="本地 PDF">P32</a><span class="ptitle">Learning Mesh-Based Simulation with Graph Networks（2021）</span><a class="src" href="https://arxiv.org/abs/2010.03409">原文</a></li><li><a class="paper" href="papers/P64_Cosmos_Transfer1_2503.14492v2.pdf" title="本地 PDF">P64</a><span class="ptitle">Cosmos-Transfer1: Conditional World Generation with Adaptive Multimodal Control（2025）</span><a class="src" href="https://arxiv.org/abs/2503.14492">原文</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L7">
+  <header class="line-head">
+    <span class="lid">L7</span>
+    <div><h3>扫描场景中的三维动作条件动力学</h3><p class="route">所属路线：空间智能</p></div>
+    <div class="uses"><span class="tag in-scan">实物扫描</span><span class="tag in-urdf">机器人 URDF</span><span class="tag in-video">现场视频＋动作记录</span><span class="tag opt in-plc" title="可选">PLC／NC 程序或日志（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>三维状态</b><span>用深度相机或扫描得到场景点云或高斯</span></li><li><b>机器人动作接地</b><span>用 URDF 正向运动学把机器人动作变成三维点或末端轨迹</span></li><li><b>学习转移</b><span>训练模型预测动作引起的点流、高斯运动或对象刚体运动</span></li><li><b>规划</b><span>用 MPPI／CEM 在模型中搜索动作</span></li><li><b>补设备状态</b><span>门锁、PLC 模式等不能从点位移看出，需要作为额外条件输入</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>机器人操作引起的三维几何变化（工件、门、夹具的位移）</dd></div>
+    <div><dt>时延与成本</dt><dd>PointWorld 一次批量前向约 0.1 s，预测 10 步 <a class="cite" href="papers/P44_PointWorld_2601.03782v1.pdf" title="PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation">P44</a></dd></div>
+    <div><dt>已有证据</dt><dd>PointWorld 用约 200 万条轨迹训练，单个预训练模型让真实 Franka 无需额外示范或后训练即可完成推、可变形物体和关节物体操作；GWM 以高斯为状态做模型式强化学习；MRO-GWM 以对象为单位预测刚体运动 <a class="cite" href="papers/P44_PointWorld_2601.03782v1.pdf" title="PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation">P44</a><a class="cite" href="papers/P85_GWM_Gaussian_World_Model_2508.17600v2.pdf" title="GWM: Towards Scalable Gaussian World Models for Robotic Manipulation">P85</a><a class="cite" href="papers/P88_MRO_GWM_2606.01950v2.pdf" title="Learning Action-Conditional and Object-Centric Gaussian Splatting World Models for Rigid Objects">P88</a></dd></div>
+    <div><dt>局限</dt><dd>只覆盖几何层；设备内部状态、工艺、生产流都要另外接入；多为刚体与桌面规模。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/NVlabs/PointWorld">NVlabs/PointWorld</a><span class="note">动作条件三维点流</span></li><li><a class="repo" href="https://github.com/XPandora/PhysGaussian">XPandora/PhysGaussian</a><span class="note">高斯＋MPM 物理</span></li><li><a class="repo" href="https://github.com/Jianghanxiao/PhysTwin">Jianghanxiao/PhysTwin</a><span class="note">可变形物体的物理孪生</span></li><li><a class="repo" href="https://github.com/nerfstudio-project/gsplat">nerfstudio-project/gsplat</a><span class="note">CUDA 高斯渲染库</span></li><li><a class="repo" href="https://github.com/NVlabs/FoundationPose">NVlabs/FoundationPose</a><span class="note">已知 CAD 的 6D 位姿估计与跟踪</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P44_PointWorld_2601.03782v1.pdf" title="本地 PDF">P44</a><span class="ptitle">PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation（2026）</span><a class="src" href="https://arxiv.org/abs/2601.03782">原文</a></li><li><a class="paper" href="papers/P85_GWM_Gaussian_World_Model_2508.17600v2.pdf" title="本地 PDF">P85</a><span class="ptitle">GWM: Towards Scalable Gaussian World Models for Robotic Manipulation（2025）</span><a class="src" href="https://arxiv.org/abs/2508.17600">原文</a></li><li><a class="paper" href="papers/P88_MRO_GWM_2606.01950v2.pdf" title="本地 PDF">P88</a><span class="ptitle">Learning Action-Conditional and Object-Centric Gaussian Splatting World Models for Rigid Objects（2026）</span><a class="src" href="https://arxiv.org/abs/2606.01950">原文</a></li><li><a class="paper" href="papers/P19_PhysGaussian_2311.12198v3.pdf" title="本地 PDF">P19</a><span class="ptitle">PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics（2024）</span><a class="src" href="https://arxiv.org/abs/2311.12198">原文</a></li><li><a class="paper" href="papers/P21_PhysTwin_2503.17973v1.pdf" title="本地 PDF">P21</a><span class="ptitle">PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos（2025）</span><a class="src" href="https://arxiv.org/abs/2503.17973">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://point-world.github.io/">PointWorld 项目页</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L8">
+  <header class="line-head">
+    <span class="lid">L8</span>
+    <div><h3>JEPA 特征空间世界模型</h3><p class="route">所属路线：JEPA</p></div>
+    <div class="uses"><span class="tag in-video">现场视频＋动作记录</span><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-plc" title="可选">PLC／NC 程序或日志（可选）</span><span class="tag opt in-proc" title="可选">工艺信号（力、热、压力）（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>采集</b><span>多视角视频＋机器人动作（来自 URDF 关节或末端）＋设备信号，时间对齐</span></li><li><b>编码</b><span>用预训练视频编码器（如 V-JEPA 2）或从头训练小模型</span></li><li><b>动作条件预测器</b><span>在特征空间预测动作后的未来特征；设备状态和工艺信号作为条件或额外输入</span></li><li><b>读出与验证</b><span>用读出头检查特征是否保留了门锁、夹紧、位置等关键状态</span></li><li><b>规划或监控</b><span>用 CEM 规划，或用 INTACT 式意图头直接输出动作（不搜索）；也可以用预测误差做异常检测</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>动作之后的观测特征；接读出头后可得到可量测的状态</dd></div>
+    <div><dt>时延与成本</dt><dd>V-JEPA 2-AC 每个动作约 16 s（单张 RTX 4090）；LeWorldModel 完整规划不到 1 s；DINO-WM 一次 CEM 规划 53 s <a class="cite" href="papers/P05_V_JEPA_2_2506.09985v1.pdf" title="V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning">P05</a><a class="cite" href="papers/P55_LeWorldModel_2603.19312v3.pdf" title="LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels">P55</a><a class="cite" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning">P07</a>；INTACT 不搜索、直接输出动作，2.9–5.5 ms，对照 CEM 300×30 的 1.48 s（arXiv 2607.26056）</dd></div>
+    <div><dt>已有证据</dt><dd>V-JEPA 2-AC 在两个实验室的 Franka 上零样本抓放；工业过程 JEPA 在注塑过程上推断参数调整；DINO-WM 在 FleX 仿真的绳和颗粒任务上用 1000 条随机动作轨迹训练，倒角距离 0.41 和 0.26 <a class="cite" href="papers/P05_V_JEPA_2_2506.09985v1.pdf" title="V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning">P05</a><a class="cite" href="papers/P37_Industrial_Process_JEPA_2503.01411v3.pdf" title="Learning Actionable World Models for Industrial Process Control">P37</a><a class="cite" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning">P07</a>。INTACT 在四个仿真任务上训练一个 epoch、不搜索，成功率 85.78%–100%；SADL 把 LeWM 和 INTACT 十个种子中的塌缩率从 50% 降到 0%（arXiv 2607.26056、2611.21596）</dd></div>
+    <div><dt>局限</dt><dd>需要带动作的交互数据；潜空间要靠读出头验证；仅用视频时分不清“门关但未锁”这类情况；INTACT 和 SADL 只在刚体仿真任务上验证，形变、流体、断裂和真实机器人上都没有数据。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/facebookresearch/vjepa2">facebookresearch/vjepa2</a><span class="note">V-JEPA 2 与 V-JEPA 2-AC</span></li><li><a class="repo" href="https://github.com/facebookresearch/jepa-wms">facebookresearch/jepa-wms</a><span class="note">JEPA 世界模型对照研究</span></li><li><a class="repo" href="https://github.com/gaoyuezhou/dino_wm">gaoyuezhou/dino_wm</a><span class="note">DINO-WM</span></li><li><a class="repo" href="https://github.com/lucas-maes/le-wm">lucas-maes/le-wm</a><span class="note">LeWorldModel</span></li><li><a class="repo" href="https://github.com/zju3dv/INTACT-JEPA">zju3dv/INTACT-JEPA</a><span class="note">INTACT：意图到动作、无搜索的 JEPA 世界模型</span></li><li><a class="repo" href="https://github.com/Boey-li/AdaptiGraph">Boey-li/AdaptiGraph</a><span class="note">材料自适应图神经动力学；DINO-WM 的 PyFleX 编译方法来源</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P05_V_JEPA_2_2506.09985v1.pdf" title="本地 PDF">P05</a><span class="ptitle">V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning（2025）</span><a class="src" href="https://arxiv.org/abs/2506.09985">原文</a></li><li><a class="paper" href="papers/P55_LeWorldModel_2603.19312v3.pdf" title="本地 PDF">P55</a><span class="ptitle">LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels（2026）</span><a class="src" href="https://arxiv.org/abs/2603.19312">原文</a></li><li><a class="paper" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="本地 PDF">P07</a><span class="ptitle">DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning（2025）</span><a class="src" href="https://arxiv.org/abs/2411.04983">原文</a></li><li><a class="paper" href="papers/P54_JEPA_WM_Physical_Planning_2512.24497v4.pdf" title="本地 PDF">P54</a><span class="ptitle">What Drives Success in Physical Planning with Joint-Embedding Predictive World Models?（2026）</span><a class="src" href="https://arxiv.org/abs/2512.24497">原文</a></li><li><a class="paper" href="papers/P57_RoboJEPA_2610.10515v1.pdf" title="本地 PDF">P57</a><span class="ptitle">RoboJEPA: Scaling Robotic Latent World Models（2026）</span><a class="src" href="https://arxiv.org/abs/2610.10515">原文</a></li><li><a class="paper" href="papers/P37_Industrial_Process_JEPA_2503.01411v3.pdf" title="本地 PDF">P37</a><span class="ptitle">Learning Actionable World Models for Industrial Process Control（2025）</span><a class="src" href="https://arxiv.org/abs/2503.01411">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://arxiv.org/abs/2607.26056">INTACT 论文（arXiv 2607.26056）</a></li><li><a class="doc" href="https://zju3dv.github.io/INTACT-JEPA/">INTACT 项目页</a></li><li><a class="doc" href="https://huggingface.co/INTACT-JEPA/INTACT">INTACT 权重（Hugging Face）</a></li><li><a class="doc" href="https://arxiv.org/abs/2611.21596">SADL 论文（arXiv 2611.21596）</a></li><li><a class="doc" href="https://ctnkrl.github.io/SADLwebsite/">SADL 项目页（代码未发布）</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L9">
+  <header class="line-head">
+    <span class="lid">L9</span>
+    <div><h3>潜变量模型式强化学习（单工位任务）</h3><p class="route">所属路线：潜变量控制</p></div>
+    <div class="uses"><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-step" title="可选">STEP 文件（可选）</span><span class="tag opt in-scan" title="可选">实物扫描（可选）</span><span class="tag opt in-video" title="可选">现场视频＋动作记录（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>定义任务</b><span>观测、动作、奖励、终止条件，例如“上料并夹紧”</span></li><li><b>数据</b><span>在 L1／L2 仿真中或真实机器人上采集交互</span></li><li><b>学潜模型</b><span>学习潜状态转移、奖励与价值</span></li><li><b>想象中训练</b><span>Dreamer 式在想象中训练策略，或 TD-MPC 式在潜空间做 MPC</span></li><li><b>迁移与验收</b><span>到真实工位验证，按真实结果而不是模型自评判定成功</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>与任务相关的潜状态与奖励，不是通用状态</dd></div>
+    <div><dt>时延与成本</dt><dd>Dreamer 4 的视频世界模型在单张 H100 上 21 帧/秒 <a class="cite" href="papers/P69_Dreamer_4_2509.24527v1.pdf" title="Training Agents Inside of Scalable World Models">P69</a></dd></div>
+    <div><dt>已有证据</dt><dd>DreamerV3 用同一套超参数在 150 多个任务上优于专用方法；TD-MPC2 训练 3.17 亿参数的多任务智能体 <a class="cite" href="papers/P02_DreamerV3_2301.04104v2.pdf" title="Mastering Diverse Domains through World Models">P02</a><a class="cite" href="papers/P03_TD_MPC2_2310.16828v2.pdf" title="TD-MPC2: Scalable, Robust World Models for Continuous Control">P03</a></dd></div>
+    <div><dt>局限</dt><dd>模型与奖励绑定，换目标难复用；不可逆过程（切削、报废）难以靠试错覆盖；策略可能利用模型漏洞。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/danijar/dreamerv3">danijar/dreamerv3</a><span class="note">DreamerV3</span></li><li><a class="repo" href="https://github.com/nicklashansen/tdmpc2">nicklashansen/tdmpc2</a><span class="note">TD-MPC2</span></li><li><a class="repo" href="https://github.com/leggedrobotics/rsl_rl">leggedrobotics/rsl_rl</a><span class="note">腿式与人形机器人的强化学习</span></li><li><a class="repo" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab</a><span class="note">并行环境与机器人学习</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P02_DreamerV3_2301.04104v2.pdf" title="本地 PDF">P02</a><span class="ptitle">Mastering Diverse Domains through World Models（2024）</span><a class="src" href="https://arxiv.org/abs/2301.04104">原文</a></li><li><a class="paper" href="papers/P03_TD_MPC2_2310.16828v2.pdf" title="本地 PDF">P03</a><span class="ptitle">TD-MPC2: Scalable, Robust World Models for Continuous Control（2024）</span><a class="src" href="https://arxiv.org/abs/2310.16828">原文</a></li><li><a class="paper" href="papers/P69_Dreamer_4_2509.24527v1.pdf" title="本地 PDF">P69</a><span class="ptitle">Training Agents Inside of Scalable World Models（2025）</span><a class="src" href="https://arxiv.org/abs/2509.24527">原文</a></li></ul></section>
+    </div>
+  </details>
+</article>
+<article class="line" id="L10">
+  <header class="line-head">
+    <span class="lid">L10</span>
+    <div><h3>视频世界模型：合成数据与策略评估</h3><p class="route">所属路线：生成式视频</p></div>
+    <div class="uses"><span class="tag in-video">现场视频＋动作记录</span><span class="tag in-urdf">机器人 URDF</span><span class="tag opt in-scan" title="可选">实物扫描（可选）</span></div>
+  </header>
+  <ol class="stages"><li><b>采集</b><span>现场视频＋机器人动作或位姿</span></li><li><b>微调</b><span>在预训练视频模型上用目标机器人数据后训练</span></li><li><b>生成</b><span>以动作或指令为条件生成未来视频</span></li><li><b>用途</b><span>在想象中评估策略，或生成合成轨迹后用逆动力学补出动作再训练策略</span></li><li><b>核对</b><span>与真实成功率对照；检查非专家动作下是否仍遵循动作</span></li></ol>
+  <dl class="facts">
+    <div><dt>预测什么</dt><dd>动作或指令之后的画面；不直接给出数值状态</dd></div>
+    <div><dt>时延与成本</dt><dd>DreamDojo 蒸馏后 10.81 帧/秒（单张 H100）；当规划模型时 Cosmos 每个动作约 4 分钟；DreamGen 生成 24 万条样本用了 1500 张 L40 约 54 小时 <a class="cite" href="papers/P75_DreamDojo_2602.06949v1.pdf" title="DreamDojo: A Generalist Robot World Model from Large-Scale Human Videos">P75</a><a class="cite" href="papers/P05_V_JEPA_2_2506.09985v1.pdf" title="V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning">P05</a><a class="cite" href="papers/P65_DreamGen_2505.12705v2.pdf" title="DreamGen: Unlocking Generalization in Robot Learning through Video World Models">P65</a></dd></div>
+    <div><dt>已有证据</dt><dd>Veo 机器人评估与 1600 多次真实试验相关 0.88；Ctrl-World 把新指令上的成功率从 38.7% 提到 83.4% <a class="cite" href="papers/P73_Veo_Robot_Policy_Evaluation_2512.10675v2.pdf" title="Evaluating Gemini Robotics Policies in a Veo World Simulator">P73</a><a class="cite" href="papers/P72_Ctrl_World_2510.10125v3.pdf" title="Ctrl-World: A Controllable Generative World Model for Robot Manipulation">P72</a></dd></div>
+    <div><dt>局限</dt><dd>推理开销大；物理与几何一致性没有保证；会高估或低估成功率；只用专家数据训练的模型在偏离专家的动作上常不遵循动作 <a class="cite" href="papers/P77_WorldEcho_2608.24885v2.pdf" title="Do Robotic World Models Really Follow Actions? Diagnosing and Aligning Action-Conditioned Generation for Policy Learning">P77</a>。</dd></div>
+  </dl>
+  <details class="refs" open>
+    <summary>参考项目与文献</summary>
+    <div class="refcols">
+      <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/Robert-gyj/Ctrl-World">Robert-gyj/Ctrl-World</a><span class="note">Ctrl-World</span></li><li><a class="repo" href="https://github.com/NVIDIA/DreamDojo">NVIDIA/DreamDojo</a><span class="note">DreamDojo</span></li><li><a class="repo" href="https://github.com/AgibotTech/Genie-Envisioner-V1">AgibotTech/Genie-Envisioner-V1</a><span class="note">Genie Envisioner</span></li><li><a class="repo" href="https://github.com/AgibotTech/GE-Sim-V2">AgibotTech/GE-Sim-V2</a><span class="note">GE-Sim 2.0</span></li><li><a class="repo" href="https://github.com/nvidia-cosmos/cosmos-predict2.5">nvidia-cosmos/cosmos-predict2.5</a><span class="note">Cosmos-Predict2.5</span></li><li><a class="repo" href="https://github.com/NVIDIA/GR00T-Dreams">NVIDIA/GR00T-Dreams</a><span class="note">DreamGen</span></li><li><a class="repo" href="https://github.com/huggingface/lerobot">huggingface/lerobot</a><span class="note">机器人数据采集与策略学习</span></li></ul></section>
+      <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P73_Veo_Robot_Policy_Evaluation_2512.10675v2.pdf" title="本地 PDF">P73</a><span class="ptitle">Evaluating Gemini Robotics Policies in a Veo World Simulator（2026）</span><a class="src" href="https://arxiv.org/abs/2512.10675">原文</a></li><li><a class="paper" href="papers/P72_Ctrl_World_2510.10125v3.pdf" title="本地 PDF">P72</a><span class="ptitle">Ctrl-World: A Controllable Generative World Model for Robot Manipulation（2026）</span><a class="src" href="https://arxiv.org/abs/2510.10125">原文</a></li><li><a class="paper" href="papers/P75_DreamDojo_2602.06949v1.pdf" title="本地 PDF">P75</a><span class="ptitle">DreamDojo: A Generalist Robot World Model from Large-Scale Human Videos（2026）</span><a class="src" href="https://arxiv.org/abs/2602.06949">原文</a></li><li><a class="paper" href="papers/P65_DreamGen_2505.12705v2.pdf" title="本地 PDF">P65</a><span class="ptitle">DreamGen: Unlocking Generalization in Robot Learning through Video World Models（2025）</span><a class="src" href="https://arxiv.org/abs/2505.12705">原文</a></li><li><a class="paper" href="papers/P71_Genie_Envisioner_2508.05635v3.pdf" title="本地 PDF">P71</a><span class="ptitle">Genie Envisioner: A Unified World Foundation Platform for Robotic Manipulation（2025）</span><a class="src" href="https://arxiv.org/abs/2508.05635">原文</a></li><li><a class="paper" href="papers/P76_DreamZero_2602.15922v1.pdf" title="本地 PDF">P76</a><span class="ptitle">World Action Models are Zero-shot Policies（2026）</span><a class="src" href="https://arxiv.org/abs/2602.15922">原文</a></li><li><a class="paper" href="papers/P77_WorldEcho_2608.24885v2.pdf" title="本地 PDF">P77</a><span class="ptitle">Do Robotic World Models Really Follow Actions? Diagnosing and Aligning Action-Conditioned Generation for Policy Learning（2026）</span><a class="src" href="https://arxiv.org/abs/2608.24885">原文</a></li></ul><h4>文档与项目页</h4><ul class="doclist"><li><a class="doc" href="https://ctrl-world.github.io/">Ctrl-World 项目页</a></li><li><a class="doc" href="https://dreamdojo-world.github.io/">DreamDojo 项目页</a></li><li><a class="doc" href="https://genie-envisioner.github.io/">Genie Envisioner 项目页</a></li><li><a class="doc" href="https://dreamzero0.github.io/">DreamZero 项目页</a></li></ul></section>
+    </div>
+  </details>
+</article>
+
+
+<section class="block" aria-labelledby="h-cross" id="cross">
+<h2 id="h-cross">跨链路条件：形变、流体、断裂与加工</h2>
+<p>这些不是单独的链路，而是任务中可能出现的物理情况。任务涉及它们时，走孪生路线（L1、L2，以及在其上运行的 L4、L6）需要能表示这些材料的仿真器；走学习路线（L7–L10）需要包含这些现象的数据，并检查模型是否学到了。原 L5「加工与形变过程模型」已并入本节，L5 编号空缺。详细说明见 <a href="%E9%93%BE%E8%B7%AF/%E4%B8%93%E9%A2%98_%E5%BD%A2%E5%8F%98%E6%B5%81%E4%BD%93%E6%96%AD%E8%A3%82%E4%B8%8E%E5%8A%A0%E5%B7%A5/README.md">链路/专题_形变流体断裂与加工</a>。</p>
+<h3 class="sub">任务涉及这些情况时，各链路要补什么</h3>
+<table class="plain"><tbody><tr><th scope="row"><a href="#L1">L1</a></th><td>换用或接入支持该材料的求解器；STEP 只给几何，软体要生成四面体网格或粒子，并补弹性模量、粘度、摩擦等参数</td></tr><tr><th scope="row"><a href="#L2">L2</a></th><td>材料参数要用现场观测辨识，例如 PhysTwin 用视频做逆物理 <a class="cite" href="papers/P21_PhysTwin_2503.17973v1.pdf" title="PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos">P21</a>；形变体状态维度高，运行时同步比刚体难</td></tr><tr><th scope="row"><a href="#L3">L3</a></th><td>软体要从接触面上分离并指定材料；切开或断裂后露出的内部没有扫描观测 <a class="cite" href="papers/P93_DecoupledGaussian_2503.05484v1.pdf" title="DecoupledGaussian: Object-Scene Decoupling for Physics-Based Interaction">P93</a><a class="cite" href="papers/P47_GaussianFluent_2601.09265v1.pdf" title="GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials">P47</a></td></tr><tr><th scope="row"><a href="#L4">L4</a></th><td>产线层不模拟材料，只需要工序时长、质量和报废概率，由下面的加工代理或实测统计提供</td></tr><tr><th scope="row"><a href="#L6">L6</a></th><td>形变和流体仿真慢，适合训练快速代理：DINO-WM 报告形变环境中仿真推进一步约 3.0 s，模型前向一步约 0.014 s <a class="cite" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning">P07</a></td></tr><tr><th scope="row"><a href="#L7">L7</a></th><td>点流和高斯能直接表示形变；断裂和切割会产生新表面，点之间的对应关系会断开 <a class="cite" href="papers/P44_PointWorld_2601.03782v1.pdf" title="PointWorld: Scaling 3D World Models for In-The-Wild Robotic Manipulation">P44</a><a class="cite" href="papers/P21_PhysTwin_2503.17973v1.pdf" title="PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos">P21</a><a class="cite" href="papers/P19_PhysGaussian_2311.12198v3.pdf" title="PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics">P19</a></td></tr><tr><th scope="row"><a href="#L8">L8</a></th><td>训练数据要来自能表示该现象的仿真器或现场；DINO-WM 在 FleX 绳与颗粒任务上可行 <a class="cite" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning">P07</a>；INTACT、SADL 还没有在这类任务上测试</td></tr><tr><th scope="row"><a href="#L9">L9</a></th><td>切割、断裂不可逆，只能在仿真或学习式模型里试错</td></tr><tr><th scope="row"><a href="#L10">L10</a></th><td>能生成形变和流体的画面，但不保证材料守恒和物理一致</td></tr></tbody></table>
+<h3 class="sub">通用仿真器能力</h3>
+<p class="subnote">2026-11-22 按官方文档或 README 核对。“未见”表示在这些文档里没有找到，不等于一定不支持；只列能力，不排序。</p>
+<div class="caps-wrap"><table class="plain caps"><thead><tr><th scope="col">仿真器</th><th scope="col">绳、布、软体</th><th scope="col">颗粒与弹塑性</th><th scope="col">液体</th><th scope="col">切割、断裂（拓扑变化）</th></tr></thead><tbody><tr><th scope="row">MuJoCo 3<div class="mini"><a class="doc" href="https://mujoco.readthedocs.io/en/stable/modeling.html#deformable-objects">MuJoCo：Deformable objects（flex／flexcomp）</a><a class="doc" href="https://mujoco.readthedocs.io/en/stable/computation/fluid.html">MuJoCo：流体力</a><a class="repo" href="https://github.com/google-deepmind/mujoco">google-deepmind/mujoco</a><span class="note">物理引擎，可直接加载 URDF</span></div></th><td>flex／flexcomp：一维胶囊（绳）、二维带半径三角形（布、壳）、三维四面体（软体）</td><td>未见</td><td>只有刚体在介质中受的流体力，流体本身没有状态</td><td>未见</td></tr><tr><th scope="row">Newton 1.7.0<div class="mini"><a class="doc" href="https://newton-physics.github.io/newton/1.7.0/solvers/index.html">Newton 1.7.0 求解器特性表</a><a class="doc" href="https://newton-physics.github.io/newton/1.7.0/api/_generated/newton.solvers.SolverImplicitMPM.html">Newton SolverImplicitMPM</a><a class="repo" href="https://github.com/newton-physics/newton">newton-physics/newton</a><span class="note">基于 Warp 的多求解器物理引擎</span></div></th><td>VBD：布、软体与刚体在同一求解器（实验性）；Style3D：布；Featherstone、SemiImplicit：软体，布无自碰撞；XPBD：软体为实验性</td><td>ImplicitMPM：颗粒和弹塑性材料（Drucker–Prager 屈服、粘性、剪胀、硬化与软化）</td><td>特性表未列</td><td>未见</td></tr><tr><th scope="row">Isaac Lab／PhysX 5<div class="mini"><a class="doc" href="https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html">Isaac Lab 资产 API（DeformableObject、CableObject）</a><a class="doc" href="https://nvidia-omniverse.github.io/PhysX/physx/5.8.0/docs/ParticleSystem.html">PhysX 5.8.0 粒子系统（PBD）</a><a class="doc" href="https://nvidia-omniverse.github.io/PhysX/physx/5.8.0/docs/DeformableVolume.html">PhysX 5.8.0 Deformable Volume</a><a class="repo" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab</a><span class="note">并行环境与机器人学习</span></div></th><td>DeformableObject（软体、布）；CableObject</td><td>未见</td><td>PhysX 的 PBD 粒子系统可模拟流体</td><td>切割、撕裂改变拓扑时，要更新预计算的碰撞结构、质量与体积和网格映射 <a class="cite" href="https://nvidia-omniverse.github.io/PhysX/physx/5.8.0/docs/DeformableVolume.html" title="PhysX SDK 5.8.0 — Deformable Volume">S6</a></td></tr><tr><th scope="row">Genesis<div class="mini"><a class="doc" href="https://github.com/Genesis-Embodied-AI/genesis-world/blob/main/examples/coupling/cut_dragon.py">Genesis 示例 cut_dragon.py</a><a class="repo" href="https://github.com/Genesis-Embodied-AI/genesis-world">Genesis-Embodied-AI/genesis-world</a><span class="note">多物理仿真平台</span></div></th><td>FEM 软体；PBD 布；IPC</td><td>MPM（沙轮示例）</td><td>PBD 液体；SPH</td><td>示例 cut dragon：刚体刀具切开 MPM 弹性体</td></tr><tr><th scope="row">SOFA<div class="mini"><a class="doc" href="https://sofa-framework.github.io/doc/simulation-principles/topology/">SOFA 拓扑与拓扑变化</a><a class="repo" href="https://github.com/sofa-framework/sofa">sofa-framework/sofa</a><span class="note">有限元交互仿真，支持动态拓扑变化</span></div></th><td>以有限元为主，侧重医疗与机器人</td><td>未见</td><td>未见</td><td>动态拓扑变化：删除、增加、分离单元；另有 SofaCarving 插件</td></tr></tbody></table></div>
+<h3 class="sub">专门的基准与研究代码</h3>
+<div class="caps-wrap"><table class="plain caps"><thead><tr><th scope="col">项目</th><th scope="col">覆盖的现象</th><th scope="col">说明</th></tr></thead><tbody><tr><th scope="row">SoftGym<div class="mini"><a class="repo" href="https://github.com/Xingyu-Lin/softgym">Xingyu-Lin/softgym</a><span class="note">布、绳、液体基准（FleX）</span></div></th><td>布、绳、液体</td><td>基于 NVIDIA FleX；最近一次提交在 2022-11</td></tr><tr><th scope="row">AdaptiGraph<div class="mini"><a class="repo" href="https://github.com/Boey-li/AdaptiGraph">Boey-li/AdaptiGraph</a><span class="note">材料自适应图神经动力学；DINO-WM 的 PyFleX 编译方法来源</span></div></th><td>材料自适应的图神经动力学</td><td>DINO-WM 的绳任务出自这项工作，用 FleX 仿真 <a class="cite" href="papers/P07_DINO_WM_2411.04983v2.pdf" title="DINO-WM: World Models on Pre-trained Visual Features enable Zero-shot Planning">P07</a></td></tr><tr><th scope="row">PlasticineLab<div class="mini"><a class="repo" href="https://github.com/hzaskywalker/PlasticineLab">hzaskywalker/PlasticineLab</a><span class="note">可微弹塑性软体基准</span></div></th><td>弹性与塑性形变</td><td>可微，基于 DiffTaichi；最近一次提交在 2023-03</td></tr><tr><th scope="row">FluidLab<div class="mini"><a class="repo" href="https://github.com/zhouxian/FluidLab">zhouxian/FluidLab</a><span class="note">可微流体操作基准</span></div></th><td>液体、固体、气体</td><td>多材料、全可微；最近一次提交在 2023-12</td></tr><tr><th scope="row">DaXBench<div class="mini"><a class="repo" href="https://github.com/AdaCompNUS/DaXBench">AdaCompNUS/DaXBench</a><span class="note">可微形变操作基准（JAX）</span></div></th><td>液体、布、弹塑性及其混合</td><td>可微，基于 JAX；最近一次提交在 2023-11</td></tr><tr><th scope="row">DiSECt<div class="mini"><a class="repo" href="https://github.com/NVlabs/DiSECt">NVlabs/DiSECt</a><span class="note">可微切割仿真</span></div></th><td>软材料切割</td><td>有限元＋SDF 接触＋连续损伤，可微；不能直接外推到金属切削 <a class="cite" href="papers/P46_DiSECt_2203.10263v1.pdf" title="DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting">P46</a></td></tr><tr><th scope="row">PhysGaussian<div class="mini"><a class="repo" href="https://github.com/XPandora/PhysGaussian">XPandora/PhysGaussian</a><span class="note">高斯＋MPM 物理</span></div></th><td>弹性、塑性、断裂、沙、粘塑性</td><td>高斯＋MPM <a class="cite" href="papers/P19_PhysGaussian_2311.12198v3.pdf" title="PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics">P19</a></td></tr><tr><th scope="row">GaussianFluent</th><td>脆性断裂、新的内部表面</td><td>补内部高斯，用连续损伤 MPM 求解 <a class="cite" href="papers/P47_GaussianFluent_2601.09265v1.pdf" title="GaussianFluent: Gaussian Simulation for Dynamic Scenes with Mixed Materials">P47</a></td></tr><tr><th scope="row">PhysTwin<div class="mini"><a class="repo" href="https://github.com/Jianghanxiao/PhysTwin">Jianghanxiao/PhysTwin</a><span class="note">可变形物体的物理孪生</span></div></th><td>绳、布、毛绒玩具、包裹</td><td>弹簧质点＋高斯外观，从视频辨识参数 <a class="cite" href="papers/P21_PhysTwin_2503.17973v1.pdf" title="PhysTwin: Physics-Informed Reconstruction and Simulation of Deformable Objects from Videos">P21</a></td></tr></tbody></table></div>
+<p class="subnote">自己写求解器时可用的 GPU 框架：<a class="repo" href="https://github.com/NVIDIA/warp">NVIDIA/warp</a><span class="note">GPU 仿真编程框架，Newton 构建在其上</span>；<a class="repo" href="https://github.com/taichi-dev/taichi">taichi-dev/taichi</a><span class="note">GPU 编程框架</span>。</p>
+<h3 class="sub">加工（材料去除）</h3>
+<p class="subnote">整厂层不直接预测切削，只需要加工时长、质量和报废概率，作为机床节点的属性。</p>
+<ol class="stages"><li><b>毛坯与刀具几何</b><span>工件 STEP 作为毛坯；刀具几何与刀路来自 NC 程序</span></li><li><b>材料去除</b><span>用 dexel、体素或 SDF 扫掠更新工件占用域，输出去除体积与新表面</span></li><li><b>力、热与变形</b><span>需要时耦合切削力、热流与结构变形模型</span></li><li><b>回写</b><span>在同步点同时更新几何版本、碰撞体与质量；工件 ID 不变</span></li><li><b>校准</b><span>用实测力、温度、尺寸与表面质量校准</span></li></ol>
+<p class="subnote">Tri-Dexel 机器人铣削模拟器经铣削实验验证；热—力耦合 NC 模型预测宏观形状误差；DiSECt 做软材料切割的参数辨识，不能直接外推到金属切削 <a class="cite" href="papers/P48_Tri_Dexel_Robotic_Machining_author-manuscript.pdf" title="Coupled Dynamic Simulator With Tri-Dexel Milling Module For Robotic Machining Operations">P48</a><a class="cite" href="papers/P50_Thermomechanical_Machining_FEM_Report-14-01.pdf" title="Finite Element Simulation of macroscopic Machining Processes - Implementation of time dependent Domain and Boundary Conditions">P50</a><a class="cite" href="papers/P46_DiSECt_2203.10263v1.pdf" title="DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting">P46</a>。论文未给统一时延：几何去除可较快，耦合有限元一般远慢于实时。</p>
+<div class="refcols">
+  <section><h4>GitHub 项目</h4><ul class="repolist"><li><a class="repo" href="https://github.com/aewallin/opencamlib">aewallin/opencamlib</a><span class="note">CAM 刀路与几何算法</span></li><li><a class="repo" href="https://github.com/NVlabs/DiSECt">NVlabs/DiSECt</a><span class="note">可微切割仿真</span></li><li><a class="repo" href="https://github.com/CadQuery/cadquery">CadQuery/cadquery</a><span class="note">用 Python 读写 STEP（基于 OCCT）</span></li><li><a class="repo" href="https://github.com/tpaviot/pythonocc-core">tpaviot/pythonocc-core</a><span class="note">OCCT 的 Python 绑定</span></li></ul></section>
+  <section><h4>文献（本地 PDF／原文）</h4><ul class="paperlist"><li><a class="paper" href="papers/P48_Tri_Dexel_Robotic_Machining_author-manuscript.pdf" title="本地 PDF">P48</a><span class="ptitle">Coupled Dynamic Simulator With Tri-Dexel Milling Module For Robotic Machining Operations（2023）</span><a class="src" href="https://doi.org/10.1016/j.procir.2023.03.031">原文</a></li><li><a class="paper" href="papers/P50_Thermomechanical_Machining_FEM_Report-14-01.pdf" title="本地 PDF">P50</a><span class="ptitle">Finite Element Simulation of macroscopic Machining Processes - Implementation of time dependent Domain and Boundary Conditions（2014）</span><a class="src" href="https://www.math.uni-bremen.de/zetem/cms/detail.php?person=CarstenNiebuhr&amp;template=publikationen_person">原文</a></li><li><a class="paper" href="papers/P46_DiSECt_2203.10263v1.pdf" title="本地 PDF">P46</a><span class="ptitle">DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting（2022）</span><a class="src" href="https://arxiv.org/abs/2203.10263">原文</a></li><li><a class="paper" href="papers/P37_Industrial_Process_JEPA_2503.01411v3.pdf" title="本地 PDF">P37</a><span class="ptitle">Learning Actionable World Models for Industrial Process Control（2025）</span><a class="src" href="https://arxiv.org/abs/2503.01411">原文</a></li></ul></section>
+</div>
+</section>
+
+<section class="block" aria-labelledby="h-combo">
+<h2 id="h-combo">常见组合</h2>
+<p>链路之间通过共享资产、坐标系、实体 ID 和事件时钟组合。下表列出接口上能直接衔接的组合，不是推荐。</p>
+<table class="plain"><tbody><tr><th scope="row">L1＋L2＋L4</th><td>有 STEP、能扫描、能拿到 PLC 程序时：资产来自 STEP，布局与外观来自扫描，设备逻辑来自 PLC。</td></tr><tr><th scope="row">L3＋L1</th><td>部分设备没有 STEP：先单体化生成资产，再与有 STEP 的设备放进同一场景。</td></tr><tr><th scope="row">L1／L2＋L6</th><td>仿真与现场差距大，或求解太慢时：保留仿真，补残差、外观或快速代理。</td></tr><tr><th scope="row">L1／L2＋L8 或 L10</th><td>有现场视频时：仿真提供设备状态与动作接地，视觉模型提供外观层预测或数据。</td></tr></tbody></table>
+</section>
+
+<section class="block" aria-labelledby="h-robot">
+<h2 id="h-robot">机器人形态带来的差别</h2>
+<p>URDF 在各链路中的用法相同：给出关节、连杆、碰撞体和运动学。不同形态的差别主要在控制与数据。</p>
+<table class="plain"><tbody><tr><th scope="row">机械臂</th><td>URDF 直接进 L1；运动规划可用 MoveIt 2、cuRobo；L7、L8、L10 的公开数据与模型大多基于机械臂（Franka、DROID 等）。<div class="mini"><a class="repo" href="https://github.com/moveit/moveit2">moveit/moveit2</a><span class="note">机械臂运动规划</span><a class="repo" href="https://github.com/NVlabs/curobo">NVlabs/curobo</a><span class="note">GPU 运动规划</span><a class="repo" href="https://github.com/google-deepmind/mujoco_menagerie">google-deepmind/mujoco_menagerie</a><span class="note">现成机器人模型（含 Unitree G1／H1、Franka、UR、FANUC CRX 等）</span></div></td></tr><tr><th scope="row">移动底盘（小车）</th><td>需要整厂地图与通道（L2 的扫描）；导航可用 Nav2；L4 的产线层管搬运与资源占用。<div class="mini"><a class="repo" href="https://github.com/ros-navigation/navigation2">ros-navigation/navigation2</a><span class="note">移动底盘导航</span><a class="repo" href="https://github.com/hku-mars/FAST_LIO">hku-mars/FAST_LIO</a><span class="note">激光惯导里程计，用于大范围扫描</span><a class="repo" href="https://github.com/gazebosim/gz-sim">gazebosim/gz-sim</a><span class="note">Gazebo，ROS 生态的仿真器</span></div></td></tr><tr><th scope="row">人形</th><td>平衡与步态通常先在仿真中用强化学习训练；Menagerie 收录了 Unitree G1／H1、Apptronik Apollo、Booster T1 等模型；L10 中 GE、DreamZero 使用的是 AgiBot 平台。<div class="mini"><a class="repo" href="https://github.com/leggedrobotics/rsl_rl">leggedrobotics/rsl_rl</a><span class="note">腿式与人形机器人的强化学习</span><a class="repo" href="https://github.com/google-deepmind/mujoco_menagerie">google-deepmind/mujoco_menagerie</a><span class="note">现成机器人模型（含 Unitree G1／H1、Franka、UR、FANUC CRX 等）</span><a class="repo" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab</a><span class="note">并行环境与机器人学习</span><a class="repo" href="https://github.com/google-deepmind/mujoco_warp">google-deepmind/mujoco_warp</a><span class="note">MuJoCo 的 GPU 版本</span></div></td></tr></tbody></table>
+</section>
+
+<footer>
+<p>GitHub 项目于 2026-11-14 用 GitHub API 核对存在；文档与项目页于同日核对可访问。2026-11-22 把原 L5 改为“跨链路条件”一节，并在 L8 补充 INTACT 与 SADL；新增的项目、文档与 arXiv 链接于同日核对。论文编号与报告一致，PDF 位于相邻的 <code>papers/</code> 目录，请保持本文件与 <code>papers/</code> 的相对位置。由 <code>scripts/build_pipeline_board.py</code> 生成。</p>
+</footer>
+</div></main>
+</body></html>

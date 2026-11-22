@@ -1,0 +1,28 @@
+{
+  "id": "P38",
+  "slug": "AWMP_Dynamic_Scheduling",
+  "arxiv_id": "2610.29308",
+  "family": "factory",
+  "source_url": "https://arxiv.org/abs/2610.29308",
+  "accessed": "2026-11-09",
+  "title": "LLM-Based Exogenous World Modeling for Dynamic Scheduling",
+  "authors": [
+    "Zhang, Ni",
+    "Yuan, Haofeng",
+    "Zhou, Jianan",
+    "Song, Shiji",
+    "Cao, Zhiguang"
+  ],
+  "publication_date": "2026/10/21",
+  "submitted_date": "2026/10/21",
+  "abstract": " Dynamic scheduling requires dispatching online arrivals while anticipating future jobs, as poor decisions can compound downstream costs under nonlinear tardiness objectives. We show that a pretrained large language model (LLM) can serve as the exogenous component of a structured world model, forecasting uncertain future job arrivals. Specifically, we exploit an afterstate decomposition, which separates known deterministic shop transitions from uncertain exogenous job arrivals, enabling the LLM to forecast only the latter through a compact belief representation. Building on this, we develop Afterstate World-Model Planning (AWMP), which combines an evolved, belief-conditioned dispatching strategy with short scenario-based rollouts. A surprise-triggered refresh mechanism queries the LLM only when newly observed arrivals deviate sufficiently from previous forecast, and online residual self-calibration further conditions the LLM on its recent forecast errors to handle nonstationary arrivals. Across diverse arrival distributions, AWMP reduces weighted tardiness by 6-21% on dynamic job-shop and 22-46% on flexible job-shop benchmarks, relative to the best of eight classical priority-dispatching rules.",
+  "submission_history": "Submission history From: Haofeng Yuan [ view email ] [v1] Wed, 21 Oct 2026 07:01:25 UTC (303 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2610.29308v1",
+  "local_pdf": "papers/P38_AWMP_Dynamic_Scheduling_2610.29308v1.pdf",
+  "sha256": "592a7499fcab05099c9e84915d337876e25ee5e72377ec2d69cf3e1f6c781b8f",
+  "bytes": 556348,
+  "pages": 10,
+  "text_file": "research/P38_AWMP_Dynamic_Scheduling.txt",
+  "status": "downloaded_and_text_extracted"
+}

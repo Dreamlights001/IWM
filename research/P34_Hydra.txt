@@ -1,0 +1,892 @@
+                     This paper has been accepted for publication at the 2022 Robotics: Science and Systems Conference.
+                                     Please cite the paper as: N. Hughes, Y. Chang, and L. Carlone,
+“Hydra: A Real-time Spatial Perception System for 3D Scene Graph Construction and Optimization,” Robotics: Science and Systems (RSS), 2022.
+
+
+                                             Hydra: A Real-time Spatial Perception System for
+                                              3D Scene Graph Construction and Optimization
+                                                                                         Nathan Hughes, Yun Chang, Luca Carlone
+                                                                                    Laboratory for Information & Decision Systems (LIDS)
+                                                                                            Massachusetts Institute of Technology
+                                                                                                       Cambridge, USA
+                                                                                       Email: {na26933, yunchang, lcarlone}@mit.edu
+  arXiv:2201.13360v2 [cs.RO] 20 Jun 2022
+
+
+
+
+                                                                                                                  Buildings
+
+                                              Abstract—3D scene graphs have recently emerged as a pow-
+                                                                                                                  Rooms
+                                           erful high-level representation of 3D environments. A 3D scene
+                                           graph describes the environment as a layered graph where nodes
+                                           represent spatial concepts at multiple levels of abstraction (from     Places
+
+                                           low-level geometry to high-level semantics including objects,
+                                           places, rooms, buildings, etc.) and edges represent relations          Objects
+                                                                                                                  and
+                                           between concepts. While 3D scene graphs can serve as an                Agents
+
+                                           advanced “mental model” for robots, how to build such a rich
+                                           representation in real-time is still uncharted territory.
+                                                                                                                  Metric-Semantic
+                                              This paper describes a real-time Spatial Perception System,         3D Mesh
+
+                                           a suite of algorithms to build a 3D scene graph from sensor
+                                           data in real-time. Our first contribution is to develop real-
+                                           time algorithms to incrementally construct the layers of a scene
+                                           graph as the robot explores the environment; these algorithms
+                                           build a local Euclidean Signed Distance Function (ESDF) around
+                                           the current robot location, extract a topological map of places
+                                           from the ESDF, and then segment the places into rooms using
+                                           an approach inspired by community-detection techniques. Our
+                                           second contribution is to investigate loop closure detection and       Fig. 1. We present Hydra, a highly parallelized architecture to build 3D scene
+                                           optimization in 3D scene graphs. We show that 3D scene graphs          graphs from sensor data in real-time. The figure shows sample input data and
+                                                                                                                  the 3D scene graph created by Hydra in a large-scale real environment.
+                                           allow defining hierarchical descriptors for loop closure detection;
+                                           our descriptors capture statistics across layers in the scene
+                                           graph, ranging from low-level visual appearance to summary             rather than dense low-level geometry). Such representations
+                                           statistics about objects and places. We then propose the first         must be built in real-time to support just-in-time decision-
+                                           algorithm to optimize a 3D scene graph in response to loop             making. Moreover, these representations must be persistent to
+                                           closures; our approach relies on embedded deformation graphs           support long-term autonomy: (i) they need to scale to large
+                                           to simultaneously correct all layers of the scene graph. We            environments, (ii) they should allow for corrections as new
+                                           implement the proposed Spatial Perception System into a highly
+                                           parallelized architecture, named Hydra1 , that combines fast early     evidence is collected by the robot, and (iii) their size should
+                                           and mid-level perception processes (e.g., local mapping) with          only grow with the size of the environment they model.
+                                           slower high-level perception (e.g., global optimization of the scene      3D Scene Graphs [4, 26, 49, 50, 63, 67] have recently
+                                           graph). We evaluate Hydra on simulated and real data and               emerged as powerful high-level representations of 3D envi-
+                                           show it is able to reconstruct 3D scene graphs with an accuracy        ronments. A 3D scene graph (Fig. 1 and Fig. 6) is a layered
+                                           comparable with batch offline methods despite running online.
+                                              Index Terms—Robot perception, 3D scene graphs, localization         graph where nodes represent spatial concepts at multiple levels
+                                           and mapping, real-time scene understanding.                            of abstraction (from low-level geometry to objects, places,
+                                                                                                                  rooms, buildings, etc.) and edges represent relations between
+                                                                                                                  concepts. Armeni et al. [4] pioneered the use of 3D scene
+                                                                    I. I NTRODUCTION
+                                                                                                                  graphs in computer vision and proposed the first algorithms
+                                           The next generation of robots and autonomous systems will              to parse a metric-semantic 3D mesh into a 3D scene graph.
+                                           be required to build persistent high-level representations of          Kim et al. [26] reconstruct a 3D scene graph of objects
+                                           unknown environments in real-time. High-level representations          and their relations. Rosinol et al. [49, 50] propose a novel
+                                           are required for a robot to understand and execute instructions        3D scene graph model that (i) is built directly from sensor
+                                           from humans (e.g., “bring me the cup of tea I left on the              data, (ii) includes a subgraph of places (useful for robot
+                                           dining room table”); high-level representations also enable fast       navigation), (iii) models objects, rooms, and buildings, and
+                                           planning (e.g., by allowing planning over compact abstractions         (iv) captures moving entities in the environment. More recent
+                                                                                                                  work [22, 25, 63, 67] infers objects and relations from point
+                                             1 Hydra is available at https://github.com/MIT-SPARK/Hydra           clouds, RGB-D sequences, or object detections.
+   While 3D scene graphs can serve as an advanced “mental           tion, named Hydra, that combines fast early and mid-level
+model” for robots, how to build such a rich representation in       perception processes (e.g., local mapping) with slower high-
+real-time remains uncharted territory. The works [26, 63, 67]       level perception (e.g., global optimization of the scene graph).
+allow real-time operation but are restricted to “flat” 3D scene     We evaluate Hydra in several heterogeneous environments,
+graphs and are mostly concerned with objects and their              including an apartment complex, an office building, and a
+relations while disregarding the top layers in Fig. 1. The          subway. Our experiments show that (i) we can reconstruct 3D
+works [4, 49, 50], which focus on building truly hierarchical       scene graphs of large, real environments in real-time, (ii) our
+representations, run offline and require several minutes to build   online algorithms achieve an accuracy comparable to batch
+a 3D scene graph ([4] even assumes the availability of a correct    offline methods, and (iii) our loop closure detection approach
+and complete metric-semantic mesh of the environment built          outperforms standard approaches based on bag-of-words and
+beforehand). Extending our prior works [49, 50] to operate          visual-feature matching in terms of quality and quantity of
+in real-time is non-trivial. These works utilize an Euclidean       detected loop closures. The source code of Hydra is publicly
+Signed Distance Function (ESDF) of the entire environment to        available at https://github.com/MIT-SPARK/Hydra.
+build the 3D scene graph. Unfortunately, the memory required
+for ESDFs scale poorly in the size of the environment [43].                              II. R ELATED W ORK
+Moreover, the extraction of places and rooms in [49, 50]
+involves batch algorithms that process the entire ESDF, whose       Metric-semantic and Hierarchical Mapping. The last few
+computational cost grows over time and is incompatible with         years have seen a surge of interest towards metric-semantic
+real-time operation. Finally, the ESDF is reconstructed from        mapping, simultaneously triggered by the maturity of tradi-
+the robot trajectory estimate which keeps changing in response      tional 3D reconstruction and SLAM techniques, and by the
+to loop closures. The approaches in [49, 50] would therefore        novel opportunities for semantic understanding afforded by
+need to rebuild the scene graph from scratch after every loop       deep learning. The literature has focused on both object-based
+closure, clashing with real-time operation.                         maps [10, 14, 41, 42, 53, 56] and dense maps, including
+   The main motivation of this paper is to overcome these           volumetric models [23, 38, 40], point clouds [6, 32, 61], and
+challenges and develop the first real-time Spatial Perception       3D meshes [48, 51]. Some approaches combine objects and
+System, a suite of algorithms and implementations to build a        dense map models [31, 39, 54, 68]. These approaches are not
+hierarchical 3D scene graph, such as the one pictured in Fig. 1,    concerned with estimating higher-level semantics (e.g., rooms)
+from sensor data in real-time.                                      and typically return dense models that might not be directly
+   Our first contribution is to develop real-time algorithms        amenable for navigation [44].
+to incrementally reconstruct the layers of a scene graph               A second research line focuses on building hierarchical map
+as the robot explores the environment. The proposed algo-           models. Hierarchical maps have been pervasive in robotics
+rithms reconstruct a local ESDF of the robot’s surroundings         since its inception [12, 28, 29, 62]. Early work focuses on 2D
+and incrementally convert the ESDF into a metric-semantic           maps and investigates the use of hierarchical maps to resolve
+3D mesh as well as a Generalized Voronoi Diagram, from              the apparent divide between metric and topological representa-
+which a topological graph of places can be quickly extracted.       tions [18, 52, 70]. More recently, 3D scene graphs have been
+This computation is incremental and runs in constant-time           proposed as expressive hierarchical models for 3D environ-
+regardless of the size of the environment. Our algorithms           ments. Armeni et al. [4] model the environment as a graph
+also perform a fast and scalable room segmentation using a          including low-level geometry (i.e., a metric-semantic mesh),
+community-detection inspired approach that clusters the graph       objects, rooms, and camera locations. Rosinol et al. [49, 50]
+of places into rooms in a matter of milliseconds.                   augment the model with a topological map of places, as well
+   Our second contribution is to investigate loop closure detec-    as a layer describing dynamic entities in the environment.
+tion and optimization in 3D scene graphs. We propose a novel        The approaches in [4, 49, 50] are designed for offline use.
+hierarchical approach for loop closure detection: the proposed      Other papers focus on reconstructing a graph of objects and
+approach involves (i) a top-down loop closure detection that        their relations [26, 63, 67]. Wu et al. [67] predict objects and
+uses hierarchical descriptors —capturing statistics across lay-     relations in real-time using a graph neural network. Izatt and
+ers in the scene graph— to find putative loop closures and (ii) a   Tedrake [25] parse objects and relations into a scene grammar
+bottom-up geometric verification that attempts estimating the       model using mixed-integer programming. Gothoskar et al. [22]
+loop closure pose by registering putative matches. Then, we         use an MCMC approach.
+propose the first algorithm to optimize a 3D scene graph in            A somewhat parallel research line investigates how to
+response to loop closures; our approach relies on embedded          parse the layout of a building from 2D or 3D data. A
+deformation graphs to simultaneously correct all layers of the      large body of work focuses on parsing 2D maps [9], in-
+scene graph, i.e., the 3D mesh, places, objects, and rooms.         cluding rule-based [27] and learning-based methods [34].
+   Our final contribution is to develop a real-time architecture    Friedman et al. [16] compute a Voronoi graph from a 2D
+and implementation, and demonstrate the resulting Spatial           occupancy grid, which is then labeled using a conditional
+Perception System on challenging simulated and real data.           random field. Recent work focuses on 3D data. Liu et al. [34]
+In particular, we propose a highly parallelized implementa-         and Stekovic et al. [57] project 3D point clouds to 2D
+maps, which however is not directly applicable to multi-story
+buildings. Furukawa et al. [17] reconstruct floor plans from
+images using multi-view stereo combined with a Manhattan                                                            δ
+World assumption. Lukierski et al. [37] use dense stereo from
+an omni-directional camera to fit cuboids to objects and rooms.
+Zheng et al. [71] detects rooms by performing region growing
+on a 3D metric-semantic model.
+   Loop Closures Detection and Optimization. Established                   (a) GVD and 3D Mesh                      (b) Room Detection
+approaches for visual loop closure detection in robotics trace      Fig. 2. (a) GVD (orange blocks) and mesh inside the active window. (b)
+back to place recognition and image retrieval techniques in         Room detection: connected components (in orange and red) in the subgraph
+computer vision; these approaches are broadly adopted in            of places induced by a dilation distance δ (walls are shown in gray, dilated
+                                                                    walls are dashed, places that disappear after dilation are in black).
+SLAM pipelines but are known to suffer from appearance
+and viewpoint changes [36]. Recent approaches investigate
+                                                                    subgraph of places (essentially, a topological map) where each
+place recognition using image sequences [20, 55] or deep
+                                                                    place is an obstacle-free location and an edge between places
+learning [3]. More related to our proposal is the set of papers
+                                                                    denotes straight-line traversability. Layer 4 is a subgraph of
+leveraging semantic information for loop closure detection.
+                                                                    rooms where each room has a centroid, and edges connect
+Gawel et al. [21] perform object-graph-based loop closure
+                                                                    adjacent rooms. Layer 5 is a building node connected to all
+detection using random-walk descriptors built from 2D im-
+                                                                    rooms (we assume the robot maps a single building). Edges
+ages. Liu et al. [35] use similar object-based descriptors but
+                                                                    connect nodes within each layer (e.g., to model traversability
+built from a 3D reconstruction. Lin et al. [33] adopt random-
+                                                                    between places or rooms) or across layers (e.g., to model that
+walk object-based descriptors and then compute loop closure
+                                                                    mesh vertices belong to an object, that an object is in a certain
+poses via object registration. Qin et al. [45] propose an
+                                                                    room, or that a room belongs to a building).
+object-based approach based on subgraph similarity matching.
+Zheng et al. [71] propose a room-level loop closure detector.          Next, we present an approach to construct Layers 1-3 (Sec-
+                                                                    tion III-A) and to segment places into rooms (Section III-B).
+   After a loop closure is detected, the map needs to be
+corrected accordingly. While this process is easy in sparse         A. Layers 1-3: Mesh, Objects, and Places
+(e.g., landmark-based) representations [11], it is non-trivial
+to perform in real-time when using dense representations.           Mesh and Objects. The real-time construction of the metric-
+Stückler and Behnke [58] and Whelan et al. [66] optimize            semantic 3D mesh (Layer 1 of the 3D scene graph) is an
+a map of surfels, to circumvent the need to correct structured      extension of Kimera [50], with small but important modifica-
+representations (e.g., meshes or voxels). Dai et al. [13] propose   tions. Kimera [50] uses Voxblox [43] to integrate semantically-
+reintegrating a volumetric map after each loop closure. Rei-        labeled point clouds into a Truncated Signed Distance Field
+jgwart et al. [47] correct drift in volumetric representations      (TSDF) and an ESDF of the environment, while also perform-
+by breaking the map into submaps that can be rigidly re-            ing Bayesian inference over the semantic label of each voxel.
+aligned after loop closures. Whelan et al. [65] propose a 2-step       Contrarily to Kimera [50] and building on the implemen-
+optimization that first corrects the robot trajectory and then      tation in [43], we spatially window the TSDF and ESDF and
+deforms the map (represented as a point cloud or a mesh) using      only form a volumetric model of the robot’s surroundings
+a deformation graph approach [59]. Rosinol et al. [50] unify        within a user-specified radius (8m in our implementation); the
+the two steps into a single pose graph and mesh optimiza-           radius is chosen to bound the amount of memory used by
+tion. None of these works is concerned with simultaneously          the ESDF. Within this “active window” we extract the 3D
+correcting multiple hierarchical representations.                   metric-semantic mesh using Voxblox’ marching cubes imple-
+                                                                    mentation and the places (as described in the next paragraph);
+              III. R EAL - TIME I NCREMENTAL                        as the mesh and places move outside the active window, they
+        3D S CENE G RAPH L AYERS C ONSTRUCTION                      are passed to the Scene Graph Frontend (Section IV). We also
+                                                                    modify the marching cubes algorithm to label the TSDF voxels
+This section describes how to construct the layers of a 3D          that correspond to zero-crossings (i.e., the voxels containing
+scene graph given an odometric estimate of the robot trajec-        a surface); we call these voxels “parents” and keep track of
+tory (e.g., from visual-inertial odometry). Then, Section IV        the corresponding mesh vertices. Then, for each ESDF voxel
+discusses how to correct the graph in response to loop closures.    –which already stores a distance to the closest obstacle– we
+   We focus on indoor environments and adopt the 3D scene           additionally keep track of which parent is closest to the voxel.
+graph model introduced in [49] and visualized in Fig. 1 and         When extracting the places from the ESDF we use the parents
+Fig. 6. In this model, Layer 1 is a metric-semantic 3D mesh.        to associate each place to the closest vertex in the 3D mesh.
+Layer 2 is a subgraph of objects and agents; each object has           After extracting the 3D mesh within the active window,
+a semantic label, a centroid, and a bounding box, while each        we segment objects (Layer 2 of the 3D scene graph) by
+agent is modeled by a pose graph describing its trajectory          performing Euclidean clustering of the 3D metric-semantic
+(in our case the robot itself is the only agent). Layer 3 is a      mesh vertices; in particular, we independently cluster vertices
+belonging to each semantic class. As in Kimera [50], the result               segments rooms directly from the sparse subgraph of places.
+of the Euclidean clustering is then used to estimate a centroid               The subgraph of places, that we denote as Gp , can be the one
+and bounding box for each putative object. During incremental                 produced by the approach in Section III-A, or the optimized
+operation, if a putative object overlaps2 with an existing object             one computed after loop closures, as described in Section IV.
+node of the same semantic class in the scene graph, we merge                     Our approach is based on two key insights. The first is that
+them together by adding new mesh vertices to the previous                     dilation operations on the voxel-based map help expose rooms
+object node; if the new object does not correspond to an                      in the environment: if we inflate obstacles, small apertures in
+existing object node it is added as a new node.                               the environment (i.e., doors) will gradually close, naturally
+   Places. Kimera [50] builds a monolithic ESDF of the                        partitioning the voxel-based map into disconnected compo-
+environment and then uses [44] to extract the places subgraph                 nents (i.e., rooms). The second insight is that each node in
+(Layer 3 in the 3D scene graph). We instead implement an                      our place subgraph Gp stores a distance to its closest obstacle
+approach that incrementally extracts the subgraph of places                   (Section III-A); therefore, dilation operations in the voxel-
+using a Generalized Voronoi Diagram (GVD, shown in Fig-                       based map can be directly mapped into topological changes in
+ure 2a) built on the fly during the ESDF integration. The GVD                 Gp . More precisely, if we dilate the map by a distance δ, every
+is the set of voxels that are equidistant to at least 2 obstacles             place with obstacle distance smaller than δ will disappear from
+(“basis points” or “parents”), and intuitively forms a skeleton               the graph (since it will no longer be in the free space). A
+of the environment [44]. We obtain the GVD as a byproduct                     visualization of this idea is given in Fig. 2b.
+of the ESDF integration inside the active window, following
+                                                                                 These insights motivate our approach for room detection.
+the approach in [30]. In particular, the voxels belonging to
+                                                                              We dilate the map by increasing distances δ (e.g., 10 dis-
+the GVD can be easily detected from the wavefronts of the
+                                                                              tances uniformly spaced in [0.45, 1.2]m). For each dilation
+brushfire algorithm used to update the ESDF.
+                                                                              distance, we prune the subgraph of places by discarding nodes
+   After the GVD of the active window is computed, we
+                                                                              with distance smaller than δ (and their edges); we call the
+incrementally sparsify the GVD into a subgraph of places by
+                                                                              pruned subgraph Gp,δ . We count the number of connected
+modifying the batch approach of [44]. Intuitively, we select
+                                                                              components in Gp,δ (intuitively, for a suitable choice of δ,
+a subset of GVD voxels to become places nodes and connect
+                                                                              the connected components will correspond to the rooms in
+them with edges to form the graph of places. After each update
+                                                                              the environment).3 Then we compute the median number of
+to the GVD, we iterate through each new voxel member of
+                                                                              connected components nr (to gain robustness to the choice
+the GVD with enough basis points (3 in our implementation)
+                                                                              of δ) and select the largest Gp,δ? that has nr connected
+to create a node or edge. Voxels are considered nodes if the
+                                                                              components. Finally, since Gp,δ? might miss some of the nodes
+new GVD voxel either has enough basis points (i.e., ≥ 4) or
+                                                                              in the original graph Gp , we assign these unlabeled nodes
+if the neighborhood of the voxel matches a template proposed
+                                                                              via a partially seeded clustering technique. In particular, we
+by [44] to identify corner voxels. To identify edges between
+                                                                              use a greedy modularity-based community detection approach
+nodes, we alternate between two phases. First, we label GVD
+                                                                              from [8] that involves iteratively attempting to assign each
+voxels with the nearest node ID via flood-fill, starting from
+                                                                              node in the graph to a community (i.e., a room) that would
+the labels produced from the previous ESDF integration to
+                                                                              result in the largest increase in modularity. We seed the initial
+generate a putative set of edges from all neighboring node IDs.
+                                                                              communities to be the detected connected components in Gp,δ?
+As a second phase, we split putative edges where the straight-
+                                                                              and only iterate through unlabeled nodes. This both produces
+line edge deviates too far from the GVD voxels connecting
+                                                                              qualitatively consistent results and scales significantly better
+the two nodes by inserting a new node at the GVD voxel with
+                                                                              than related techniques (e.g., spectral clustering is a popular
+the maximum deviation. During the first phase (flood-fill), we
+                                                                              method for clustering graphs but requires a more expensive
+also merge nearby nodes. After a fixed number of iterations
+                                                                              eigen-decomposition of the Laplacian of Gp ).
+of the two phases, we then add the identified edges to the
+sparse graph, and remove any disconnected nodes. Finally, we                     Our novel room detection method provides two advantages.
+add extra edges between disconnected components inside the                    First, reasoning over 3D free-space instead of a 2D occupancy
+active window to make the subgraph of places connected.                       grid (e.g., [27]) reduces the impact of clutter in the environ-
+                                                                              ment Second, the parameters for the method can be set to work
+B. Layer 4: Room Detection                                                    for a variety of environments (i.e., the two main parameters
+The room detection approach in Kimera [50] requires a                         are the minimum and maximum opening size between rooms).
+volumetric representation of the entire environment and makes                 At the same time, our room detection only reasons over the
+assumptions on the room geometry (e.g., ceiling height) that                  topology of the environment; as such it will fail to segment
+do not easily extend to arbitrary (and possibly multi-story)                  semantically distinct rooms in an open floor-plan.
+buildings. To resolve these issues, we present a novel ap-
+proach for constructing Layer 4 of the 3D scene graph that
+                                                                                 3 In practice, we combine the dilation and the connected component compu-
+  2 In practice, we consider two objects overlapping if the centroid of one   tation, i.e., we never explicitly compute the dilated subgraph and instead just
+object is contained in the other object’s bounding box, a proxy for spatial   prevent nodes and edges from being visited during the breadth-first search for
+overlap measures such as Intersection over Union (IoU).                       connected components if they fall below the distance threshold δ.
+    Top-Down Loop Closure Detection               Bottom-Up Geometric Verification        descriptor comparisons return a putative match, we perform
+    Places                                              Valid?          Yes               geometric verification; see Fig. 3 for a visual summary.
+   All Matches                                                                               Bottom-up Geometric Verification. After we have a pu-
+           Objects               Best Match            Objects             Loop-Closure   tative loop closure between our query and match agent nodes
+          All Matches                                    No                               (say i and j), we attempt to compute a relative pose between
+                        Vision   Best Match   Vision    Valid?          Yes               the two by performing a bottom-up geometric verification.
+                                                                                          In particular, whenever we have a match at a given layer
+Fig. 3. Loop closure detection (left) and geometric verification (right). To              (e.g., between appearance descriptors at the agent layer, or
+find a match, we “descend” the 3D scene graph layers, comparing descriptors.              between object descriptors at the object layer), we attempt
+We then “ascend” the 3D scene graph layers, attempting registration.
+                                                                                          to register frames i and j. For registering visual features
+   IV. P ERSISTENT R EPRESENTATIONS : L OOP C LOSURE                                      we use standard RANSAC-based geometric verification as
+      D ETECTION AND 3D S CENE G RAPH O PTIMIZATION                                       in [48]. If that fails, we attempt registering objects using
+                                                                                          TEASER++ [69], discarding loop closures that also fail ob-
+While the previous section describes how to incrementally                                 ject registration. This bottom-up approach has the advantage
+build the layers of an “odometric” 3D scene graph (the                                    that putative matches that fail appearance-based geometric
+layers are built from current odometry estimates), this section                           verification (e.g., due viewpoint or illumination changes) can
+describes how to detect loop closures (Section IV-A) and how                              successfully lead to valid loop closures during the object-
+to correct the scene graph after loop closures (Section IV-B).                            based geometric verification. Section VI indeed shows that
+A. Loop Closure Detection and Geometric Verification                                      the proposes hierarchical descriptors improve the quality and
+                                                                                          quantity of detected loop closures.
+We augment visual loop closure detection and geometric
+verification by using multiple layers in the scene graph.                                 B. 3D Scene Graph Optimization
+   Top-down Loop Closure Detection. The agent layer in                                    In order to correct the 3D scene graph in response to a loop
+the 3D scene graph stores a pose graph describing the robot                               closure, the Scene Graph Frontend “assembles” the outputs
+trajectory; we refer to these poses as the agent nodes. In our                            of the modules described in Section III into a single 3D
+implementation, we store a keyframe for each agent node,                                  scene graph, and then the Scene Graph Backend (i) optimizes
+from which appearance information can be extracted. Loop                                  the graph using a deformation graph approach and (ii) post-
+closure detection then aims at finding a past agent node that                             processes the results to remove redundant subgraphs corre-
+matches (i.e., observed the same portion of the scene seen by)                            sponding to the robot visiting the same location multiple times.
+the latest agent node (corresponding to the current robot pose).                             Scene Graph Frontend. The frontend builds an initial
+   For each agent node, we construct a hierarchy of descriptors                           estimate of the 3D scene graph that is uncorrected for drift.
+describing statistics of the node’s surroundings, from low-level                          More precisely, the frontend takes as input the result of the
+appearance to objects semantics and places geometry. The                                  modules described in Section III): the latest mesh, places
+descriptors are computed only once, when a new agent node                                 subgraph, objects, and pose graph of the agent (all windowed
+is instantiated. At the lowest level, our hierarchical descrip-                           to a radius around the current robot pose). The corresponding
+tors include standard DBoW2 appearance descriptors [19].                                  nodes and edges are incrementally added to the 3D scene
+We augment the appearance descriptor with an object-based                                 graph data structure (which stores the entire scene graph up
+descriptor and a place-based descriptor (computed from the                                to the current time). Then, the frontend populates inter-layer
+objects and places within a radius from the agent node). The                              edges from each object or agent node to the nearest place
+former is computed as the histogram of the object labels                                  node in the active window using nanoflann [7]. Finally, the
+in the node’s surroundings, intuitively describing the set of                             frontend computes a subsampled version of the mesh that will
+nearby objects. The latter is computed as the histogram of the                            be optimized in the deformation graph approach described
+distances associated to each place in the node surroundings,                              below. The subsampled mesh is computed via a octree-based
+intuitively describing the geometry of the map near the node.                             vertex clustering mesh simplification approach, resulting in a
+While computing the descriptors, we also keep track of the                                smaller subset of nodes (which we refer to as the mesh control
+IDs of the objects and places in the agent node’s surroundings,                           points) and edges representing connectivity between nodes.
+which are used for geometric verification.                                                   Scene Graph Backend. When a loop closure is detected,
+   For loop closure detection we compare the hierarchical                                 the backend optimizes an embedded deformation graph [59]
+descriptor of the current (query) node with all the past agent                            built from the frontend scene graph and then reconstructs the
+node descriptors, searching for a match. When performing                                  other nodes in the scene graph via interpolation as in [59]
+loop closure detection, we walk down the hierarchy of de-                                 (Fig. 4). More precisely, we form the deformation graph as
+scriptors (from places, to objects, to appearance descriptors).                           the subgraph of the 3D scene graph that includes (i) the
+In particular, when comparing the descriptors of two nodes, we                            agent layer, consisting of a pose graph that includes both
+compare the places descriptor and –if the descriptor distance                             odometry and loop closures edges, (ii) the mesh control points
+is below a threshold– we move on to comparing object                                      and the corresponding edges, and (iii) the minimum spanning
+descriptors and then appearance descriptors. If any of the                                tree of the places layer. By construction, these layers form
+ Rooms
+                                                                                                 V. T HINKING FAST AND S LOW:
+ Places
+                                                                                                  THE H YDRA A RCHITECTURE
+ Objects
+ and
+ Agents
+                                                                               We implement our Spatial Perception System into a highly
+ Metric-                                                                       parallelized architecture, named Hydra. Hydra involves a
+ Semantic
+ 3D Mesh                                                                       combination of processes that run at sensor rate (e.g., feature
+           (a) Loop closure detection               (b) Optimization           tracking for visual-inertial odometry), at sub-second rate (e.g.,
+                                         Rooms                                 mesh and place reconstruction), and at slower rates (e.g., the
+  Places                                                                       scene graph optimization, whose complexity depends on the
+                                         Places                                map size). Therefore these processes have to be organized
+  Objects
+  and                                    Objects
+                                                                               such that slow-but-infrequent computation (e.g., scene graph
+  Agents                                 and                                   optimization) does not get in the way of faster processes.
+                                         Agents
+  Metric-
+                                                                                  We visualize Hydra in Fig 5. Each block in the figure
+                                         Metric-
+  Semantic
+                                         Semantic
+                                                                               denotes an algorithmic module matching the discussion in
+  3D Mesh                                3D Mesh                               the previous sections. Hydra starts with fast early perception
+            (c) Interpolation                     (d) Reconciliation           processes (Fig 5, left), which perform low-level perception
+Fig. 4. Loop closure detection and optimization: (a) after a loop closure is   tasks such as feature detection and tracking (at frame-rate),
+detected, (b) we extract and optimize a subgraph of the 3D scene graph –the    2D semantic segmentation, and stereo-depth reconstruction
+deformation graph– that includes the agent poses, the places, and a subset
+of the mesh vertices. (c) We then we reconstruct the rest of the graph via     (at keyframe rate). The result of early perception processes
+interpolation as in [59], and (d) reconcile overlapping nodes.                 are passed to mid-level perception processes (Fig 5, center).
+                                                                               These include algorithms that incrementally construct (an
+                                                                               odometric version of) the agent layer (e.g., the visual-inertial
+a connected subgraph via the inter-layer edges added by the
+                                                                               odometry backend), the mesh and places layers, and the object
+frontend. The choice of using the minimum spanning tree of
+                                                                               layer. Mid-level perception also includes the scene graph
+places is mostly motivated by computational reasons: the use
+                                                                               frontend, which collects the result of the other modules into an
+of the spanning tree preserves the sparsity of the graph.
+                                                                               “unoptimized” scene graph. Finally, the high-level perception
+                                                                               processes perform loop closure detection, execute scene graph
+   The embedded deformation graph approach associates a
+                                                                               backend optimization, and perform room detection.4 This
+local frame (i.e., a pose) to each node in the deformation graph
+                                                                               results in a globally consistent, persistent 3D scene graph.
+and then solves an optimization problem to adjust the local
+                                                                                  Hydra runs in real-time on a multi-core CPU; the only
+frames in a way that minimizes deformations associated to
+                                                                               module that relies on GPU computing is the 2D semantic seg-
+each edge (including loop closures). In hindsight, this step
+                                                                               mentation, which uses a standard off-the-shelf deep network.
+transforms a subset of the 3D scene graph into a factor
+                                                                               Running on CPU has the advantage of (i) leaving the GPU to
+graph [11], where edge potentials need to be minimized. We
+                                                                               learning-oriented components, and (ii) being compatible with
+refer the reader to [59] for the details about the optimization
+                                                                               the power limitations imposed by current mobile robots.
+and note that we use the reformulation of the deformation
+graph with rigid transforms from [50] (instead of affine as                                               VI. E XPERIMENTS
+in [59]) to obtain a standard pose graph optimization problem
+that is amenable to off-the-shelf solvers. In particular, we use               This section shows that Hydra builds 3D scene graphs in real-
+the Graduated Non-Convexity (GNC) solver in GTSAM [2],                         time with an accuracy comparable to batch offline methods.
+which is also able to reject incorrect loop closures as outliers.              A. Experimental Setup
+
+   Once the optimization is finished, the place nodes are up-                  Datasets. We utilize two datasets for our experiments: uHu-
+dated with their new positions and the full mesh is interpolated               mans2 (uH2) [50] and SidPac. The uH2 dataset is a Unity-
+based on the deformation graph approach in [59]. We then                       based simulated dataset [50] that includes three scenes: a
+recompute the object centroids and bounding boxes from the                     small apartment, an office, and a subway station. The dataset
+position of the corresponding vertices in the newly deformed                   provides visual-inertial data as well as ground-truth depth and
+mesh. During this update, overlapping nodes are also merged:                   2D semantic segmentation. The dataset also provides ground
+for places nodes, we merge nodes within a distance threshold                   truth robot trajectories that we use for benchmarking purposes.
+(0.4m in our implementation); for object nodes we merge                           The SidPac dataset is a real dataset collected in a graduate
+nodes if the corresponding objects have the same semantic                      student housing building using a visual-inertial hand-held de-
+label and if one of nodes is contained inside the bounding box                 vice. We used a Kinect Azure camera as the primary collection
+of the other node. We maintain a version of the scene graph                    device with an Intel RealSense T265 rigidly attached to the
+where the nodes are not merged; this enables undoing wrong                     Kinect to provide external odometry input. The dataset consists
+loop closures if an accepted loop closure is deemed to be an                   of two separate recordings. The first recording covers two
+outlier by GNC later on. Finally, we re-detect rooms from the                    4 While room detection can be performed quickly, it still operates on the
+merged places using the approach described in Section III.                     entire graph, hence it is more suitable as a slow high-level perception process.
+          HYDRA      LOW-LEVEL (EARLY) PERCEPTION           MID-LEVEL PERCEPTION                                              HIGH-LEVEL PERCEPTION
+                      - latency: sensor rate                - latency: 5-10Hz                                                 - latency: grows with map size
+                      - inference over latest sensor data   - inference over a short time horizon                             - persistent representation
+
+                                        Depth                    Metric-semantic 3D                       3D object                3D scene graph
+                                    reconstruction               mesh construction 3                      detection                   backend
+                                                                                                                       4                            7
+                                                                  Places subgraph
+       Images                       2D semantic                                                                                                          Room
+                                                                    construction      3
+                                    segmentation                                                        3D scene graph                                  Detection 7
+                                                                                                           frontend    5
+                                    Visual-inertial            Visual-inertial odometry                                             Loop Closure
+      IMU Data                    odometry frontend                    backend                                                        Detection     6
+                                                      1                                   2
+
+
+
+Fig. 5. Hydra’s functional blocks. We conceptualize three different functional block groupings: low-level perception, mid-level perception, and high-level
+perception in order of increasing latency. Each functional block is labeled with a number that identifies the “logical” thread that the module belongs to.
+
+floors of the building (Floors 1 & 3), where we walked through
+a common room, a music room, and a recreation room on
+the first floor of the graduate residence, went up a stairwell,
+through a long corridor as well as a student apartment on
+the third floor, then finally down another stairwell to revisit
+the music room and the common room, ending where we
+started. The second recording also covers two floors (Floors 3
+& 4), where we map student apartments as well as lounge
+and kitchen areas which are duplicated across both floors.
+These scenes are particularly challenging given the scale of the
+scenes (average traversal of around 400 meters), the prevalence
+of glass and strong sunlight in regions of the scenes (causing
+partial depth estimates from the Kinect), and feature-poor
+regions in hallways. We obtain a proxy for the ground-truth
+trajectory for both SidPac datasets via a hand-tuned pose graph
+optimization with additional height priors, to reduce drift and
+qualitatively match the building floor plans.
+                                                                                              Fig. 6.   3D scene graph created by Hydra in the uH2 Office dataset.
+   Hydra. For the real datasets, we use the depth reconstruc-
+tion from the Kinect (cf. Fig. 5) and we use HRNet [64] for                          Trajectory”) uses ground-truth poses to incrementally con-
+2D semantic segmentation, using the pre-trained model from                           struct the scene graph. The second and third configurations
+the MIT Scene Parsing challenge [72]. While newer and more                           (“VIO+V-LC” and “VIO+SG-LC” respectively) use visual-
+performant networks exist (e.g., [5, 15, 24]), few had pre-                          inertial odometry (VIO) for odometry estimation and then use
+trained semantic segmentation models for ADE20k [72] and                             vision-based loop closures (VIO+V-LC) or the proposed scene
+were compatible with our inference toolchain (ONNX and                               graph loop closures (VIO+SG-LC). For the objects and places
+TensorRT). For the simulated datasets, we use the provided                           evaluation, we consider the batch scene graph constructed from
+depth and segmentations. For both simulated and real datasets                        ground-truth poses using [50] as the ground-truth scene graph.
+we use Kimera-VIO [48] for visual-inertial odometry, and in                             For the object layer, we report two metrics: the percentage
+the real scenes we fuse the Kimera-VIO estimates with the                            of objects in the ground-truth scene graph that have an
+output of the RealSense T265 to improve the quality of the                           estimated object with the correct semantic label within a
+odometric trajectory. All the remaining blocks in Fig. 5 are                         specified radius (“% Found”) and the percentage of objects
+implemented in C++, following the approach described in this                         in the estimated scene graph that have a ground-truth object
+paper. In the experiments we use a workstation with an AMD                           with the correct semantic label within a specified radius (“%
+Ryzen9 3960X with 24 cores and two Nvidia GTX3080s,                                  Correct”).5 For the places layer, we measure the mean distance
+though we also report timing results on an embedded computer                         of an estimated place node to the nearest voxel in the ground-
+(Nvidia Xavier NX) at the end of this section.                                       truth GVD (“Position Error”).
+                                                                                        We note some important trends in Fig. 7. First, when
+B. Results and Ablation Study
+                                                                                     using GT-Trajectory, Hydra’s performance is close to the
+We present an extensive evaluation of the accuracy and runtime                       ground-truth scene graph (80-100% found and correct objects,
+of our real-time approach against the batch offline scene graph
+construction approach from [50].                                                       5 As distance thresholds, we use 0.2m for the apartment scene, 0.3m for
+
+   Accuracy Evaluation: Objects and Places. Fig. 7 eval-                             the office scene, 4m for the subway scene, 0.9m for floors 1&3 of SidPac
+                                                                                     and 1.4m for floors 3&4 of SidPac. These thresholds were chosen to roughly
+uates the object and place layers by comparing three dif-                            correspond to the mean Absolute Trajectory Error (ATE) for each scene, in
+ferent configurations of Hydra. The first configuration (“GT-                        order to normalize the metrics according to the environment size.
+                                          Hydra (GT-Trajectory)               Hydra (VIO + SG-LC)                                                   Hydra (VIO + V-LC)
+                                                                                                                                                                                                                                2.0
+                            100                                                                                                           100
+
+
+
+
+                                                                                                               Objects: Percent Correct
+   Objects: Percent Found
+
+
+
+
+                                                                                                                                                                                                     Places: Position Err [m]
+                             80                                                                                                            80                                                                                   1.5
+
+                             60                                                                                                            60
+                                                                                                                                                                                                                                1.0
+                             40                                                                                                            40
+
+                                                                                                                                                                                                                                0.5
+                             20                                                                                                            20
+
+
+                              0                                                                                                             0                                                                                   0.0
+                                  Apartment     Office    Subway     Floor 1-3 Floor 3-4                                                        Apartment    Office   Subway   Floor 1-3 Floor 3-4                                    Apartment   Office   Subway   Floor 1-3 Floor 3-4
+                                     uH2         uH2        uH2       SidPac    SidPac                                                             uH2        uH2       uH2     SidPac    SidPac                                         uH2       uH2       uH2     SidPac    SidPac
+
+
+Fig. 7.                           Accuracy of the objects and places estimated by Hydra. Each plot reports the mean across 5 trials along with the standard deviation as an error bar.
+
+                                  Hydra (GT-Trajectory)       Hydra (VIO + SG-LC)                           Hydra (VIO + V-LC)                               Kimera      where Re is the set of estimated rooms, Rg is the set of
+                                                                                                                                                                         ground-truth rooms, and |·| returns the cardinality of a set;
+                     0.8                                                                    0.8                                                                          here, each room re (or rg ) is defined as a set of free-space
+                                                                                                                                                                         voxels. We hand-label the ground-truth rooms Rg from the
+ Rooms: Precision
+
+
+
+
+                                                                            Rooms: Recall
+
+
+
+
+                     0.6                                                                    0.6
+                                                                                                                                                                         ground-truth reconstruction of the environment. In particular,
+                     0.4                                                                    0.4                                                                          we manually define sets of bounding boxes for each room
+                                                                                                                                                                         and assign a unique (ground-truth) label to the free-space
+                     0.2                                                                    0.2
+                                                                                                                                                                         voxels falling within each room. For the estimated rooms Re ,
+                     0.0                                                                    0.0
+                                                                                                                                                                         we derive the free-space voxels from the places comprising
+                             Apartment Office   Subway Floor 1-3Floor 3-4                         Apartment Office                        Subway Floor 1-3Floor 3-4
+                                uH2     uH2      uH2    SidPac SidPac                                uH2     uH2                           uH2    SidPac SidPac          each estimated room. In eq. (1), Precision then measures the
+                                                                                                                                                                         maximum overlap in voxels with a ground-truth room for
+Fig. 8. Room detection accuracy of Hydra versus Kimera [50]. Each plot
+reports the mean across 5 trials along with the standard deviation as an error                                                                                           every estimated room, and Recall measures the maximum
+bar except Kimera, for which one trial is shown (due to its slower runtime).                                                                                             overlap in voxels with an estimated room for every ground-
+                                                                                                                                                                         truth room. Intuitively, low precision corresponds to under-
+sub-25cm places position error). This demonstrates that –                                                                                                                segmentation, i.e., fewer and larger room estimates, and low
+given the trajectory– the real-time scene graph from Hydra                                                                                                               recall corresponds to over-segmentation, i.e., more and smaller
+is comparableto the batch and offline approaches at the state                                                                                                            room estimates. For benchmarking purposes, we also include
+of the art. Second, VIO+V-LC and VIO+SG-LC maintain                                                                                                                      the approach in [50] (Kimera) as a baseline for evaluation.
+reasonable levels of accuracy for the objects and places
+                                                                                                                                                                            Fig. 8 shows that while Kimera [50] estimates a room
+and attain comparable performance in small to medium-sized
+                                                                                                                                                                         segmentation with similar precision and recall to Hydra (GT-
+scenes (e.g., Apartment, Office). In these scenes, the drift
+                                                                                                                                                                         Trajectory) for the Office scene (the only single-floor scene),
+is small and the loop closure strategy does not radically
+                                                                                                                                                                         Hydra excels in multi-floor environments. For the split-level
+impact performance (differences are within standard deviation,
+                                                                                                                                                                         Apartment scene, we achieve significantly higher precision
+shown as black confidence bars). However, in larger scenes
+                                                                                                                                                                         and recall as compared to Kimera. For SidPac Floor 3-4, the
+(e.g., SidPac) loop closures are more important and VIO+SG-
+                                                                                                                                                                         difference is particularly dramatic, where the Kimera achieves
+LC substantially outperforms VIO+V-LC in terms of object
+                                                                                                                                                                         0.88 precision but only 0.06 recall, as it only is able to
+accuracy. Importantly, using VIO+SG-LC typically leads to a
+                                                                                                                                                                         segment 2 of 10 ground-truth rooms. In general, our approach
+reduction in the standard deviation of the results, confirming
+                                                                                                                                                                         estimates a room segmentation with consistent precision and
+that the proposed approach for scene graph loop closure
+                                                                                                                                                                         recall (if slightly over-segmented), while Kimera oscillates
+detection leads to more reliable loop closure results (more
+                                                                                                                                                                         between either low-precision and high-recall estimates (i.e.,
+details and ablations below). The place positions errors remain
+                                                                                                                                                                         extreme under-segmentation), or high-precision and low-recall
+similar for both VIO+SG-LC and VIO+V-LC and are larger in
+                                                                                                                                                                         estimates (i.e., where it fails to segment most of the rooms).
+the subway dataset, which includes larger open-spaces with
+                                                                                                                                                                         These differences stem from the difficulty of setting an ap-
+more distant nodes in the subgraph of places.
+                                                                                                                                                                         propriate height to attempt to segment rooms at for Kimera.
+   Accuracy Evaluation: Rooms. Fig. 8 evaluates the room                                                                                                                 Finally, it is worth noting that our room segmentation approach
+detection performance, using the precision and recall metrics                                                                                                            is able to mostly maintain the same levels of precision and
+defined in [9] (here we compute precision and recall over 3D                                                                                                             recall for VIO+SG-LC and VIO+V-LC despite drift.
+voxels instead of 2D pixels). More formally, these metrics are:
+                                                                                                                                                                            Runtime Evaluation. Fig. 9 reports the runtime of Hydra
+                                                      1 X                 |rg ∩ re |                                                                                     versus the batch approach in [50]. This plot shows that the
+                                         Precision =               max
+                                                     |Re |        r g ∈Rg    |re |                                                                                       runtime of the batch approach increases over time and takes
+                                                           re ∈Re
+                                                                                                                                                                (1)      more than 40 seconds to generate the entire scene graph for
+                                                      1     X             |re ∩ rg |
+                                            Recall =               max                                                                                                   moderate scene sizes; as we mentioned, most processes in
+                                                     |Rg |        re ∈Re     |rg |                                                                                       the batch approach [50] entail processing the entire ESDF
+                                                                       rg ∈Rg
+                      40                                                                                                    SG-LC          V-LC (Permissive)                       V-LC (Nominal)
+                                                                                                               300                                                           300
+                                             Hydra Mid-Level
+                                             Hydra High-Level
+   Elapsed Time [s]
+
+
+                      30                                                                                       250                                                           250
+                                             Kimera
+
+
+
+
+                                                                                             Number Detected
+
+
+
+
+                                                                                                                                                           Number Detected
+                                                                                                               200                                                           200
+                      20
+                                                                                                               150                                                           150
+
+                      10
+                                                                                                               100                                                           100
+
+                                                                                                               50                                                            50
+                      0
+                            0       200     400     600     800      1000     1200   1400                       0                                                             0
+                                                     Timestamp [s]                                                   10−3   10−2    10−1     100     101                               10−1       100      101     102
+                                                                                                                             Translation Error [m]                                            Rotation Error [°]
+Fig. 9. Runtime required for scene graph construction vs. timestamp for the
+                                                                                             Fig. 10. Number of detected loop closures versus error of the estimated
+SidPac Floor 1-3 dataset for a batch approach (Kimera) and for the proposed
+                                                                                             loop closure pose for three different loop closure detection configurations.
+incremental approach (Hydra). For timing of the low-level processes in Hydra,
+                                                                                             Five individual trials and a trend-line are shown for each configuration.
+we refer the reader to the analysis in [50], as we also rely on Kimera-VIO.
+
+                                                                  Layer                      our hierarchical loop closure detection approach, and compare
+                                             Objects [ms]       Places [ms]    Rooms [ms]
+                                                                                             it against traditional vision-based approaches on the Office
+                                                                                             scene. In particular, we compare our approach against a vision-
+                                Apartment    32.4 ± 12.9        5.3 ± 1.4       4.4 ± 2.1
+                      uH2       Office       24.1 ± 12.8        8.1 ± 1.3      19.0 ± 12.3
+                                                                                             based loop closure detection that uses DBoW2 for place
+                                Subway        9.8 ± 9.3         5.9 ± 0.7      16.5 ± 10.6   recognition and ORB feature matching, as described in [50].
+                                Floor 1-3    50.4 ± 30.3        3.4 ± 1.0      11.4 ± 14.4      Fig. 10 shows the number of detected loop closures against
+                       SP
+                                Floor 3-4    75.3 ± 37.0        4.2 ± 2.1      15.0 ± 14.6   the error of the registered solution (i.e., the relative pose
+                                                    TABLE I
+                                                                                             between query and match computed by the geometric ver-
+                                          H YDRA : TIMING BREAKDOWN                          ification) for three different loop closure configurations: (i)
+                                                                                             “SG-LC”: the proposed scene graph loop closure detection, (ii)
+(e.g., place extraction and room detection), inducing a linear                               “V-LC (Nominal)”: a traditional vision-based loop closure de-
+increase in the runtime as the ESDF grows. On the other                                      tection with nominal parameters (same as Fig. 7), and (iii) “V-
+hand, our scene graph frontend (Hydra Mid-Level in Fig. 9)                                   LC (Permissive)”: a vision-based loop closure detection with
+has a fixed computation cost. In Fig. 9, a slight upward                                     more permissive parameters (i.e., a decreased score threshold
+trend is observable for Hydra High-Level, driven by room                                     and less restrictive geometric verification settings). We report
+detection and scene graph optimization computation costs,                                    key parameters used in this evaluation in the appendix. As
+though remaining much lower than batch processing. Notice-                                   expected, making the vision-based detection parameters more
+able spikes in the runtime for Hydra High-Level (e.g., at 1400                               permissive leads to more but lower-quality loop closures. On
+seconds) correspond to the execution of the 3D scene graph                                   the other hand, the scene graph loop closure approach pro-
+optimization when new loop closures are added.                                               duces approximately twice as many loop closures within 10cm
+   Table I reports timing breakdown for the incremental cre-                                 of error and 1 degree of error as the permissive vision-based
+ation of each layer across scenes for a single trial. The object                             approach. The proposed approach produces quantitatively and
+layer runtime is determined by the number of mesh vertices in                                quantitatively better loop closures compared to both baselines.
+the active window with object semantic class; hence the SidPac
+scenes have a higher computation cost than the other scenes.                                                                                 VII. C ONCLUSIONS
+The room layer runtime is determined by the number of places                                 This paper introduces Hydra, a real-time Spatial Perception
+(a combination of how complicated and large the scene is);                                   System that builds a 3D scene graph from sensor data in real-
+this is why the Office has the largest computation cost for the                              time. Hydra runs at sensor rate thanks to the combination of
+rooms despite being smaller than the SidPac scenes.                                          novel online algorithms and a highly parallelized perception
+   While the timing results in Table I are obtained with a                                   architecture. Moreover, it allows building a persistent repre-
+relatively powerful workstation, here we restate that Hydra                                  sentation of the environment thanks to a novel approach for
+can run in real-time on embedded computers commonly used                                     3D scene graph optimization. While we believe the proposed
+in robotics applications. Towards this goal, we also measure                                 approach constitutes a substantial step towards high-level 3D
+timing statistics on an Nvidia Xavier NX for the uHumans2                                    scene understanding for robotics, Hydra can be improved in
+Office scene. Hydra processes the objects in 75 ± 35 ms, the                                 many directions. First, some nodes in the reconstructed 3D
+places in 33 ± 6 ms and rooms in 55 ± 41 ms. Note that                                       scene graph are unlabeled (e.g., the algorithms in this paper
+our target “real-time” rate for these layers is keyframe rate                                are able to detect rooms, but are unable to label a given
+(5 Hz). While there is still margin to optimize computation                                  room as a “kitchen” or a “bedroom”); future work includes
+(see conclusions), these initial results stress the practicality                             bridging Hydra with learning-based methods for 3D scene
+and real-time capability of Hydra in building 3D scene graphs.                               graph node labeling [60]. Second, it would be interesting to
+   Loop Closure Ablation Study. Finally, we take a closer                                    label nodes and edges of the 3D scene graph with a richer
+look at the quality of the loop closures candidates proposed by                              set of relations and affordances, building on [67]. Third, the
+connections between our scene graph optimization approach           [8] Vincent D Blondel, Jean-Loup Guillaume, Renaud Lam-
+and pose graph optimization offer opportunities to improve the          biotte, and Etienne Lefebvre. Fast unfolding of commu-
+efficiency of the optimization by leveraging recent advances            nities in large networks. Journal of statistical mechanics:
+in pose graph sparsification. Finally, the implications of using        theory and experiment, 2008(10):P10008, 2008.
+3D scene graphs for prediction, planning, and decision-making       [9] Richard Bormann, Florian Jordan, Wenzhe Li, Joshua
+are mostly unexplored (see [1, 46] for early examples), which           Hampp, and Martin H agele.           Room segmentation:
+opens further avenues for future work.                                  Survey, implementation, and analysis. In 2016 IEEE
+                                                                        International Conference on Robotics and Automation
+                         D ISCLAIMER                                    (ICRA), pages 1019–1026, 2016. doi: 10.1109/ICRA.
+                                                                        2016.7487234.
+Research was sponsored by the United States Air Force              [10] S.L. Bowman, N. Atanasov, K. Daniilidis, and G.J. Pap-
+Research Laboratory and the United States Air Force Artificial          pas. Probabilistic data association for semantic SLAM.
+Intelligence Accelerator and was accomplished under Cooper-             In IEEE Intl. Conf. on Robotics and Automation (ICRA),
+ative Agreement Number FA8750-19-2-1000. The views and                  pages 1722–1729, 2017.
+conclusions contained in this document are those of the authors    [11] C. Cadena, L. Carlone, H. Carrillo, Y. Latif, D. Scara-
+and should not be interpreted as representing the official              muzza, J. Neira, I. Reid, and J.J. Leonard. Past, present,
+policies, either expressed or implied, of the United States             and future of simultaneous localization and mapping:
+Air Force or the U.S. Government. The U.S. Government is                Toward the robust-perception age. IEEE Trans. Robotics,
+authorized to reproduce and distribute reprints for Government          32(6):1309–1332, 2016. ISSN 1552-3098. doi: 10.1109/
+purposes notwithstanding any copyright notation herein.                 TRO.2016.2624754. arxiv preprint: 1606.05830, (pdf).
+                                                                   [12] R. Chatila and J.-P. Laumond. Position referencing and
+                    ACKNOWLEDGMENTS                                     consistent world modeling for mobile robots. In IEEE
+This work was partially funded by the AIA CRA FA8750-                   Intl. Conf. on Robotics and Automation (ICRA), pages
+19-2-1000, ARL DCIST CRA W911NF-17-2-0181, and ONR                      138–145, 1985.
+RAIDER N00014-18-1-2828.                                           [13] Angela Dai, Matthias Nießner, Michael Zollhöfer,
+                                                                        Shahram Izadi, and Christian Theobalt. Bundlefusion:
+                        R EFERENCES                                     Real-time globally consistent 3d reconstruction using
+                                                                        on-the-fly surface reintegration. ACM Transactions on
+ [1] C. Agia, J. Krishna Murthyand M. Khodeir, O. Miksik,               Graphics (ToG), 36(4):1, 2017.
+     V. Vineet, M. Mukadam, L. Paull, and F. Shkurti. Taskog-      [14] J. Dong, X. Fei, and S. Soatto. Visual-Inertial-Semantic
+     raphy: Evalutation robot task planning over large 3D               scene representation for 3D object detection. In IEEE
+     scene graphs. In Conference on Robot Learning (CoRL),              Conf. on Computer Vision and Pattern Recognition
+     2021.                                                              (CVPR), 2017.
+ [2] P. Antonante, V. Tzoumas, H. Yang, and L. Carlone.            [15] Xiaoyi Dong, Jianmin Bao, Dongdong Chen, Weiming
+     Outlier-robust estimation: Hardness, minimally tuned al-           Zhang, Nenghai Yu, Lu Yuan, Dong Chen, and Baining
+     gorithms, and applications. IEEE Trans. Robotics, 38(1):           Guo. Cswin transformer: A general vision transformer
+     281–301, 2021. (pdf).                                              backbone with cross-shaped windows, 2021.
+ [3] R. Arandjelovic, P. Gronat, A. Torii, T. Pajdla, and          [16] Stephen Friedman, Hanna Pasula, and Dieter Fox.
+     J. Sivic. NetVLAD: CNN architecture for weakly su-                 Voronoi random fields: Extracting the topological struc-
+     pervised place recognition. In IEEE Conf. on Computer              ture of indoor environments via place labeling. In Intl.
+     Vision and Pattern Recognition (CVPR), pages 5297–                 Joint Conf. on AI (IJCAI), page 2109–2114, San Fran-
+     5307, 2016.                                                        cisco, CA, USA, 2007. Morgan Kaufmann Publishers
+ [4] I. Armeni, Z. He, J. Gwak, A. Zamir, M. Fischer,                   Inc.
+     J. Malik, and S. Savarese. 3D scene graph: A structure for    [17] Y. Furukawa, B. Curless, S. M. Seitz, and R. Szeliski.
+     unified semantics, 3D space, and camera. In Intl. Conf.            Reconstructing building interiors from images. In Intl.
+     on Computer Vision (ICCV), pages 5664–5673, 2019.                  Conf. on Computer Vision (ICCV), 2009.
+ [5] Hangbo Bao, Li Dong, and Furu Wei. Beit: Bert pre-            [18] C. Galindo, A. Saffiotti, S. Coradeschi, P. Buschka, J.A.
+     training of image transformers, 2021.                              Fernández-Madrigal, and J. González. Multi-hierarchical
+ [6] J. Behley, M. Garbade, A. Milioto, J. Quenzel, S. Behnke,          semantic maps for mobile robotics. In IEEE/RSJ Intl.
+     C. Stachniss, and J. Gall. SemanticKITTI: A Dataset for            Conf. on Intelligent Robots and Systems (IROS), pages
+     Semantic Scene Understanding of LiDAR Sequences. In                3492–3497, 2005.
+     Intl. Conf. on Computer Vision (ICCV), 2019.                  [19] Dorian Gálvez-López and J. D. Tardós. Bags of binary
+ [7] Jose Luis Blanco and Pranjal Kumar Rai. nanoflann:                 words for fast place recognition in image sequences.
+     a C++ header-only fork of FLANN, a library for near-               IEEE Transactions on Robotics, 28(5):1188–1197, Oc-
+     est neighbor (NN) with kd-trees. https://github.com/               tober 2012. ISSN 1552-3098. doi: 10.1109/TRO.2012.
+     jlblancoc/nanoflann, 2014.                                         2197158.
+[20] Sourav Garg and Michael Milford. Seqnet: Learning                  Automation Letters, 6(4):7041–7048, 2021. doi: 10.1109/
+     descriptors for sequence-based hierarchical place recog-           LRA.2021.3097242.
+     nition. IEEE Robotics and Automation Letters, 6(3):           [34] Chen Liu, Jiaye Wu, and Yasutaka Furukawa. FloorNet:
+     4305–4312, 2021. doi: 10.1109/LRA.2021.3067633.                    A unified framework for floorplan reconstruction from
+[21] Abel Gawel, Carlo Del Don, Roland Siegwart, Juan                   3d scans. In Proceedings of the European Conference
+     Nieto, and Cesar Cadena. X-view: Graph-based semantic              on Computer Vision (ECCV), September 2018.
+     multi-view localization. IEEE Robotics and Automation         [35] Yu Liu, Yvan Petillot, David Lane, and Sen Wang.
+     Letters, 3(3):1687–1694, 2018. doi: 10.1109/LRA.2018.              Global Localization with Object-Level Semantics and
+     2801879.                                                           Topology. In 2019 International Conference on Robotics
+[22] N. Gothoskar, M. Cusumano-Towner, B. Zinberg,                      and Automation (ICRA), pages 4909–4915, May 2019.
+     M. Ghavamizadeh, F. Pollok, A. Garrett, J.B. Tenen-                doi: 10.1109/ICRA.2019.8794475. ISSN: 2577-087X.
+     baum, D. Gutfreund, and V.K. Mansinghka. 3DP3: 3D             [36] S. Lowry, N. Sünderhauf, P. Newman, J. Leonard,
+     scene perception via probabilistic programming. In ArXiv           D. Cox, P. Corke, and M. Milford. Visual place recogni-
+     preprint: 2111.00312, 2021.                                        tion: A survey. IEEE Trans. Robotics, 32(1):1–19, 2016.
+[23] M. Grinvald, F. Furrer, T. Novkovic, J. J. Chung, C. Ca-      [37] R. Lukierski, S. Leutenegger, and A. J. Davison. Room
+     dena, R. Siegwart, and J. Nieto. Volumetric Instance-              layout estimation from rapid omnidirectional exploration.
+     Aware Semantic Mapping and 3D Object Discovery.                    In IEEE Intl. Conf. on Robotics and Automation (ICRA),
+     IEEE Robotics and Automation Letters, 4(3):3037–3044,              pages 6315–6322, 2017.
+     2019.                                                         [38] J. McCormac, A. Handa, A. J. Davison, and S. Leuteneg-
+[24] Shihua Huang, Zhichao Lu, Ran Cheng, and Cheng He.                 ger. SemanticFusion: Dense 3D Semantic Mapping with
+     FaPN: Feature-aligned pyramid network for dense image              Convolutional Neural Networks. In IEEE Intl. Conf. on
+     prediction. In International Conference on Computer                Robotics and Automation (ICRA), 2017.
+     Vision (ICCV), 2021.                                          [39] J. McCormac, R. Clark, M. Bloesch, A.J. Davison,
+[25] Gregory Izatt and Russ Tedrake. Scene understanding                and S. Leutenegger. Fusion++: Volumetric object-level
+     and distribution modeling with mixed-integer scene pars-           SLAM. In Intl. Conf. on 3D Vision (3DV), pages 32–41,
+     ing. In technical report (under review), 2021.                     2018.
+[26] U. Kim, J. Park, T. Song, and J. Kim. 3-D scene               [40] G. Narita, T. Seno, T. Ishikawa, and Y. Kaji. Panopticfu-
+     graph: A sparse and semantic representation of physical            sion: Online volumetric semantic mapping at the level of
+     environments for intelligent agents. IEEE Trans. Cybern.,          stuff and things. In IEEE/RSJ Intl. Conf. on Intelligent
+     PP:1–13, Aug. 2019.                                                Robots and Systems (IROS), 2019.
+[27] Alexander Kleiner, Rodrigo Baravalle, Andreas Kolling,        [41] L. Nicholson, M. Milford, and N. Sünderhauf. Quadric-
+     Pablo Pilotti, and Mario Munich. A solution to room-               SLAM: Dual quadrics from object detections as land-
+     by-room coverage for autonomous cleaning robots. In                marks in object-oriented SLAM. IEEE Robotics and
+     2017 IEEE/RSJ International Conference on Intelligent              Automation Letters, 4:1–8, 2018.
+     Robots and Systems (IROS), pages 5346–5352, 2017. doi:        [42] Kyel Ok, Katherine Liu, and Nicholas Roy. Hierarchical
+     10.1109/IROS.2017.8206429.                                         object map estimation for efficient and robust navigation.
+[28] B.J. Kuipers. Modeling spatial knowledge. Cognitive                In 2021 IEEE International Conference on Robotics and
+     Science, 2:129–153, 1978.                                          Automation (ICRA), pages 1132–1139, 2021. doi: 10.
+[29] B.J. Kuipers. The Spatial Semantic Hierarchy. Artificial           1109/ICRA48506.2021.9561225.
+     Intelligence, 119:191–233, 2000.                              [43] Helen Oleynikova, Zachary Taylor, Marius Fehr, Roland
+[30] Boris Lau, Christoph Sprunk, and Wolfram Burgard.                  Siegwart, and Juan Nieto. Voxblox: Incremental 3d
+     Efficient grid-based spatial representations for robot nav-        euclidean signed distance fields for on-board mav plan-
+     igation in dynamic environments. Robot. Auton. Syst.,              ning. In IEEE/RSJ Intl. Conf. on Intelligent Robots and
+     61(10):1116–1130, October 2013. ISSN 0921-8890.                    Systems (IROS), pages 1366–1373. IEEE, 2017.
+     doi: 10.1016/j.robot.2012.08.010. URL https://doi.org/        [44] Helen Oleynikova, Zachary Taylor, Roland Siegwart, and
+     10.1016/j.robot.2012.08.010.                                       Juan Nieto. Sparse 3D topological graphs for micro-
+[31] C. Li, H. Xiao, K. Tateno, F. Tombari, N. Navab, and               aerial vehicle planning. In IEEE/RSJ Intl. Conf. on
+     G. D. Hager. Incremental scene understanding on dense              Intelligent Robots and Systems (IROS), 2018.
+     SLAM. In IEEE/RSJ Intl. Conf. on Intelligent Robots           [45] Cao Qin, Yunzhou Zhang, Yingda Liu, and Guanghao
+     and Systems (IROS), pages 574–581, 2016.                           Lv. Semantic loop closure detection based on graph
+[32] K. Lianos, J. Schönberger, M. Pollefeys, and T. Sattler.           matching in multi-objects scenes. Journal of Visual
+     Vso: Visual semantic odometry. In European Conf. on                Communication and Image Representation, 76:103072,
+     Computer Vision (ECCV), pages 246–263, 2018.                       2021.
+[33] Shiqi Lin, Jikai Wang, Meng Xu, Hao Zhao, and Zonghai         [46] Z. Ravichandran, L. Peng, N. Hughes, J.D. Griffith, and
+     Chen. Topology aware object-level semantic mapping                 L. Carlone. Hierarchical representations and explicit
+     towards more robust loop closure. IEEE Robotics and                memory: Learning effective navigation policies on 3D
+     scene graphs using graph neural networks. In IEEE Intl.     [59] R. Sumner, J. Schmid, and M. Pauly. Embedded de-
+     Conf. on Robotics and Automation (ICRA), 2022. (pdf).            formation for shape manipulation. ACM SIGGRAPH
+[47] V. Reijgwart, A. Millane, H. Oleynikova, R. Siegwart,            2007 papers on - SIGGRAPH ’07, 2007. doi: 10.1145/
+     C. Cadena, and J. Nieto. Voxgraph: Globally consis-              1275808.1276478.
+     tent, volumetric mapping using signed distance function     [60] R. Talak, S. Hu, L. Peng, and L. Carlone. Neural trees for
+     submaps. IEEE Robotics and Automation Letters, 2020.             learning on graphs. In Conference on Neural Information
+[48] A. Rosinol, M. Abate, Y. Chang, and L. Carlone.                  Processing Systems (NeurIPS), 2021. (pdf).
+     Kimera: an open-source library for real-time metric-        [61] K. Tateno, F. Tombari, and N. Navab. Real-time and
+     semantic localization and mapping. In IEEE Intl. Conf.           scalable incremental segmentation on dense SLAM. In
+     on Robotics and Automation (ICRA), 2020. doi: 10.                IEEE/RSJ Intl. Conf. on Intelligent Robots and Systems
+     1109/ICRA40945.2020.9196885. arXiv preprint arXiv:               (IROS), pages 4465–4472, 2015.
+     1910.02490, (video), (code), (pdf).                         [62] S. Thrun. Robotic mapping: a survey. In Exploring
+[49] A. Rosinol, A. Gupta, M. Abate, J. Shi, and L. Car-              artificial intelligence in the new millennium, pages 1–35.
+     lone.     3D dynamic scene graphs: Actionable spa-               Morgan Kaufmann, Inc., 2003.
+     tial perception with places, objects, and humans. In        [63] Johanna Wald, Helisa Dhamo, Nassir Navab, and Fed-
+     Robotics: Science and Systems (RSS), 2020.           doi:        erico Tombari. Learning 3D semantic scene graphs
+     10.15607/RSS.2020.XVI.079. URL http://news.mit.edu/              from 3D indoor reconstructions. In Proceedings of the
+     2020/robots-spatial-perception-0715.      (pdf), (media),        IEEE/CVF Conference on Computer Vision and Pattern
+     (video).                                                         Recognition, pages 3961–3970, 2020.
+[50] A. Rosinol, A. Violette, M. Abate, N. Hughes, Y. Chang,     [64] Jingdong Wang, Ke Sun, Tianheng Cheng, Borui Jiang,
+     J. Shi, A. Gupta, and L. Carlone. Kimera: from SLAM              Chaorui Deng, Yang Zhao, Dong Liu, Yadong Mu,
+     to spatial perception with 3D dynamic scene graphs. Intl.        Mingkui Tan, Xinggang Wang, Wenyu Liu, and Bin Xiao.
+     J. of Robotics Research, 40(12–14):1510–1546, 2021.              Deep high-resolution representation learning for visual
+     arXiv preprint arXiv: 2101.06894, (pdf).                         recognition. IEEE Transactions on Pattern Analysis
+[51] R. Rosu, J. Quenzel, and S. Behnke. Semi-supervised se-          and Machine Intelligence, 43(10):3349–3364, 2021. doi:
+     mantic mapping through label propagation with semantic           10.1109/TPAMI.2020.2983686.
+     texture meshes. Intl. J. of Computer Vision, 06 2019.       [65] T. Whelan, M. Kaess, H. Johannsson, M. Fallon,
+[52] Jose-Raul Ruiz-Sarmiento, Cipriano Galindo, and Javier           J. Leonard, and J. McDonald. Real-time large-scale
+     Gonzalez-Jimenez. Building multiversal semantic maps             dense RGB-D SLAM with volumetric fusion. Intl. J.
+     for mobile robot operation. Knowledge-Based Systems,             of Robotics Research, 34(4–5):598–626, 2015.
+     119:257–272, 2017.                                          [66] T. Whelan, R.F. Salas-Moreno, B. Glocker, A. J. Davison,
+[53] R. F. Salas-Moreno, R. A. Newcombe, H. Strasdat,                 and S. Leutenegger. ElasticFusion: Real-Time Dense
+     P. H. J. Kelly, and A. J. Davison. SLAM++: Simultane-            SLAM and Light Source Estimation. 2016.
+     ous localisation and mapping at the level of objects. In    [67] S. Wu, J. Wald, K. Tateno, N. Navab, and F. Tombari.
+     IEEE Conf. on Computer Vision and Pattern Recognition            SceneGraphFusion: Incremental 3D scene graph predic-
+     (CVPR), 2013.                                                    tion from RGB-D sequences. In IEEE Conf. on Computer
+[54] Lukas Schmid, Jeffrey Delmerico, Johannes Schönberger,           Vision and Pattern Recognition (CVPR), 2021.
+     Juan Nieto, Marc Pollefeys, Roland Siegwart, and Cesar      [68] B. Xu, W. Li, D. Tzoumanikas, M. Bloesch, A. Davison,
+     Cadena. Panoptic multi-tsdfs: a flexible representa-             and S. Leutenegger. MID-Fusion: Octree-based object-
+     tion for online multi-resolution volumetric mapping and          level multi-instance dynamic SLAM. pages 5231–5237,
+     long-term dynamic scene consistency. arXiv preprint              2019.
+     arXiv:2109.10165, 2021.                                     [69] H. Yang, J. Shi, and L. Carlone. TEASER: Fast
+[55] Stefan Schubert, Peer Neubert, and Peter Protzel. Fast           and Certifiable Point Cloud Registration. IEEE Trans.
+     and memory efficient graph optimization via ICM for              Robotics, 37(2):314–333, 2020. extended arXiv version
+     visual place recognition. In Proc. of Robotics: Science          2001.07715 (pdf).
+     and Systems (RSS), 2021.                                    [70] H. Zender, O. Martínez Mozos, P. Jensfelt, G.-J.M. Krui-
+[56] M. Shan, Q. Feng, and N. Atanasov. Object residual               jff, and W. Burgard. Conceptual spatial representations
+     constrained visual-inertial odometry. In IEEE/RSJ Intl.          for indoor mobile robots. Robotics and Autonomous
+     Conf. on Intelligent Robots and Systems (IROS), pages            Systems, 56(6):493–502, 2008. From Sensors to Human
+     5104–5111, 2020.                                                 Spatial Concepts.
+[57] Sinisa Stekovic, Mahdi Rad, Friedrich Fraundorfer, and      [71] Tian Zheng, Guoqing Zhang, Lei Han, Lan Xu, and
+     Vincent Lepetit. MonteFloor: Extending MCTS for                  Lu Fang. Building fusion: Semantic-aware structural
+     reconstructing accurate large-scale floor plans, 2021.           building-scale 3d reconstruction. IEEE Transactions on
+[58] J. Stückler and S. Behnke. Multi-resolution surfel maps          Pattern Analysis and Machine Intelligence, pages 1–1,
+     for efficient dense 3d modeling and tracking. J. Vis.            2020. doi: 10.1109/TPAMI.2020.3042881.
+     Comun. Image Represent., 25(1):137–147, 2014.               [72] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela
+     Barriuso, and Antonio Torralba. Scene parsing through
+     ade20k dataset. In Proceedings of the IEEE Conference
+     on Computer Vision and Pattern Recognition, 2017.
+
+                           A PPENDIX
+Loop Closure Ablation Parameters. Table II reports key
+parameters used for “V-LC (Permissive)” and “V-LC (Nom-
+inal)” in the loop closure ablation study in Fig. 10. For the
+meaning of each parameter we refer the reader to the open-
+source Kimera implementation released by [50].
+
+          Parameter             V-LC (Permissive)   V-LC (Nominal)
+       L1 Score Threshold             0.05               0.4
+         Minimum NSS                  0.005             0.05
+ Min. RANSAC Correspondences            12               15
+  5pt RANSAC Inlier Threshold          0.01             0.001
+      Lowe Matching Ratio               0.8              0.9
+
+                            TABLE II
+               V ISUAL LOOP CLOSURE PARAMETERS
+
+
+
+  Table III reports key parameters used for “SG-LC” in the
+ablation study in Fig. 10. All scene graph descriptors were
+computed with a radius of 13 meters. SG-LC does not use
+NSS (Normalized Similarity Scoring) to filter out matches.
+
+                        Parameter               SG-LC
+               Agent L1 Match Threshold          0.01
+               Object L1 Match Threshold         0.3
+               Places L1 Match Threshold         0.5
+             Min. RANSAC Correspondences          15
+              5pt RANSAC Inlier Threshold       0.001
+             Object L1 Registration Threshold    0.8
+                 Object Minimum Inliers            5
+               TEASER Noise Bound [m]            0.1
+
+                           TABLE III
+            S CENE GRAPH LOOP CLOSURE PARAMETERS
+

@@ -1,0 +1,25 @@
+{
+  "id": "P99",
+  "slug": "NIST_CMSD",
+  "title": "A Core Manufacturing Simulation Data Information Model for Manufacturing Applications",
+  "authors": [
+    "Swee K. Leong",
+    "Yung-Tsun T. Lee",
+    "Frank H. Riddick"
+  ],
+  "publication_date": "2006",
+  "booktitle": "Proceedings of the Systems Interoperability Standards Organization 2006 Fall Simulation Interoperability Workshop",
+  "source_url": "https://www.nist.gov/publications/core-manufacturing-simulation-data-information-model-manufacturing-applications",
+  "pdf_url": "https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=822625",
+  "accessed": "2026-11-12",
+  "arxiv_id": "",
+  "family": "sim2wm",
+  "version": "institutional-copy",
+  "submitted_date": "",
+  "local_pdf": "papers/P99_NIST_CMSD.pdf",
+  "bytes": 135691,
+  "sha256": "3d72b433348f2ba2b00c73c2738b62d655fca66d8b0bd5053e04aac06875658c",
+  "text_file": "research/P99_NIST_CMSD.txt",
+  "pages": 7,
+  "status": "downloaded_and_text_extracted"
+}

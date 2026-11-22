@@ -1,0 +1,1909 @@
+                                              DiSECt: A Differentiable Simulator for Parameter Inference
+                                                           and Control in Robotic Cutting
+arXiv:2203.10263v1 [cs.RO] 19 Mar 2022
+
+
+
+
+                                                 Eric Heiden1*, Miles Macklin2 , Yashraj Narang2 , Dieter Fox2,3 , Animesh Garg2,4
+                                                                              and Fabio Ramos2,5
+                                                                       1* University of Southern California, Los Angeles, USA.
+                                                                                                  2 NVIDIA, USA.
+                                                                                 3 University of Washington, Seattle, USA.
+                                                                     4 University of Toronto & Vector Institute, Toronto, Canada.
+                                                                                 5 University of Sydney, Sydney, Australia.
+
+
+
+
+                                                                        *Corresponding author(s). E-mail(s): heiden@usc.edu;
+
+
+                                                                                                         Abstract
+                                               Robotic cutting of soft materials is critical for applications such as food processing, household automation, and
+                                               surgical manipulation. As in other areas of robotics, simulators can facilitate controller verification, policy learn-
+                                               ing, and dataset generation. Moreover, differentiable simulators can enable gradient-based optimization, which
+                                               is invaluable for calibrating simulation parameters and optimizing controllers. In this work, we present DiSECt:
+                                               the first differentiable simulator for cutting soft materials. The simulator augments the finite element method
+                                               (FEM) with a continuous contact model based on signed distance fields (SDF), as well as a continuous damage
+                                               model that inserts springs on opposite sides of the cutting plane and allows them to weaken until zero stiffness,
+                                               enabling crack formation. Through various experiments, we evaluate the performance of the simulator. We first
+                                               show that the simulator can be calibrated to match resultant forces and deformation fields from a state-of-the-art
+                                               commercial solver and real-world cutting datasets, with generality across cutting velocities and object instances.
+                                               We then show that Bayesian inference can be performed efficiently by leveraging the differentiability of the sim-
+                                               ulator, estimating posteriors over hundreds of parameters in a fraction of the time of derivative-free methods.
+                                               Next, we illustrate that control parameters in the simulation can be optimized to minimize cutting forces via lat-
+                                               eral slicing motions. Finally, we conduct experiments on a real robot arm equipped with a slicing knife to infer
+                                               simulation parameters from force measurements. By optimizing the slicing motion of the knife, we show on fruit
+                                               cutting scenarios that the average knife force can be reduced by more than 40% compared to a vertical cutting
+                                               motion. We publish code and additional materials on our project website at https://diff-cutting-sim.github.io.
+
+                                               Keywords: robotic cutting, differentiable simulation, sim2real transfer
+
+
+
+
+                                         1 Introduction                                                           verify controllers, train control policies, and generate
+                                                                                                                  synthetic datasets for cutting, as well as avoid expen-
+                                         Robotic cutting of soft materials is critical for vari-                  sive or time-consuming real-world trials. In addition,
+                                         ous real-world applications, including food process-                     cutting is inherently destructive and irreversible; thus,
+                                         ing, household automation, surgical manipulation, and                    accurate and efficient simulators are indispensable for
+                                         manufacturing of deformable objects. As in other                         automating safety-critical tasks like robotic surgery.
+                                         areas of robotics, simulators can allow researchers to
+
+
+                                                                        1
+2      DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                                               a predefined cutting plane, virtual nodes are inserted
+                                                               along the surface in a preprocessing step that occurs
+                                                               only once. Third, cracks are introduced using a con-
+                                                               tinuous damage model, where springs are inserted on
+                                                               either side of the cutting plane. Under application of
+                                                               force over time, the springs can progressively weaken
+                                                               until zero stiffness, producing a crack. The continuous
+                                                               contact and damage models enable differentiability,
+                                                               and the springs and particles provide hundreds of
+                                                               degrees of freedom that can be used to calibrate the
+                                                               simulator against ground-truth data. Gradients of any
+                                                               simulation parameter are computed using automatic
+    Fig. 1: A rendering from our differentiable cutting        differentiation via source-code transformation.
+    simulator. DiSECt provides accurate gradients of the           This work offers the following contributions:
+    cutting process, allowing us to efficiently fit model      1. The first differentiable simulator for cutting soft
+    parameters to real-world measurements, and optimize           materials.
+    cutting motions.                                           2. A comparison of gradient-based and derivative-
+                                                                  free methods for calibrating the simulator against
+                                                                  ground-truth data from commercial solvers and
+         However, simulating the cutting of soft mate-            real-world datasets. The comparison demonstrates
+    rials is challenging. Cutting involves diverse phys-          that the differentiability of the simulator enables
+    ical phenomena, including contact, friction, elas-            highly efficient estimation of posteriors over hun-
+    tic deformation, damage, plastic deformation, crack           dreds of simulation parameters.
+    initiation, and/or fracture. A variety of simulation       3. A performance evaluation of the calibrated sim-
+    methods have been introduced, including mesh-                 ulator for unseen cutting velocities and object
+    based approaches (e.g., extensions of the finite ele-         instances. It demonstrates that the simulator can
+    ment method (FEM)), particle-based approaches (e.g.,          accurately predict resultant forces and nodal dis-
+    smoothed particle hydrodynamics (SPH)), and hybrid            placement fields, with simulation speeds that are
+    techniques. For accuracy, these methods often require         orders of magnitude faster than a comparable com-
+    computationally-expensive re-meshing, or simulation           mercial solver.
+    of millions of particle interactions.                      4. An application of the simulator to robotic control,
+         Moreover, a physically-accurate forward simula-          optimizing knife motion trajectories to minimize
+    tor is necessary but not sufficient for accurate and          cutting forces under time constraints.
+    useful predictions. The material properties of real-       5. Experimental results on a real robot that validate
+    world soft materials (e.g., ripening fruits, diseased         our approach in parameter inference and trajectory
+    tissue) are often unknown and highly heterogeneous,           optimization, where optimized slicing trajectories
+    mandating calibration of material models. In addi-            yield cutting motions that require significantly less
+    tion, ideal trajectories for cutting may not be known         force than vertical cuts.
+    beforehand, requiring efficient optimization of control
+    actions. In other fields, the need to infer material and       This article is an extended version of our work
+    control parameters has motivated the development of        on DiSECt which we presented at the Robotics: Sci-
+    differentiable simulators, which can harness efficient,    ence and Systems (RSS) 2021 conference (Heiden,
+    gradient-based optimization methods.                       Macklin, et al., 2021). Besides the extensive supple-
+         We present DiSECt, the first differentiable sim-      mental materials that include additional results and
+    ulator for the cutting of soft materials (Figure 1).       details of our work, we present new results from our
+    The simulator has several key features. First, contact     own real-robot experiments in section 6 where we col-
+    between the cutting instrument (i.e., knife) and the       lected a dataset of force profiles and 3D meshes of
+    object is resolved using a continuous signed distance
+    field (SDF) representation of the knife. Second, a
+    mesh-based representation of the object is used; given
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting       3
+
+  common fruits, which we plan to release in conjunc-          in mechanical engineering (Areias & Rabczuk, 2017)
+  tion with our already published simulation code1 . By        and computer graphics (Bielser, Glardon, Teschner,
+  applying our pipeline of parameter inference, param-         & Gross, 2003; Burkhart, Hamann, & Umlauf, 2010;
+  eter transport to novel mesh topologies, and slicing         Koschier, Lipponer, & Bender, 2014; Paulus, Untere-
+  trajectory optimization to such real data, we achieve        iner, Courtecuisse, Cotin, & Cazier, 2015; J. Wu,
+  efficient slicing motions that exhibit a strong reduc-       Westermann, & Dick, 2015) have been introduced that
+  tion in required knife force to cut common fruits.           re-mesh the simulation domain to accommodate cuts
+  Additionally, we provide code snippets in Appendix D         and other forms of cracks.
+  to serve as tutorial for the applications of DiSECt,             Virtual node algorithms (VNA) (Molino, Bao, &
+  which include parameter inference and knife motion           Fedkiw, 2004; Sifakis, Der, & Fedkiw, 2007; Y. Wang,
+  optimization.                                                2014) duplicate mesh elements that intersect with the
+                                                               cutting surface, resulting in elements with portions of
+  2 Related Work                                               real material and empty regions. At the cutting inter-
+                                                               face, virtual nodes are introduced that allow for a
+  2.1 Modeling and Simulation of Cutting                       two-way coupling of contact and elastic forces with
+                                                               the underlying mesh of the separated parts. We lever-
+                                                               age VNA to augment our FEM simulation with extra
+  Analytical modeling                                          degrees of freedom to allow the fine-grained simula-
+  Cutting is a branch of elastoplastic fracture mechan-        tion of contact between the material and the knife.
+  ics (Atkins & Atkins, 2009), where theoretical analy-        Furthermore, by augmenting the mesh only once at
+  sis has primarily focused on metal cutting (Merchant,        the beginning of the cut, we avoid discontinuous re-
+  1945) and brittle materials (Griffith, 1921). A com-         meshing operations and are able to compute gradients
+  prehensive treatment of the mechanics involved in            from our simulator.
+  cutting of metals, biomaterials and non-metals is given
+  in Atkins and Atkins (2009). Analytical models of            Mesh-free and hybrid approaches
+  the forces acting on a knife as it cuts through soft         So-called mesh-free Lagrangian methods, such as
+  materials have been derived in Debao Zhou, Claffee,          smoothed-particle hydrodynamics (SPH) (Gingold &
+  Kok-Meng Lee, and McMurray (2006a); Mu, Xue,                 Monaghan, 1977; Monaghan, 1992), element-free
+  and Jia (2019).                                              Galerkin (EFG) (Belytschko, Lu, & Gu, 1994), and
+                                                               smoothed-particle Galerkin (SPG) (C. Wu, Wu, Craw-
+  Mesh-based simulation
+                                                               ford, & Magallanes, 2017), simulate continuous media
+  Among the numerical methods that implement                   by many particles that cover the simulation domain
+  such analytical models, the Finite Element Method            and the dynamics is determined by a kernel that
+  (FEM) (Belytschko, Liu, Moran, & Elkhodary, 2013;            defines the interaction between spatially close parti-
+  Hughes, 2012) is a commonly used technique to sim-           cles. Hybrid approaches have been proposed, such as
+  ulate deformable bodies. FEM solves partial differ-          the Material Point Method (MPM) (Hu, Fang, et al.,
+  ential equations over a given domain (defined by a           2018; S. Wang et al., 2019; Wolper et al., 2020, 2019),
+  mesh) by discretizing it into simpler elements, such         that combine Eulerian (grid-based) and Lagrangian
+  as tetrahedra (which we use in this work). Without           (particle-based) techniques. Position-based Dynam-
+  modifying the mesh topology, the Extended FEM (X-            ics (PBD) (Müller, Heidelberger, Hennix, & Ratcliff,
+  FEM) (Moës, Dolbow, & Belytschko, 1999) augments             2007) has been explored to simulate cutting in interac-
+  mesh elements by enrichment functions to model frac-         tive surgery simulators (Berndt, Torchelsen, & Maciel,
+  ture mechanics processes (Jeřábková & Kuhlen, 2009;         2017; Pan, Bai, Zhao, Hao, & Qin, 2015).
+  Khoei, 2014; Koschier, Bender, & Thuerey, 2017).
+      In classical FEM, topological changes that result        Robotic cutting
+  from cutting and other fracture processes mandate an
+                                                               In Long, Moughlbay, Khalil, and Martinet (2013), a
+  adaption of the mesh resolution so that the propagation
+                                                               robotic meat-cutting system is introduced that scans
+  of the crack can be accurately simulated. Approaches
+                                                               objects online to simulate deformable objects and uses
+                                                               impedance control to steer the knife. In Krishnan et
+    1
+                                                               al. (2018); Thananjeyan et al. (2017), a simplified
+        DiSECt source code: https://github.com/NVlabs/DiSECt
+4      DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+    mass-spring model is used for learning to cut planar         2003; Innes, 2019). Recent work has shown the poten-
+    surfaces. Such trained policies are then transferred to      tial for source-code transformation to generate effi-
+    a physical robotic surgery system. By studying the           cient parallel kernels for reverse-mode differentiation
+    mechanics of cutting, Mu et al. (2019) derive con-           using graphics-processing units (GPUs) (Hu et al.,
+    trol strategies involving pressing, pushing, and slic-       2020, 2019).
+    ing motions. Similarly, Debao Zhou et al. (2006a);
+    Debao Zhou, Claffee, Kok-Meng Lee, and McMur-                2.3 Parameter Inference for Simulators
+    ray (2006b) analyze cutting “by pressing and slic-
+    ing,” while taking into account the blade sharpness of       Simulation-based inference is a methodology that has
+    the knife. Constrained optimization is used in Wija-         emerged across various fields of science (Cranmer,
+    yarathne, Sima, Zhou, Zhao, and Hammond (2020)               Brehmer, & Louppe, 2020). In parameter identifica-
+    to optimize cutting trajectories while accounting for        tion, optimization-based approaches are often utilized
+    contact forces, whereas in our control experiment we         to obtain point estimates of the simulation parame-
+    furthermore account for the coupling of elastic and          ters (such as for constitutive equations (Hahn, Banzet,
+    contact force between the knife and the deformable           Bern, & Coros, 2019; Mahnken, 2017)) that minimize
+    object being cut. In Jamdagni and Jia (2019), FEM            the model error as measured from the dynamics of the
+    simulation for robotic cutting is devised where crack        real system. More often, when analytical gradients are
+    propagation is simulated at the cross sections on a          unavailable or too expensive to obtain, optimization
+    high-resolution 2D mesh, which is coupled with a             with finite differencing or gradient-free methods have
+    coarser 3D mesh simulation. Meshes are obtained              been applied (Mehta, Handa, Fox, & Ramos, 2020;
+    from laser scans of biomaterials, and force profiles         Narang, Sundaralingam, Macklin, Mousavian, & Fox,
+    recorded from a force sensor attached to a robot end-        2021), particularly for dynamical systems through
+    effector as it vertically cuts through various foodstuffs.   system identification (Ljung, 1999).
+    In this work, we leverage this dataset of real-world             Probabilistic inference techniques, on the other
+    cutting trajectories. Fully data-driven models have          hand, seek to infer a distribution of simulation param-
+    been learned to facilitate model-predictive control in       eters that allows downstream applications to evaluate
+    robotic cutting (Lenz, Knepper, & Saxena, 2015; Mit-         the uncertainty of the estimates. Such methods have
+    sioni, Karayiannidis, Stork, & Kragic, 2019).                been applied to learn conditional densities of simu-
+                                                                 lation parameters given trajectories from the simula-
+                                                                 tor and the real system (Heiden, Denniston, Millard,
+    2.2 Differentiable Simulation                                Ramos, & Sukhatme, 2021; Hsu & Ramos, 2019;
+    Differentiable simulation has gained increasing atten-       Matl, Narang, Bajcsy, Ramos, & Fox, 2020; Matl,
+    tion, as it allows for the use of efficient gradient-based   Narang, Fox, Bajcsy, & Ramos, 2020; Papamakarios
+    optimization algorithms to tune simulation param-            & Murray, 2016; Ramos, Possas, & Fox, 2019; Toni,
+    eters or control policies (Carpentier & Mansard,             Welch, Strelkowa, Ipsen, & Stumpf, 2008).
+    2018; de Avila Belbute-Peres, Smith, Allen, Tenen-               Parameter inference may also be integrated in a
+    baum, & Kolter, 2018; Geilinger et al., 2020; Gift-          closed-loop system (Chebotar et al., 2019; Mehta,
+    thaler et al., 2017; Heiden, Liu, Ramachandran, &            Diaz, Golemo, Pal, & Paull, 2019; Mozifian, Higuera,
+    Sukhatme, 2020; Heiden, Millard, Coumans, Sheng,             Meger, & Dudek, 2019; Ramos et al., 2019), where the
+    & Sukhatme, 2021; Heiden, Millard, Zhang, &                  currently estimated posterior over simulation parame-
+    Sukhatme, 2020; Hu et al., 2020; Koolen & Deits,             ters guides domain randomization and policy learning.
+    2019; Murthy et al., 2021; Qiao, Liang, Koltun, & Lin,       Such approaches iteratively reduce the sim2real gap.
+    2020). Although finite differencing may be used to
+    approximate the derivative of a simulation output, this      3 DiSECt: Differentiable Simulator
+    approach suffers from accuracy problems and does
+    not scale to large numbers of parameters (Margossian,          for Cutting
+    2019). In this work we employ reverse-mode auto-             The design of our simulator for cutting biomaterials is
+    matic differentiation to obtain gradient information         motivated by three aspects:
+    via source-code transformation (Griewank & Walther,
+                                                                 1. The model has to be physically plausible such that
+                                                                    the effects of changing physical quantities from
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                         5
+                                                                                                   D                        D
+
+
+
+
+                                                                                                              C'                      C'
+                                                                           D                 A'                       A'
+
+                                                                                                         B'                      B'
+
+
+
+                                                                                                   D'                       D'
+                                                                                     C
+  Fig. 2: Visualization of an apple slice. We use a tetra-          A
+
+  hedral FEM-based model of the apple generated from                             B
+
+                                                                                                              C                       C
+  scanned real-world data (Jamdagni & Jia, 2019).                                            A                        A
+
+                                                                                                         B                       B
+
+                                                                           (1)                     (2)                     (3)
+                                                                 Fig. 4: Pre-processing of a tetrahedral mesh (visual-
+                                                                 ized by a single tet) prior to being cut along a given
+                                                                 cutting surface (red plane). Given the original mesh,
+                                                                 (1) intersecting elements are identified, and (2) dupli-
+  Fig. 3: To smoothly model damage, we insert springs            cated such that the intersection geometry is retained
+  (shown in blue) between cut elements. We incremen-             in each part of the cut elements. Virtual nodes are
+  tally reduce the spring stiffness based on damage over         inserted where the edges are intersecting the cut-
+  time, proportional to the contact force applied from           ting surface. (3) The original and duplicated elements
+  the knife. From left at t = 0 s, t = 0.8 s, t = 1.2 s. Here,   are connected by springs (green) between the virtual
+  we have removed the knife from visualization to show           nodes.
+  the inserted springs clearly.
+
+                                                                 Here λ , µ are the Lamé parameters2 and α is a con-
+     continuum and fracture mechanics can be observed            stant. J = det(F) is the relative volume change, IC =
+     realistically.                                              tr(FT F) is the first invariant of the Cauchy-Green
+  2. While the cutting process is an inherently dis-             deformation tensor, and F is the deformation gradient.
+     continuous operation, wherever possible, gradients          We give the material properties for our experimental
+     of the simulation parameters must be efficiently            objects in Table A1. Integrating over each tetrahe-
+     obtainable.                                                 dral element and summing the energy from (1) over
+  3. The simulator must allow for sufficient degrees of          all elements gives the total elastic potential energy.
+     freedom so that fine differences in material proper-        Forces felastic are derived from the energy gradient ana-
+     ties can be identified at localized places where the        lytically and integrated using a semi-implicit Euler
+     knife cuts through a heterogeneous material.                scheme. In addition to elastic forces, we include
+                                                                 a strain-rate dissipation potential to model internal
+                                                                 damping (M. Sánchez-Banderas & A. Otaduy, 2018).
+  3.1 Continuum Mechanics
+  We implement the Finite Element Method (FEM)                   3.2 Mesh Pre-Processing
+  to simulate the dynamics of the soft materials used
+                                                                 Before the simulation begins, the cutting surface for
+  throughout this work. Based on a tetrahedral dis-
+                                                                 the entire cut is given as a triangle mesh. We imple-
+  cretization of the cutting target object, elastic forces
+                                                                 ment the Virtual Node Algorithm from Sifakis, Der,
+  are computed that take into account material proper-
+                                                                 and Fedkiw (2007), which, as shown in Figure 4,
+  ties, such as Young’s modulus, Poisson’s ratio, and
+                                                                 duplicates the mesh elements (tets) that intersect with
+  density.
+                                                                 the cut (subfigure 2), so that the tet above the cutting
+      We employ a Neo-Hookean constitutive model
+                                                                 surface has a portion of material above the cut, and
+  following the strain-energy density function
+                                                                 one empty portion below the cut (and vice versa for
+  from Smith, Goes, and Kim (2018), which has been
+                                                                 the reciprocal element). Next, we insert virtual nodes
+  designed to model biological tissue and preserve
+                                                                 at the intersection points on the edges. These nodes
+  volume when the mesh undergoes large deformations:
+
+           µ           λ          µ
+     Ψ=      (IC − 3) + (J − α)2 − log(IC + 1).           (1)       2
+                                                                      Lamé parameters are a reformulation of Young’s modulus and Poisson’s
+           2           2          2                              ratio; hence we use these terms interchangeably.
+6      DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+                                                                    Signed Distance Field   d            Distance Along Edge (p1, p2)
+    are only represented by their barycentric coordinate                                                                                p2
+                                                                                    d=5
+    u ∈ [0, 1].                                                                     d=0
+        Similar to the two-way coupled “soft particles”
+                                                                                                    p1
+    described in Sifakis, Shinar, Irving, and Fedkiw           y                                d
+    (2007), each virtual node’s 3D position x̃ and veloc-
+    ity ṽ is defined entirely by the coordinates of its two            p1           p2
+    parent vertices, indexed i and j:
+                                                                              x                                        u
+                                                               Fig. 5: 2D slice of the signed distance field (SDF) for
+       x̃ = (1 − u)xi + ux j       ṽ = (1 − u)vi + uv j .
+                                                               the knife shape (not true to scale), where the color
+                                                               indicates distance d. The knife’s boundary at d = 0
+    The edge sections along the non-empty portions of
+                                                               is indicated by a solid black contour line. Left: at
+    the duplicated mesh elements participate in contact
+                                                               distances greater than zero the SDF becomes more
+    dynamics and propagate the resulting contact forces
+                                                               rounded. Right: distance d along the edge (p1 , p2 )
+    back to their parent nodes, as described in subsec-
+                                                               with barycentric edge coordinate u varying between
+    tion 3.3. Edge sections from the empty portions of the
+                                                               0 (p1 ) and 1 (p2 ). The closest point found by Algo-
+    mesh create no collisions and are solely updated from
+                                                               rithm 2 is shown in red. Distances are exemplary and
+    the FEM dynamics of the parent vertices.
+                                                               do not represent the actual dimensions used in the
+        In the final step of this mesh preprocessing phase
+                                                               simulator (see Appendix A2).
+    (subfigure 3), springs are inserted that connect the
+    virtual nodes on both sides of the cutting surface
+    which originally belonged to the same edge of the          squared penetration depth in the direction of the nor-
+    mesh. These springs allow us to simulate damage            mal (zero if no collision). In combination with the rel-
+    occurring during the cutting process in an entirely        ative velocity between the knife and the mesh vertices,
+    continuous (and thereby differentiable) manner, by         friction forces are computed following the continuous
+    weakening their stiffness values as knife contact forces   friction model from (Brown, 2017, Equation 4.5).
+    are applied over time.                                          Analogous to the knife-mesh contact dynamics,
+        While our approach in its current form assumes         we simulate contact forces between the object mesh
+    that the entire cutting surface is given before the cut-   and the ground that it rests on via the same penalty-
+    ting simulation begins, interactive cutting applications   based contact model. Here, the forces are computed
+    could be accommodated by interweaving this mesh            between mesh vertices, represented by spheres as col-
+    augmentation step with the actual cutting simulation.      lision geometry, and the ground represented by a half
+    Nonetheless, the practicality of using such an interac-    space. To prevent the object from sliding off the table
+    tive approach for parameter inference remains to be        during the cut, as in Jamdagni and Jia (2019), we apply
+    validated.                                                 boundary conditions that fix mesh vertices in place
+                                                               when they fulfill both the following conditions: (1)
+    3.3 Contact Dynamics                                       touching the ground and (2) being located 1 cm away
+    Following Macklin et al. (2020), we implement a con-       from the cutting plane.
+    tact model that represents the knife shape by a signed
+    distance function (SDF) (Figure 5) that interacts with     3.4 Damage Mechanics
+    the tetrahedral mesh of the object being cut. To find      Physically, damage refers to a macroscopic reduction
+    the closest point between an edge from the mesh and        in stiffness or strength of a material caused by the for-
+    the SDF, we run 20 iterations of the Frank-Wolfe algo-     mation and growth of microscopic defects (e.g., voids
+    rithm (Algorithm 2 in appendix), that uses the gradient    and microcracks). For fruits and vegetables, which
+    information from the SDF to find a locally optimal         often have limited plastic deformation regimes before
+    solution for the barycentric coordinate u ∈ [0, 1] with    failure, damage can be approximated by a reduction
+    the smallest distance. Using this coordinate, we can       in the elastic modulus of the material, or in a dis-
+    compute the penetration depth and contact normal by        crete mesh-based formulation, in the components of
+    querying the SDF and its gradient. Penalizing colli-       the stiffness matrix.
+    sions, the contact normal force is computed as the             As follows, our model for damage mechanics
+                                                               leverages the springs that have been introduced in the
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting       7
+
+  final step in subsection 3.2. As the knife applies force    about the physical world, leading to more robust sim-
+  to the cutting interface, the stiffnesses of the springs    ulations. We follow a conventional Bayesian approach
+  that are in contact with the knife, and hence receive       and define p(θ ) as the prior distribution over simu-
+  knife contact forces, are linearly decreased (see a visu-   lation parameters (see Appendix Table A2) which, in
+  alization of this progressive weakening as the knife        our experiments, is a uniform distribution, and p(φ r |
+  slides down the cutting interface in Figure 3):             θ ) as the likelihood function given by p(φ r | θ ) =
+                                                              exp{−kφθs − φ r kL }, where φ r corresponds to real tra-
+                    ke0 = ke − γ kfknife k,            (2)    jectory observations such as knife forces, positions
+                                                              and velocities. φθs is the equivalent simulated trajec-
+  where fknife is the force the knife applies on the spring   tory, and k · kL is the L-norm. In our experiments we
+  (i.e., the contact force that is computed between the       use the L1, which we determined the most effective
+  knife and the edge), and γ ∈ [0, 1] is a coefficient that   (see Appendix A.2). With both prior and likelihood
+  controls the “weakness” of the spring (i.e., how easily     functions, we can compute the posterior as p(θ | φ r ) =
+                                                               1    r
+  the material weakens and separates as the knife applies     Z p(φ | θ )p(θ ), where Z is a normalizing constant,
+  force to it).                                               also known as the marginal likelihood.
+       We use a simulation time step of ∆t = 10−5 s across        In the next sections, we describe three tech-
+  all our experiments to accommodate the simulation of        niques for simulator parameter inference. We start
+  and stiff materials (such as apples or potatoes) and        with a gradient-based approach that produces point
+  centimeter-scale meshes obtained by laser scans of          estimates, followed by stochastic gradient Langevin
+  real biomaterials. Our full simulation loop is described    dynamics (SGLD), a popular gradient-based Markov
+  in Algorithm 1.                                             chain Monte Carlo technique that approximates the
+                                                              posterior as a set of particles. Finally, we describe
+  4 Simulation Parameter Inference                            the likelihood-free inference technique known as
+                                                              BayesSim, which does not make use of gradients
+  DiSECt supports two modes of parameterizing the             and is used as a baseline, demonstrating the value of
+  simulator: the cutting spring parameters shown              differentiable simulation.
+  in Appendix Table A2 can be shared across all springs,
+  or tuned individually per spring. The shared parame-        4.1 Gradient-Based Optimization
+  terization is low-dimensional since only one scalar per
+  parameter type needs to be inferred. In contrast, when      As a baseline for probabilistic parameter inference,
+  the cutting springs are individually parameterized,         we present a solution based on stochastic gradient
+  hundreds of variables need to be tuned.                     descent using the popular Adaptive Moment Estima-
+      While it is often possible to hand-tune parameters      tion (Adam) optimizer Kingma and Ba (2015) (see
+  of low-dimensional, phenomenological models, the            Appendix A.1), a first-order method that scales the
+  task of identifying the simulation parameters that can      parameter gradients with respect to their running aver-
+  enable close prediction of real-world measurements          ages and variances. Unlike the Monte Carlo posterior
+  is daunting, particularly for complex models such as        approximation obtained by SGLD, Adam will find
+  ours with individually tuned spring parameters. To          a locally optimal point estimate to the parameters
+  tackle the simulation calibration problem, we lever-        that minimizes the expected loss. We define the loss
+  age automatic differentiation and GPU acceleration to       as l(θ ) = log p(φ r | θ ) and compute gradients with
+  efficiently compute gradients for all the parameters        respect to the simulation parameters θ that minimize
+  of our simulator. This allows us to use optimiza-           the loss between a real trajectory φ r and simulated
+  tion techniques, such as stochastic gradient descent,       trajectories φ s .
+  to directly compute point estimates for the param-
+  eters. Moreover, we can leverage modern Bayesian            4.2 Stochastic Gradient Langevin
+  inference methods and estimate posterior distributions          Dynamics
+  for the high-dimensional parameter set given physi-
+                                                              A popular alternative to Adam for probabilistic infer-
+  cal observations, such as the force profile of the knife
+                                                              ence is the stochastic gradient Langevin dynamics
+  while cutting real foodstuffs. The result is a simula-
+                                                              (SGLD) method Welling and Teh (2011) (Algo-
+  tor with the capacity to identify its own uncertainty
+                                                              rithm 4). SGLD combines the benefits of having
+8                        DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                    BayesSim                              SGLD                                      HMC
+                    8000
+
+                    6000
+    sdf_ke
+
+
+
+
+                    4000
+
+                    2000
+
+
+                    1400
+                    1200
+    cut_spring_ke
+
+
+
+
+                    1000
+                     800
+                     600
+                     400
+                     200
+                           2000 4000 6000 8000   500 1000 1500
+                                sdf_ke           cut_spring_ke
+
+         Fig. 6: Parameter posterior inferred by BayesSim (left), Stochastic Gradient Langevin Dynamics (SGLD) after
+         90 burn-in iterations (center), and Hamiltonian Monte Carlo (HMC) after 50 burn-in iterations (right) for the
+         two-dimensional parameter inference experiment from subsection 5.1, in which cutting spring stiffness sdf_ke
+         and knife contact force stiffness sdf_ke need to be estimated. The diagonals of each figure show the marginal
+         densities for the two estimated parameters. The bottom-left sections show a heatmap of the joint distribution. The
+         top-right scatter plot of the BayesSim figure shows the sampled parameters from the training dataset (blue) and
+         the ground-truth (red). The top-right plot sections for SGLD and HMC visualize the loss landscape as a heatmap
+         (where blue means smaller error than red), with the Markov Chain depicted by a colored line. Red lines and stars
+         indicate ground-truth parameter values. SGLD and HMC leverage the gradients of our differentiable simulator and
+         show a much sharper posterior distribution than BayesSim, which uses a dataset of 500 simulated force profiles.
+
+
+         Algorithm 1 Simulation Loop in DiSECt
+                  for i = 1 . . . timesteps do
+                    1:
+                    2:Compute gravity and external contact forces fext between mesh and cutting board (half space).
+               3:     Compute elastic forces felastic following the constitutive model in subsection 3.1.
+               4:     Compute knife contact forces fknife as described in subsection 3.3.
+               5:     Update cutting spring stiffness ke0 = ke − γ kfknife k.
+               6:     Compute cutting spring forces fspring .
+               7:     Semi-implicit Euler integration of mesh vertices:
+               8:        vt+1 ← vt + ∆tM−1 (fknife + fspring + felastic + fext )
+               9:        xt+1 ← xt + ∆tvt+1
+              10:     Euler integration of knife velocity (prescribed velocity trajectory).
+              11: end for
+
+
+
+         access to parameter gradients with well-established                    distribution as
+         sampling-based methods for probabilistic inference to
+                                                                                                               N
+         significantly scale the parameter set to high dimen-
+                                                                                            p(θ | Φ) ∝ p(θ ) ∏ p(φir | θ ).         (3)
+         sions at a tractable computational cost. The method                                                  i=1
+         can be seen as an iterative stochastic gradient opti-
+         mization approach with the addition of Gaussian noise                      SGLD takes the energy function of the posterior
+         which is scaled by a preconditioner factor at every                    denoted by U(θ ) = − ∑Ni=1 N1 log p(Φ | θ ) − log p(θ )
+         iteration. Given a sequence of trajectories generated                  and samples from the posterior using the following
+         by our simulator and a sequence of observed trajec-                    rule:
+         tories, Φ = {φis , φir }Ni=1 , we can write the posterior
+                                                                                                        α
+                                                                                          θt+1 = θt −     A(θt )∇U(θt ) + ηt ,      (4)
+                                                                                                        2
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                                                                                                                                                                                           9
+
+                                                                      % D \ H V 6 L P                                                                  6 * / '   6 K D U H G  3 D U D P H W H U L ] D W L R Q                                       6 * / '   , Q G L Y L G X D O  3 D U D P H W H U L ] D W L R Q 
+                                                          * U R X Q G W U X W K
+       . Q L I H  ) R U F H  > 1 @
+
+
+
+
+                                                                                                                 . Q L I H  ) R U F H  > 1 @
+
+
+
+
+                                                                                                                                                                                                                      . Q L I H  ) R U F H  > 1 @
+                                                                                                                                                                                                                                                   
+
+                                                                                                                                                                                                                                                   
+
+                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                        
+                                                                            7 L P H  > V @                                                                                    7 L P H  > V @                                                                                      7 L P H  > V @
+
+  Fig. 7: Kernel density estimation from 20 knife force trajectories rolled out by sampling from the posterior found
+  by BayesSim (left) and SGLD applied in our differentiable simulator with shared (center) and individual param-
+  eterization (right). Shown in red is the ground-truth trajectory from a commercial simulation of cutting an apple
+  with a hemispherical shape. Areas of higher density are shaded in dark blue.
+
+
+  where ηt ∼ N (0, A(θt )α), α is the learning rate, and                                                                                                                                used to generate trajectories for the given simula-
+  A is a preconditioner. After an initial burn-in phase                                                                                                                                 tion parameters. The technique consists of learning
+  necessary for the Markov chain to converge, m sam-                                                                                                                                    a conditional density q(θ | φ ) (which BayesSim rep-
+  ples can be stored to recover an approximate posterior                                                                                                                                resents as a Gaussian mixture model), where θ are
+  given by p(θ | Φ) ≈ m1 ∑m   i=1 δθi (θ ), where δθi (x) is                                                                                                                            the simulation parameters, and φ are trajectories or
+  the Dirac delta function which is non-zero whenever                                                                                                                                   summary statistics of trajectories. For details about
+  x = θi .                                                                                                                                                                              our particular BayesSim implementation, please see
+      Critical to SGLD’s performance is the choice of                                                                                                                                   Appendix A.3.
+  an appropriate preconditioner. In this work we fol-
+  low the extension proposed in C. Li, Chen, Carlson,                                                                                                                                   5 Experiments
+  and Carin (2016) that computes the preconditioner as
+  an approximation of the Fisher information matrix of                                                                                                                                  To evaluate DiSECt, we first use synthetic data from
+  the posterior distribution given by A. This approx-                                                                                                                                   our own simulator to evaluate probabilistic infer-
+  imation can then be sequentially updated using the                                                                                                                                    ence algorithms. Next, we identify the simulation
+  gradient of the energy function. This is a similar pro-                                                                                                                               parameters (Appendix Table A2) to closely match an
+  cess as the popular RMSProp Tieleman and Hinton                                                                                                                                       industry-standard, high-fidelity simulation where we
+  (2012). Specifically, the preconditioner A ∈ Rm×m and                                                                                                                                 have access to the nodal forces and precise motion of
+  momentum V ∈ Rm are updated as                                                                                                                                                        the vertices resulting from the knife contact. Finally,
+                                                                                                                                                                                        we leverage real-world experimental data of measured
+    V (θt ) = βV (θt−1 ) + (1 − β )∇U(θt )                                                                                    ∇U(θt ), (5)                                              knife force profiles to evaluate our sim2real transfer.
+                            p      
+    A(θt ) = diag 1       ε + V (θt ) ,                                                                                                                             (6)
+                                                                                                                                                                                        5.1 Parameter Inference from Synthetic
+  where ε > 0 is a small diagonal bias (we choose ε =                                                                                                                                       Data
+  10−8 ) added to the preconditioner to prevent it from                                                                                                                                 In our first experiment, we investigate how accurate
+  degenerating, and β (which we set to 0.95) is the expo-                                                                                                                               the estimated posterior is, given synthetic force pro-
+  nential decay rate of the preconditioner. and are                                                                                                                                     files from known simulation parameters. We create a
+  element-wise multiplication and division operators.                                                                                                                                   dataset of 500 knife force trajectories by varying two
+                                                                                                                                                                                        of the parameters using the shared parameterization
+  4.3 Likelihood-free Inference via                                                                                                                                                     (section 4) from our proposed simulator as training
+      BayesSim                                                                                                                                                                          domain. We choose such low dimensionality to ensure
+                                                                                                                                                                                        that we can obtain enough training data to sample
+  BayesSim is a likelihood-free technique to estimate                                                                                                                                   from the uniform prior distribution which is crucial to
+  the parameters of a derivative-free simulator that                                                                                                                                    the performance of likelihood-free methods, such as
+  implements a forward dynamics model which is                                                                                                                                          BayesSim.
+10        DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+         The two parameters to be estimated are sdf_ke
+     (ranging from 500 to 8000), the stiffness of the contact
+     model at the mesh surface, and cut_spring_ke
+     (ranging from 100 to 1500), the stiffness of the cut-
+     ting springs (cf. subsection 3.4) at the beginning of the
+     simulation.
+         As shown in Figure 6, BayesSim captures the
+     posterior (see heatmap in the lower-left corner of
+     the left subfigure) around the ground-truth parame-
+     ters of sdf_ke = 5100 and cut_spring_ke =
+     200. SGLD (center), however, yields a significantly
+     sharper density estimate around the true values within        Fig. 8: Results from simulation parameter optimiza-
+     90 burn-in iterations, while Hamiltonian Monte-Carlo          tion given the positions of the vertices (top row) and
+     (HMC), another gradient-based Bayesian estimation             the knife force (bottom row) with a commercial sim-
+     algorithm, finds a slightly wider posterior within            ulation as ground-truth. Left: before optimization, the
+     approximately 50 iterations.                                  vertices (top) at the last time step (0.9 s) of the trajec-
+                                                                   tory are visibly distinct between our simulation (blue)
+     5.2 Parameter Inference from                                  and the ground-truth (black), as shown by the red lines
+                                                                   indicating the vertex difference. Right: after 300 steps
+         High-fidelity Simulator
+                                                                   with the Adam optimizer, the vertices (top), as well
+     In our first set of experiments where the training            as the knife force profile (bottom), are closer after the
+     data does not stem from our own model, we simu-               parameter inference.
+     late cutting trajectories using a commercial, explicit
+     dynamics simulator as a ground-truth source. Details
+     on the simulation setup are in Appendix B.2. For each         As shown in Figure 7, trajectories sampled from the
+     simulation, knife force and nodal motion trajectories         estimated posterior of SGLD result in a significantly
+     were extracted. Each simulation was executed across           closer fit (center) to the ground-truth knife force pro-
+     4 CPUs and took an average of 1941 min (>32 h) to             file compared to BayesSim (left). The average mean
+     complete. For comparison, our simulator produces a            absolute error (MAE) of the roll-outs with 4.714 N
+     cutting trajectory of 1 s duration (with a 1 × 10−5 s         significantly outperforms BayesSim’s average MAE
+     simulation time step) within 30 s on an NVIDIA RTX            of 26.860 N. The gradient-based estimation method
+     2080 GPU, and the gradient of the cost function               achieves such an outcome with less training data, as
+     (likelihood) within 90 s.                                     it only took 300 trajectory simulations, compared to
+         We estimate the following parameters θ in                 the 2500 trajectories in total that served as the train-
+     this experiment: (1) sdf_ke, (2) sdf_kd, (3)                  ing dataset for BayesSim. If we allow the parameters
+     sdf_kf, (4) sdf_mu, (5) cut_spring_ke, (6)                    to be optimized individually for each cutting spring
+     cut_spring_softness, and (7) initial_y                        (resulting in 1737 parameters in total), the result-
+     (for an explanation see Table A2 in the appendix).            ing simulation becomes even closer (right), with an
+         First, we train BayesSim in an iterative procedure        average MAE of 3.075 N.
+     where the currently estimated posterior over the sim-              Based on the commercial ground-truth simula-
+     ulation parameters is sampled to roll out a new set of        tion, we collect additional object nodal displacement
+     trajectories that are added to the training dataset. Start-   field trajectories in addition to the knife force pro-
+     ing from 500 trajectories, we repeatedly sample 20            files, which allows us to leverage another reference
+     new parameters and refit BayesSim’s mixture density           signal to calibrate DiSECt. At 18 reference time steps
+     network (MDN) to the updated training dataset. After          within the trajectory roll-out, we compute the L2 error
+     100 such iterations (i.e., 2000 additional roll-outs), we     between the positions of the vertices in the ground-
+     obtain the posterior shown in appendix Figure A7.             truth and our simulator, and add it to the overall cost
+         For comparison, we train SGLD in DiSECt for               (which previously only consisted of the L1 norm over
+     300 iterations with the same parameterization as used         knife force difference) with a tuned weighting factor.
+     for BayesSim, i.e., the parameters are represented            By optimizing the aforementioned parameters indi-
+     by scalars that are shared across all cutting springs.        vidually with the new cost function through Adam,
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting         11
+
+               Apple                         Potato
+                                                               Figure 9) results in highly accurate prediction after the
+                                                               calibration.
+
+                                                               5.4 Generalization
+                                                               While our simulator is able to calibrate itself very
+                                                               closely to a variety of sources of ground-truth sig-
+  Fig. 9: Results from optimizing simulation parameters        nals – whether these are knife force profiles obtained
+  in DiSECt given real-world knife force profiles from         by a real robot cutting foodstuffs, or motion record-
+  vertical cutting of an apple (left) and a potato (right).    ings from the mesh vertices in a commercial simulator
+                                                               that is entirely different from ours (see Appendix B.2)
+                                                               – the question of overfitting arises. In the follow-
+  after 300 iterations, we arrive at a simulation that not     ing, we investigate how well the identified simulation
+  only closely matches the knife force profile from the        parameters transfer to test regimes that differ from the
+  ground-truth simulation, but also has a significantly        training conditions under which these parameters were
+  reduced gap in the nodal motions between the two             optimized.
+  simulators (see Figure 8). Before the optimization, the
+  mean Euclidean distance between the simulated nodes          5.4.1 Generalization to longer simulations
+  and the ground-truth nodal positions is 1.554 mm at
+                                                               As shown in Table A2, DiSECt allows various dynam-
+  the last time step (t = 0.9 s). The low initial error over
+                                                               ics parameters to be defined individually for each
+  the nodal motion is explained by the fact that the mate-
+                                                               spring, resulting in hundreds of degrees of freedom.
+  rial properties have been set to already match a potato
+                                                               The larger parameterization provides more opportu-
+  (Table A1), leaving the cutting-related spring param-
+                                                               nity to find closely matching solutions, but may be
+  eters as the only remaining variables to be estimated.
+                                                               prone to overfitting to the reference trajectory in cer-
+  After 300 iterations, this error reduced to 1.289 mm,
+                                                               tain settings. One of the pathological cases occurs
+  while the knife force profile MAE decreased from
+                                                               when the goal is to predict the knife force trajec-
+  28.366 N to 0.549 N.
+                                                               tory for a duration longer than the time window seen
+                                                               during training from the reference force profile. In
+  5.3 Parameter Inference from Real                            the experiment shown in Figure A4, we optimize
+      World Measurements                                       the simulation parameters using Adam on the first
+  In this experiment, we calibrate DiSECt to real-world        0.4 s section from the reference trajectory. Within that
+  cutting trajectories. The real-world dataset provided        segment, the individual parameterization clearly out-
+  by Jamdagni and Jia (2019) contains 3D meshes cre-           performs the shared parameterization with a MAE of
+  ated from laser scans of the actual objects being cut,       0.306 N versus 0.384 N. However, when we test the
+  as well as knife force profiles measured from a force        estimated parameters on a simulation with a dura-
+  sensor mounted between a robot end-effector and a            tion of 0.9 s, the shared parameterization achieves a
+  knife. The knife dimensions are given in Table A2            closer fit with a 4.802 N MAE, compared to the indi-
+  and explained in Figure A3. The triangular surface           vidual tuning with a 5.921 N MAE. Intuitively, as
+  meshes of the foodstuffs are discretized to tetrahedral      the knife slices downward with constant velocity (at
+  meshes via the TetWild (Hu, Zhou, et al., 2018) mesh-        50 mm s−1 ), fewer cutting springs are affected by the
+  ing library. After optimizing the simulation param-          contact dynamics during a shorter roll-out since the
+  eters with Adam for 300 iterations, the simulator            knife does not progress far enough to reach the cutting
+  closely matches the force profile of a knife cutting         springs closer to the ground. Hence, their parameters’
+  an apple (Figure 9 left) with an MAE of 0.253 N,             gradients were zero during the estimation. Tuning the
+  and for a potato cutting action (right) achieves an          same kind of parameters uniformly allows all cutting
+  MAE of 0.379 N. We note that the optimization is             springs to have an improved fit over the initializa-
+  stable without requiring restarts from different param-      tion, even when their interaction with the knife only
+  eter configurations, and we found even relatively poor       becomes apparent at a later time.
+  parameter initialization (such as the one shown in
+12       DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                                                                                           Knife Velocity: -0.045 m/s
+                                                                                        70         Groundtruth
+                                                                                                   Shared Parameters
+                                                                                        60         Individual Parameters
+
+
+
+
+                                                                     Knife Force Norm
+                                                                                        50
+                                                                                        40
+                                                                                        30
+     Fig. 10: Velocity generalization results for a sphere                              20
+     shape with apple material properties given ground-                                 10
+     truth simulations with different vertical knife veloc-                              0
+     ities from a commercial simulator. Two versions of                                      0.0    0.2        0.4         0.6     0.8   1.0
+     DiSECt were calibrated: by sharing the parameters                                                               Time [s]
+     across all cutting springs (blue) and by optimizing         Fig. 11: Knife force profiles for cutting a cylindrical
+     each value individually (orange), given a ground-truth      mesh with cucumber material properties by simulating
+     trajectory with the knife sliding down at 50 mm s−1         the parameters with 45mm s−1 knife velocity down-
+     speed (highlighted in green). The normalized mean           wards. The simulation parameters in the shared and
+     absolute error (MAE) is evaluated against the ground-       individual parameterization have been inferred from a
+     truth by rolling out the estimated parameters for the       ground-truth trajectory with 50mm s−1 knife velocity
+     given knife velocity.                                       from a commercial solver (see subsubsection 5.4.2).
+
+
+                                                                 parameters. Instead, we propose a weighted mapping
+     5.4.2 Generalization to different knife
+                                                                 of a combination of cutting spring parameters from the
+           velocities                                            source mesh that are in proximity to the cutting springs
+     We investigate how accurately DiSECt predicts knife         of the target mesh. We developed an optimal trans-
+     force profiles given the parameters that were inferred      port (Peyré & Cuturi, 2019) method that receives as
+     from a cutting trajectory with a knife downward             inputs the cutting spring coordinates in 2D (obtained
+     velocity of 50 mm s−1 . At test time, we change the         by the mesh preprocessing step from subsection 3.2)
+     downward velocity to 35, 45, 55, and 65 mm s−1 . As         at the cutting interface (shown in Figure 13) from
+     shown in Figure 10 (and Figure A5 in the appendix),         a source domain, and a different set of 2D coordi-
+     the individual parameterization significantly outper-       nates for the target domain. By minimizing the Earth
+     forms the shared parameterization in normalized mean        Mover’s Distance (EMD) (Rubner, Tomasi, & Guibas,
+     absolute error (NMAE), i.e., the MAE between the            2000) between the cutting spring vertices of the two
+     ground-truth and estimated trajectory divided by the        meshes3 , we find a weight matrix that allows us to
+     mean force of the ground-truth trajectory, achieving a      compute spring parameters for the target domain as
+     four-fold more accurate result compared to the shared       a weighted combination of the parameters from the
+     parameterization in many cases (see example knife           source mesh. For more details, see subsection A.4.
+     force profile in Figure 11).                                Similar to the velocity generalization experiments,
+                                                                 we observe a significantly improved NMAE perfor-
+     5.4.3 Generalization to different geometries                mance (Table 1) in most cases when the cutting spring
+                                                                 parameters are tuned individually (“NMAE OT”) in
+     Cutting the same type of biomaterial can lead to dras-      contrast to duplicating average of each spring parame-
+     tically different knife force profiles, even when all the   ter (“NMAE Avg”) from the source domain across all
+     variables that influence the motion of the knife remain     locations in the target domain.
+     the same (Jamdagni & Jia, 2019). This can be caused              Overall, our generalization experiments have
+     by different geometries even within the same object         shown that, although we optimize hundreds of param-
+     class, as no two fruits or vegetables of the same type      eters involved in the cutting dynamics at highly
+     are identical. Since the mesh topologies can differ sig-    localized places, such representation still generalizes
+     nificantly between the different geometric shapes that      between various conditions. The successful transport
+     a foodstuff may have, a direct mapping between the
+     virtual nodes (respective cutting springs) is not possi-
+     ble, which would allow the transfer of the individual         3
+                                                                     Our implementation uses the Python Optimal Transport library (Flamary
+                                                                 & Courty, 2017)
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                  13
+
+    Material   Source Mesh     Target Mesh     NMAE OT    NMAE Avg    distance traveled by the knife will be greater, reducing
+    Potato     Real Potato 1   Real Potato 2      0.948       5.635   the cutting force for the required fracture energy.
+    Potato     Real Potato 2   Real Potato 1      1.360       6.981
+    Apple      Real Apple 2    Real Apple 3       6.844       1.330
+    Apple      Real Apple 3    Real Apple 2       3.857      19.749   5.6 Knife Motion Trajectory
+    Potato     Cylinder        Prism              3.470      12.001       Optimization
+    Potato     Prism           Cylinder           0.933       1.983
+    Potato     Prism           Sphere             7.867      15.841
+    Potato     Sphere          Prism             35.347      16.812
+                                                                      We represent the knife velocity trajectory by k equidis-
+    Apple      Cylinder        Sphere             4.261      14.457   tant keyframes in time. Three parameters are to be
+    Apple      Sphere          Cylinder           1.839       1.602   optimized per keyframe i (refer to Figure A3 for the
+    Apple      Prism           Sphere             0.920       4.531
+    Apple      Sphere          Prism             13.883      45.983   coordinate frame orientation w.r.t. the knife):
+    Cucumber   Cylinder        Sphere            66.672      71.102   • ai : the amplitude of the lateral (along z axis) sinu-
+    Cucumber   Sphere          Cylinder           4.239       0.484
+    Cucumber   Cylinder        Prism             58.138      64.407     soidal velocity
+    Cucumber   Prism           Cylinder           1.046       1.855
+                                                                      • bi : the frequency of the lateral sinusoidal velocity
+                                                                      • ci : the vertical (along y axis) velocity
+  Table 1: Mesh generalization results when the param-
+  eters from the source domain are transferred to the                     To allow for a smooth interpolation between the
+  target domain via Optimal Transport (OT), and by                    keyframes, and propagation of gradients from all tra-
+  averaging the parameters across all cutting springs.                jectory parameters at every time step, we weight
+  The numbers show the normalized mean absolute                       the contribution of all keyframe parameters on the
+  error (NMAE), i.e., the MAE divided by the mean                     entire trajectory via the radial basis function (RBF)
+  of the respective ground-truth knife force profile, to              kernel. The kernel uses the squared norm of the dif-
+  make the results comparable across different material               ference between the current time t difference and the
+  properties and geometries.                                          predefined keyframe times to compute the weight con-
+                                                                      tributions w ∈ Rk of the keyframe parameters (see
+                                                                      Figure 12):
+  of these parameters between two topologically dif-
+                                                                                                  kt − wk2
+                                                                                                          
+  ferent meshes based on their spatial correspondences
+  indicates that our simulation parameters implicitly                                w(t) = exp −                            (7)
+                                                                                                     2σ 2
+  encode material properties that generalize across mesh
+  topologies.                                                             In effect, a nonzero contribution on the trajectory
+                                                                      is maintained from all keyframes at all times, which
+  5.5 Controlling Knife Velocity                                      eases gradient-based optimization.
+                                                                          The kernel width σ controls how smoothed out
+  In real-world applications, automated cutting of food-              the contributions
+  stuffs may need to meet multiple competing objec-                                   √ of the keyframe parameters become.
+                                                                      We found σ = 0.03 to be an appropriate setting (see
+  tives. In particular, force may be minimized to prevent             illustration in Figure 12), given that the duration of
+  peripheral damage to the object, or ensure human                    the cutting action we optimize for is 0.9 s using k = 5
+  safety, while the velocity may be maximized to reduce               keyframes.
+  the required time. For cutting of food and biomate-                     To compute the knife’s horizontal (sideways)
+  rials, humans have intuitively developed the strategy               and vertical velocities żknife (t) and ẏknife (t) at time
+  of minimizing cutting force by pressing the knife ver-              t = [0..T ], the keyframe parameters in vector form
+  tically and simultaneously slicing horizontally (i.e.,              a, b, c ∈ Rk are combined with the time-dependent
+  a sawing motion) (Atkins, Xu, & Jeronimidis, 2004;                  weighting contribution from Equation 7:
+  Debao Zhou et al., 2006a, 2006b). Such a cutting
+  action can be intuitively understood as follows: by def-                        żknife (t) = a · w(t) cos(b · w(t)t)      (8)
+  inition, the work applied by the knife to the object
+  is equal to the cutting force integrated over displace-                         ẏknife (t) = c · w(t)                     (9)
+  ment, and by conservation of energy, also equal to the
+  fracture energy required to introduce a cut in the verti-               We minimize the mean knife force plus the vertical
+  cal plane. By simultaneously slicing horizontally, the              knife velocity integrated over the entire length of the
+                                                                      trajectory. Thus, we penalize high actuation effort by
+14        DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                                Keypoints                              penalty term for u = [a, b, c]:
+         Weight   1.0
+
+                  0.5                                                                                              c
+                                                                                                         Epenalty = (g(u))2 .
+                                                                                                                   2
+                  0.0
+                         0          1                 2           3         4
+                                                                                       This term acts as an attractor to the energy function
+                                        Amplitude Trajectory
+                                                                                       that we are optimizing for (where c acts as a damping
+                  0.4
+                                                                                       factor), where g(u) is an equality constraint.
+         a(t)
+
+
+
+
+                  0.2
+                                                                                           To include the inequality constraint in
+                  0.0                                                                  Equation 12, we convert it to an equality constraint
+                        0.0       0.2           0.4         0.6       0.8
+                                                Time [s]                               g(x) by introducing slack variable γ ∈ R that becomes
+     Fig. 12: Visualization of five keypoints (top) evenly                             part of u:
+     distributed in time with exemplary amplitude val-
+                                                                                                         1
+     ues a[i] per keyframe i (color-matching dots in lower                                         g(u) = lknife − |zknife (t)| − γ 2 .    (13)
+                                                                                                         2
+     plot). The resulting continuous trajectory a(t) result-
+     ing from weighting the keyframes via the RBF kernel                                   The update rule for the trajectory parameters u is
+     (Equation 7) is shown as the dashed line at the bottom.                           then
+
+                                                                                                            ∂L    ∂g         ∂g
+     the robot controlling the knife while maintaining a fast                                     u0 = u −     −λ    − cg(u)               (14)
+                                                                                                            ∂u    ∂u         ∂u
+     progression of the cutting process:                                                          λ 0 = λ + g(u).                          (15)
+                                        1
+                                            Z
+        minimize                L=               f (t, a, b, c) + ẏknife (t) dt           Using gradient-based trajectory optimization, we
+         u=[a,b,c]                      T                                              observe that such an intuitive cutting strategy emerges.
+                                                                                (10)   We define the cost function in Equation 10 to penal-
+       s.t.             yknife (T ) = hend                                      (11)   ize the mean knife force and inverse velocity, and we
+                                      1                                                parameterize the knife trajectory via keyframes in time
+                        |zknife (t)| ≤ lknife ,                                 (12)   that define the downward velocity and sinusoidal time-
+                                      2
+                                                                                       varying horizontal velocity (a complete description is
+     where k = 5 is the number of keyframes, T = 0.9 s is                              given in subsection 5.6 of the appendix).
+     the time at the end of the trajectory, f is the simulation                            When optimizing Equation 10 through Adam
+     step that returns the knife force norm kfknife k at time                          without constraints on the sideways knife position,
+     step t given the trajectory parameter vectors a, b, c,                            the resulting motion after 50 iterations (orange line in
+     and lknife = 15 cm is the blade length of the knife. We                           right subplot of Figure 14) consists of an initial press-
+     impose the hard constraint in Equation 12 to ensure                               ing phase up to the point of contact with the cucumber,
+     that the knife does not move too far along z where the                            after which the knife continuously moves sideways
+     blade of the knife ends (which would trivially mini-                              without sawing. To limit the sideways motion to
+     mize the knife force, although we assume the knife                                remain within the bounds of the blade length, we
+     blade has infinite length in this experiment setup).                              add an inequality constraint in Equation 12. By per-
+         Constrained optimization problems are typically                               forming constrained optimization with the modified
+     solved by converting them to unconstrained optimiza-                              differential method of multipliers (MDMM) (see sub-
+     tion problems through the introduction of Lagrange                                section 5.6), we see that the knife moves within the
+     multipliers. However, the critical points to such                                 bounds of the 15 cm blade length (green line on
+     Lagrangians often tend to be saddle points, which                                 the right in Figure 14), while incurring only slightly
+     gradient-descent-style algorithms, such as Adam, will                             more mean knife force (76.726 N) compared to the
+     not converge to (Platt & Barr, 1988). To make the                                 solution from the earlier unconstrained optimization
+     unconstrained objective amenable to gradient descent,                             (76.498 N). For comparison, the mean knife force was
+     following the modified differential method of multi-                              89.698 N before the trajectory optimization.
+     pliers (MDMM) (Platt & Barr, 1988), we introduce a
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                                                                   15
+                  Source cut_spring_ke                      Target cut_spring_ke
+                                                                                               1200
+
+  0.03                                                                                         1000
+
+
+
+
+                                                                                                   cut_spring_ke
+                                                                                               800
+  0.02
+                                                                                               600
+  0.01                                                                                         400
+                                                                                               200
+         0.02     0.01      0.00   0.01      0.02   0.02      0.01     0.00   0.01   0.02
+                Source cut_spring_softness             Target cut_spring_softness
+
+
+
+
+                                                                                                   cut_spring_softness
+                                                                                               1500
+  0.03
+                                                                                               1000
+  0.02
+
+  0.01                                                                                         500
+                                                                                                                         Fig. 15: Watertight 3D meshes obtained from 3D
+         0.02     0.01      0.00   0.01      0.02   0.02      0.01     0.00   0.01   0.02                                scans of a real apple, a peeled banana, and a cucumber,
+  Fig. 13: Transfer of cutting parameters between two                                                                    as part of the real-robot experiments from section 6.
+  different potato meshes from a real-world cutting                                                                      The textured meshes have been visualized in Blender
+  dataset. For the model in the left column, the cutting                                                                 via the Cycles renderer. For simulation, these meshes
+  spring parameters have been optimized individually                                                                     are downsampled and tetrahedralized.
+  for each cutting spring given a single trajectory of the
+  knife force (only two of the parameter types are shown
+  in both rows). These parameters have been transferred                                                                  fixture for a thin slicing knife with a blade length
+  to the mesh on the right column via Optimal Trans-                                                                     of 25 cm that attaches as end-effector to a Franka
+  port with the Earth Mover’s Distance (EMD) objective                                                                   Emika Panda robot arm (see Figure 16). Before slic-
+  (more details for this mesh transfer example are shown                                                                 ing, we obtain highly detailed meshes of all the fruits
+  in Figure A2).                                                                                                         to be cut via the turn-table-based EinScan SE 3D
+                                                                                                                         scanner (see Figure 15). We generate watertight sur-
+                                                                                                                         face meshes and down-sample them before discretiza-
+                         Knife Force [N]                                      Knife Position                             tion with TetMeshWild (Hu, Zhou, et al., 2018) to
+  300            Before Optimization                       0.08
+                 Unconstrained Optimization                                                                              obtain adequate tetrahedral meshes used in our sim-
+  200            Constrained Optimization                  0.06                                                          ulation. While force-torque sensors attached to the
+                                                    y
+
+
+
+
+  100                                                      0.04                                                          end-effector, such as in the experimental setup from
+                                                                                                                         Jamdagni and Jia (2019), may provide force mea-
+    0                                                      0.02
+         0.0      0.2        0.4       0.6    0.8                    -0.075 -0.025 0 0.025 0.075                         surements of higher accuracy, we found the linear
+                            Time [s]                                                 z
+                                                                                                                         force calculated from the joint forces measured by the
+  Fig. 14: Results from the trajectory optimization                                                                      torque sensors of the Panda arm very comparable in
+  experiment (subsection 5.5) on the cylinder mesh with                                                                  quality to the previously used dataset of real force
+  cucumber material properties where the mean knife                                                                      profiles in section 5.
+  force is penalized and the overall downward velocity
+  maximized. Left: knife force profiles before the trajec-                                                               6.1 Parameter Inference
+  tory optimization (blue), after unconstrained (orange)
+  and constrained (green) optimization. Right: resulting                                                                 Starting with a piece of cucumber, we command the
+  knife motions (starting from y = 8 cm moving down-                                                                     robot arm via Cartesian velocity control to cut in
+  wards), with constraints on the lateral motion shaded                                                                  a straight line vertically with a velocity of 4 cm s−1
+  in red.                                                                                                                downwards starting from a height of 11 mm of the
+                                                                                                                         blade above the cutting board (see Figure 16). We con-
+                                                                                                                         tinuously calculate the linear forces acting on the knife
+  6 Real-robot Optimized Cutting                                                                                         from the measurements of the torque sensors of the
+                                                                                                                         robot arm given the kinematic and inertial properties
+    Motion                                                                                                               of the knife and its fixture computed by the Autodesk
+  In our final set of experiments, we validate the capa-                                                                 Fusion 360 CAD software. As before, we take the
+  bilities of our simulator to infer the simulation param-                                                               norm of the linear knife force at each time step as
+  eters and optimize the knife motion trajectory on                                                                      our ground-truth signal. Given such force profile, we
+  a real robot. We designed and 3D-printed a knife                                                                       estimate the simulation parameters leading to a signif-
+                                                                                                                         icantly reduced reality gap to the simulated knife force
+16       DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                                                                                                                * U R X Q G W U X W K
+                                                                                                                                  , Q L W L D O  3 D U D P H W H U V
+                                                                                                                                2 S W L P L ] H G  3 D U D P H W H U V
+
+                                                                                                            
+
+
+
+
+                                                                                      ) R U F H  > 1 @
+                                                                                                            
+
+                                                                                                            
+
+                                                                                                                
+
+                                                                                                                
+                                                                                                                                                                                                                    
+                                                                                                                                                                           7 L P H  > V @
+
+                                                                          Fig. 17: Vertical cutting of an apple.
+
+
+     Fig. 16: Left: Experimental setup of our real-robot                                                                       * U R X Q G W U X W K
+                                                                                                                                , Q L W L D O  3 D U D P H W H U V
+     experiments where a Panda robot arm equipped with                                                                          2 S W L P L ] H G  3 D U D P H W H U V
+                                                                                                           
+     the slicing knife has cut vertically through a piece of
+
+
+
+
+                                                                                      ) R U F H  > 1 @
+                                                                                                           
+     cucumber. Right: Force profile obtained from cutting
+     this cucumber vertically (black), compared against the                                                
+
+     simulated force profile from before (red) and after                                                   
+
+     (green) optimization of the simulation parameters.                                                    
+                                                                                                                                                                                                                   
+                                                                                                                                                                       7 L P H  > V @
+
+
+     (the mean force error at each time step declined from            Fig. 18: Vertical cutting of a peeled banana.
+     over 14 N to less than 1 N).
+         Within 200 iterations of the Adam optimizer, we
+     find simulation parameters that yield a simulated force     end, we select a half of the mesh that we cut previously
+     profile which closely matched the real measurements         as our new cutting target where we aim to optimize
+     (see the force plot on the right of Figure 16). We repeat   a lateral slicing motion, similar to our setup from
+     the same cutting motions on an apple and a peeled           subsection 5.5. Since the mesh topology has changed
+     banana, which are fruits that are on the extreme ends       between the previous vertical cut and the new part of
+     of stiffness and toughness within the foodstuffs we         the fruit that we want to slice, we transport the pre-
+     investigated in this work. As shown in Figures 17 and       viously optimized simulation parameters to the new
+     18 for the apple and the banana, respectively, the opti-    cutting surface via the optimal transport technique we
+     mized simulation parameters achieve a significantly         developed in subsection A.4.
+     lower reality gap in the generated force profiles than at       Given the simulation setup and transported cutting
+     the beginning of the simulation (the force profile given    spring parameters, we are now ready to optimize the
+     the initial parameters is plotted in red).                  lateral slicing motion of the knife. We follow our for-
+         We quantify the accuracy in the simulated force         mulation from Equation 10 where we parameterize the
+     profiles via the normalized mean absolute error metric      motion through five way points that encode the slicing
+     (NMAE) again, where the MAE between the simu-               amplitude and vertical velocity. At the same time, we
+     lated and real force profile is divided by the mean of      again enforce the constraints to (1) ensure the knife
+     the real force profile. As reported in the first two rows   touches the cutting board at the end of the cut, and
+     of Table 2, the NMAE shrunk significantly between           (2) that the lateral motion of the knife does not exceed
+     the initial setting of the simulation parameters and the    the blade length. We execute the optimized slicing
+     final result of the optimization.                           motions on the real robot, as shown in Figure 19, for
+                                                                 the apple, banana, and cucumber. The fruits are fixed
+                                                                 to the cutting board via water-resistant super glue to
+     6.2 Trajectory Optimization
+                                                                 ensure that they remain in place without the need of an
+     Having optimized the simulation parameters from             external fixture. Analogously, in simulation, we also
+     measurements obtained through a vertical cut, we now        add boundary conditions to the lowest mesh vertices
+     seek to find cutting motions that require less effort       that touch the cutting board to keep them at a fixed
+     from the robot and thereby exert less force on the          location.
+     material which potentially damages the fruit. To this
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                                                                                                                                                                                                                                                                                                                        17
+
+                                                                                  Apple                                                                                                                                                Banana                                                                                                                                                          Cucumber
+
+
+
+
+                                                  9 H U W L F D O  & X W W L Q J                                                                                                                        9 H U W L F D O  & X W W L Q J                                                                                                                                                                                                                 9 H U W L F D O  & X W W L Q J
+                                                                                                                                                                                                                                                                                                                                                               
+                                                    2 S W L P L ] H G  6 O L F L Q J                                                                                                                         2 S W L P L ] H G  6 O L F L Q J                                                                                                                                                                                                               2 S W L P L ] H G  6 O L F L Q J
+                                                                                                                                                                                                                                                                                                                                                          
+
+                                                                                                                                                                                                                                                                                                                                                          
+           ) R U F H  > 1 @
+
+
+
+
+                                                                                                                                                                     ) R U F H  > 1 @
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                       ) R U F H  > 1 @
+                                                                                                                                                                                                                                                                                                                                                            
+                                 
+                                                                                                                                                                                                                                                                                                                                                             
+                                 
+                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                              7 L P H  > V @                                                                                                                                           7 L P H  > V @                                                                                                                                                     7 L P H  > V @
+
+                                                                          . Q L I H  3 R V L W L R Q                                                                                                                              . Q L I H  3 R V L W L R Q                                                                                                                                           . Q L I H  3 R V L W L R Q
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                             
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                             7 L P H  > V @
+
+
+
+
+                                                                                                                                                                                                                                                                                                               7 L P H  > V @
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 7 L P H  > V @
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+      \
+
+
+
+
+                                                                                                                                                                \
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                  \
+                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                         ]                                                                                                                                                         ]                                                                                                                                                                 ]
+
+
+  Fig. 19: Real-robot executions of the optimized slicing motions for an apple (left column), a peeled banana (center
+  column), and a cucumber (right column). First row: side view of the experimental setup. Second row: comparison
+  of measured knife force profiles from a vertical cut (blue) and the optimized slicing motion (orange). Third row:
+  trajectory of the knife following the optimized slicing motion. The colorful line indicates the position of the blade
+  center point over time, from the first (dark blue) to the last time step (dark red) of the motion. The shaded polygon
+  behind the trajectory line indicates the silhouette of the mesh being cut (orthographic projection of the convex hull
+  of the fruit’s shape).
+
+
+      With an initialization of the slicing amplitude to                                                                                                                                                                                                                                                                                                                  Apple                                 Banana                                        Cucumber
+  zero, which corresponds to a vertical cut, the opti-
+  mized motions exhibit a pronounced slicing trajec-                                                                                                                                                                                                                        Simulation accuracy before parameter inference
+                                                                                                                                                                                                                                                                            Knife force NMAE          0.606      0.487                                                                                                                                                    0.231
+  tory (see bottom row in Figure 19). Particularly for
+  the banana (middle column), the knife moves later-                                                                                                                                                                                                                        Simulation accuracy after parameter inference
+  ally by more than ten centimeters, while the lateral                                                                                                                                                                                                                      Knife force NMAE           0.083      0.160                                                                                                                                                   0.050
+  motions on the apple and cucumber remain smaller.
+                                                                                                                                                                                                                                                                            Trajectory optimization performance
+  In the measured forces, we see a clear benefit of the                                                                                                                                                                                                                     Mean force reduction 42.7 %         46.5 %                                                                                                                                                  46.7 %
+  obtained slicing motions. As shown in the second                                                                                                                                                                                                                          Max force reduction       26.5 %    20.9 %                                                                                                                                                  43.9 %
+  row of Figure 19, the force profile of the optimized
+  knife trajectory (orange) is considerable lower than its                                                                                                                                                                                                         Table 2: Summary of results in parameter inference
+  counterpart of the vertical cutting motion (blue). We                                                                                                                                                                                                            and trajectory optimization from our real-robot exper-
+  quantify the reduction in exerted knife force in the bot-                                                                                                                                                                                                        iments in section 6.
+  tom two rows in Table 2. The mean of the knife force
+  over the entire length of the trajectory is consistently
+                                                                                                                                                                                                                                                                   not reduce by as much compared to a stiffer material,
+  reduced by more than 40%, while the peak force (max-
+                                                                                                                                                                                                                                                                   such as a cucumber or an apple.
+  imum of force profile) has shrunk by 20% (banana)
+  to more than 40% (cucumber). Since the cutting of a
+  peeled banana requires significantly less force than the
+  other fruits, it is expected that the maximal force does
+18       DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+     7 Conclusions                                               Acknowledgments
+     We presented the first differentiable simulator for the     We thank Yan-Bin Jia and Prajjwal Jamdagni for pro-
+     robotic cutting of soft materials. Differentiability was    viding the dataset of real-world cutting trajectories
+     achieved through a continuous contact formulation,          and meshes that we used in our experiments from
+     the insertion of virtual nodes along a cutting plane, and   section 5. We are grateful to Krishna Mellachervu
+     a continuous damage model based on the progressive          for outstanding technical support with commercial
+     weakening of springs. The advantages of differentia-        solvers. We thank David Millard for helping to set
+     bility were shown through a systematic comparison of        up the robot infrastructure and guiding us in the fab-
+     multiple gradient-based and derivative-free methods         rication of the knife fixture. Finally, we thank Mike
+     for optimizing the simulation parameters; leveraging        Skolones for his mentorship. This work was supported
+     gradients from the simulator enabled highly efficient       by a Google Ph.D. Fellowship.
+     estimation of posteriors over hundreds of parame-
+     ters. The calibrated simulator was able to reproduce        References
+     ground-truth data from a state-of-the-art commercial
+     simulator in a fraction of the time, as well as closely     Areias, P., & Rabczuk, T. (2017). Steiner-point free
+     match data from a real-world cutting dataset. Simu-               edge cutting of tetrahedral meshes with appli-
+     lator predictions generalized across cutting velocities,          cations in fracture. Finite Elements in Analysis
+     object instances, and object geometries. A control                and Design, 132, 27–41.
+     experiment was performed in which human pressing-
+     and-slicing behavior emerged from sample-efficient
+     constrained optimization applied to the differentiable      Atkins, A., & Atkins, T. (2009). The science and
+     simulator, reducing the mean knife force by 15% rel-              engineering of cutting: The mechanics and pro-
+     ative to a vertical cut. Finally, we applied the capabil-         cesses of separating, scratching and puncturing
+     ities of parameter inference, parameter transport, and            biomaterials, metals and non-metals. Elsevier
+     trajectory optimization to a real-robot cutting scenario          Science.
+     where the sim2real gap was closed and the measured
+     knife forces reduced significantly.                         Atkins, A., Xu, X., Jeronimidis, G. (2004). Cutting
+          In future work, we plan to make multiple exten-              by ‘pressing and slicing’ of thin floppy slices
+     sions. First, we will extend the material model for               of materials illustrated by experiments on ched-
+     the soft material to explicitly capture nonlinearity              dar cheese and salami. Journal of Materials
+     and isotropy, as commonly observed in biomateri-                  Science, 39, 2761-2766.
+     als; explicitly specifying such behaviors will facilitate
+     optimization of simulator parameters. In addition, we
+                                                                 Belytschko, T., Liu, W.K., Moran, B., Elkhodary, K.
+     will extend our modeling approach to accommodate
+                                                                       (2013). Nonlinear finite elements for continua
+     more complex cutting actions, such as carving, in
+                                                                       and structures. John Wiley & Sons.
+     which the knife may arbitrarily rotate and follow
+     more diverse trajectories than sawing motions; this         Belytschko, T., Lu, Y., Gu, L. (1994). Element-
+     approach will be used in additional control experi-               free galerkin methods. International Journal for
+     ments, with the resulting trajectories compared again             Numerical Methods in Engineering, 37, 229–
+     to human actions. Ultimately, we envision the use                 256.
+     of differentiable cutting simulators in applications as
+     challenging as robotic surgery, where tissue param-
+     eters can accurately and efficiently be estimated on        Berndt, I., Torchelsen, R., Maciel, A. (2017). Efficient
+     initial contact with the cutting instrument, and the cal-        surgical cutting with position-based dynamics.
+     ibrated simulator can be used for faster-than-real-time          IEEE Computer Graphics and Applications,
+     roll-outs in a model-predictive framework for online             37(3), 24-31.
+     surgical planning.
+
+                                                                 Bielser, D., Glardon, P., Teschner, M., Gross, M.
+                                                                       (2003). A state machine for real-time cutting
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting      19
+
+        of tetrahedral meshes. 11th pacific conference             and slicing’, applied to the robotic cut of bio-
+        on computer graphics and applications (pp.                 materials. ii. force during slicing and pressing
+        377–386).                                                  cuts. Proceedings 2006 ieee international con-
+                                                                   ference on robotics and automation, 2006. icra
+  Brown, P. (2017). Contact modelling for forward                  2006. (p. 2256-2261).
+       dynamics of human motion (Unpublished mas-
+       ter’s thesis). University of Waterloo.                El Said, I., Atallah, M.M., Khalil, K., El-Lithy, A.
+                                                                   (2011). Physical and mechanical properties of
+  Burkhart, D., Hamann, B., Umlauf, G. (2010). Adap-               cucumber applied to seed extractor. Journal
+       tive and feature-preserving subdivision for high-           of Soil Sciences and Agricultural Engineering,
+       quality tetrahedral meshes. Computer Graphics               2(8), 871–880.
+       Forum, 29(1), 117–127.
+
+                                                             Flamary, R., & Courty, N. (2017). Pot python
+  Carpentier, J., & Mansard, N. (2018). Analytical                optimal transport library.  Retrieved from
+       derivatives of rigid body dynamics algorithms.             https://pythonot.github.io/
+       Robotics: Science and systems.
+                                                             Geilinger, M., Hahn, D., Zehnder, J., Bächer, M.,
+  Chebotar, Y., Handa, A., Makoviychuk, V., Mack-                  Thomaszewski, B., Coros, S. (2020). Add: Ana-
+       lin, M., Issac, J., Ratliff, N., Fox, D. (2019).            lytically differentiable dynamics for multi-body
+       Closing the sim-to-real loop: Adapting simula-              systems with frictional contact. arxiv.
+       tion randomization with real world experience.
+       2019 international conference on robotics and         Giftthaler, M., Neunert, M., Stäuble, M., Frigerio, M.,
+       automation (icra) (pp. 8973–8979).                          Semini, C., Buchli, J. (2017). Automatic dif-
+                                                                   ferentiation of rigid body dynamics for optimal
+  Cranmer, K., Brehmer, J., Louppe, G. (2020). The                 control and estimation. Advanced Robotics,
+       frontier of simulation-based inference. Pro-                31(22), 1225-1237.
+       ceedings of the National Academy of Sciences,
+       117(48), 30055–30062.
+                                                             Gingold, R.A., & Monaghan, J.J.        (1977, 12).
+                                                                  Smoothed particle hydrodynamics: theory and
+  Cunningham, W.H. (1976). A network simplex                      application to non-spherical stars. Monthly
+       method. Mathematical Programming, 11, 105–                 Notices of the Royal Astronomical Society,
+       116.                                                       181(3), 375-389.
+
+
+  de Avila Belbute-Peres, F., Smith, K., Allen, K.,          Griewank, A., & Walther, A. (2003). Introduction to
+       Tenenbaum, J., Kolter, J.Z. (2018). End-to-end             automatic differentiation. PAMM, 2(1), 45-49.
+       differentiable physics for learning and control.
+       Advances in neural information processing sys-
+       tems 31 (pp. 7178–7189).                              Griffith, A.A. (1921). The phenomena of rupture and
+                                                                    flow in solids. Philosophical transactions of the
+  Debao Zhou, Claffee, M.R., Kok-Meng Lee, McMur-                   royal society of London. Series A, containing
+       ray, G.V. (2006a). Cutting, "by pressing                     papers of a mathematical or physical character,
+       and slicing", applied to robotic cutting bio-                221(582-593), 163–198.
+       materials. i. modeling of stress distribution.
+       Proceedings 2006 ieee international conference
+       on robotics and automation (p. 2896-2901).            Hahn, D., Banzet, P., Bern, J.M., Coros, S. (2019).
+                                                                  Real2sim: Visco-elastic parameter estimation
+  Debao Zhou, Claffee, M.R., Kok-Meng Lee, McMur-                 from dynamic motion. ACM Transactions on
+       ray, G.V. (2006b). Cutting, ’by pressing                   Graphics (TOG), 38(6), 1–13.
+20       DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+     Heiden, E., Denniston, C.E., Millard, D., Ramos,           Hu, Y., Liu, J., Spielberg, A., Tenenbaum, J.B., Free-
+          F., Sukhatme, G.S.          (2021).     Probabilis-         man, W.T., Wu, J., . . . Matusik, W. (2019).
+          tic inference of simulation parameters                      ChainQueen: A real-time differentiable physi-
+          via     parallel     differentiable     simulation.         cal simulator for soft robotics. Proceedings of
+          CoRR,      abs/2109.08815.                Retrieved         IEEE International Conference on Robotics and
+          from             https://arxiv.org/abs/2109.08815           Automation (ICRA).
+          https://arxiv.org/abs/2109.08815
+
+     Heiden, E., Liu, Z., Ramachandran, R.K., Sukhatme,         Hu, Y., Zhou, Q., Gao, X., Jacobson, A., Zorin, D.,
+          G.S. (2020). Physics-based simulation of                   Panozzo, D. (2018, July). Tetrahedral meshing
+          continuous-wave LIDAR for localization, cali-              in the wild. ACM Trans. Graph., 37(4), 60:1–
+          bration and tracking. International conference             60:14.
+          on robotics and automation (icra).
+
+     Heiden, E., Macklin, M., Narang, Y.S., Fox, D., Garg,      Hughes, T.J. (2012). The finite element method: lin-
+          A., Ramos, F. (2021, July). DiSECt: A Dif-                 ear static and dynamic finite element analysis.
+          ferentiable Simulation Engine for Autonomous               Courier Corporation.
+          Robotic Cutting. Proceedings of robotics: Sci-
+          ence and systems. Virtual. 10.15607/RSS.2021          Innes, M. (2019). Don’t unroll adjoint: Differentiating
+          .XVII.067                                                   ssa-form programs.
+
+     Heiden, E., Millard, D., Coumans, E., Sheng, Y.,           Jamdagni, P., & Jia, Y.-B. (2019). Robotic cut-
+          Sukhatme, G.S. (2021). NeuralSim: Aug-                     ting of solids based on fracture mechanics and
+          menting differentiable simulators with neural              fem. Ieee international conference on intelli-
+          networks. Proceedings of the ieee international            gent robots and systems (iros) (pp. 8246–8251).
+          conference on robotics and automation (icra).
+          Retrieved from https://github.com/google-             Jeřábková, L., & Kuhlen, T. (2009). Stable cutting
+          research/tiny-differentiable-simulator                       of deformable objects in virtual environments
+                                                                       using XFEM. IEEE Computer Graphics and
+     Heiden, E., Millard, D., Zhang, H., Sukhatme, G.S.                Applications, 29(2), 61-71.
+          (2020). Interactive differentiable simulation.
+
+     Hsu, K., & Ramos, F. (2019, 16–18 Apr). Bayesian           Khoei, A.R. (2014). Extended finite element method:
+          learning of conditional kernel mean embed-                 theory and applications. John Wiley & Sons.
+          dings for automatic likelihood-free inference.
+          K. Chaudhuri & M. Sugiyama (Eds.), Proceed-           Kingma, D.P., & Ba, J. (2015). Adam: A method
+          ings of machine learning research (Vol. 89, pp.            for stochastic optimization. 3rd international
+          2631–2640).                                                conference for learning representations (iclr).
+
+     Hu, Y., Anderson, L., Li, T.-M., Sun, Q., Carr, N.,        Koolen, T., & Deits, R. (2019, 05). Julia for robotics:
+          Ragan-Kelley, J., Durand, F. (2020). Diff-                 simulation and real-time control in a high-level
+          Taichi: Differentiable programming for physical            programming language. International confer-
+          simulation. ICLR.                                          ence on robotics and automation.
+
+                                                                Koschier, D., Bender, J., Thuerey, N. (2017, July).
+     Hu, Y., Fang, Y., Ge, Z., Qu, Z., Zhu, Y., Pradhana,            Robust extended finite elements for complex
+          A., Jiang, C. (2018). A moving least squares               cutting of deformables. ACM Trans. Graph.,
+          material point method with displacement dis-               36(4).
+          continuity and two-way rigid body coupling.
+          ACM Transactions on Graphics (TOG), 37(4),
+          150.
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting     21
+
+  Koschier, D., Lipponer, S., Bender, J. (2014). Adap-             collision. Proc. ACM Comput. Graph. Interact.
+       tive tetrahedral meshes for brittle fracture simu-          Tech., 3(1).
+       lation. Symposium on Computer Animation.
+
+                                                             Mahnken, R. (2017). Identification of material param-
+  Krishnan, S., Garg, A., Liaw, R., Thananjeyan, B.,             eters for constitutive equations. Encyclopedia
+        Miller, L., Pokorny, F.T., Goldberg, K. (2018,           of Computational Mechanics Second Edition,
+        jul). SWIRL: A Sequential Windowed Inverse               1–21.
+        Reinforcement Learning Algorithm for Robot
+        Tasks With Delayed Rewards. International
+        Journal of Robotics Research (IJRR).                 Margossian, C.C. (2019, Mar). A review of automatic
+                                                                  differentiation and its efficient implementation.
+                                                                  WIREs Data Mining and Knowledge Discovery,
+  Kulkarni, A., Satyanarayana, K., Rohatgi, P., Vijayan,          9(4).
+       K. (1983). Mechanical properties of banana
+       fibres (musa sepientum). Journal of materials
+       science, 18(8), 2290–2296.                            Matl, C., Narang, Y., Bajcsy, R., Ramos, F., Fox,
+                                                                   D. (2020). Inferring the material proper-
+                                                                   ties of granular media for robotic tasks. 2020
+  Lenz, I., Knepper, R.A., Saxena, A.          (2015).             ieee international conference on robotics and
+       DeepMPC: Learning deep latent features for                  automation (icra) (p. 2770-2777).
+       model predictive control. Robotics: Science and
+       Systems.                                              Matl, C., Narang, Y.S., Fox, D., Bajcsy, R., Ramos,
+                                                                   F. (2020). STReSSD: Sim-to-real from sound
+                                                                   for stochastic dynamics. Conference on Robot
+  Li, C., Chen, C., Carlson, D., Carin, L. (2016).                 Learning.
+        Preconditioned stochastic gradient langevin
+        dynamics for deep neural networks. Aaai.
+                                                             Mehta, B., Diaz, M., Golemo, F., Pal, C., Paull, L.
+  Li, Y., Du, X., Wang, J., Lei, C. (2018/02). Study              (2019). Active domain randomization. Confer-
+         on mechanical properties of apple picking dam-           ence on Robot Learning.
+         age. Proceedings of the 2017 3rd international
+         forum on energy, environment science and mate-
+         rials (ifeesm 2017) (p. 1666-1670). Atlantis        Mehta, B., Handa, A., Fox, D., Ramos, F. (2020). A
+         Press.                                                   user’s guide to calibrating robotics simulators.
+                                                                  Conference on Robot Learning.
+  Liu, M., & Liu, G. (2010). Smoothed particle hydro-
+        dynamics (sph): An overview and recent devel-
+        opments. Archives of computational methods in        Merchant, M.E. (1945). Mechanics of the metal cut-
+        engineering, 17, 25–76.                                   ting process. i. orthogonal cutting and a type
+                                                                  2 chip. Journal of applied physics, 16(5),
+                                                                  267–275.
+  Ljung, L. (1999). System identification (2nd ed.):
+       Theory for the user. USA: Prentice Hall PTR.
+                                                             Mitsioni, I., Karayiannidis, Y., Stork, J.A., Kragic,
+  Long, P., Moughlbay, A., Khalil, W., Martinet, P.                D. (2019). Data-driven model predictive con-
+       (2013). Robotic meat cutting. Ict-pamm work-                trol for the contact-rich task of food cutting.
+       shop.                                                       Ieee-ras international conference on humanoid
+                                                                   robots (humanoids) (p. 244-250).
+  Macklin, M., Erleben, K., Müller, M., Chentanez, N.,
+       Jeschke, S., Corse, Z. (2020, April). Local           Moës, N., Dolbow, J., Belytschko, T. (1999). A
+       optimization for robust signed distance field              finite element method for crack growth without
+22       DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+           remeshing. International journal for numerical            tactile sensing via physics-based simulation and
+           methods in engineering, 46(1), 131–150.                   learned latent projections. International Con-
+                                                                     ference on Robotics and Automation.
+
+     Molino, N., Bao, Z., Fedkiw, R. (2004, August). A vir-
+          tual node algorithm for changing mesh topology      Pan, J., Bai, J., Zhao, X., Hao, A., Qin, H. (2015).
+          during simulation. ACM Trans. Graph., 23(3),              Real-time haptic manipulation and cutting of
+          385–392.                                                  hybrid soft tissue models by extended position-
+                                                                    based dynamics. Computer Animation and
+                                                                    Virtual Worlds, 26(3-4), 321–335.
+     Monaghan, J. (1992). Smoothed particle hydro-
+         dynamics. Annual Review of Astronomy and
+         Astrophysics, 30, 543–574.                           Papamakarios, G., & Murray, I. (2016). Fast ε-free
+                                                                   inference of simulation models with Bayesian
+                                                                   conditional density estimation.        D. Lee,
+     Mousavizadeh, S.J., Mashayekhi, A.N., Daraei Gar-             M. Sugiyama, U. Luxburg, I. Guyon, & R. Gar-
+          makhany, A., Ehtesham Nia, A., M, J. (2010,              nett (Eds.), Advances in neural information pro-
+          01). Evaluation of some physical properties of           cessing systems (Vol. 29). Curran Associates,
+          cucumber (cucumis sativus l.). Journal of Agri-          Inc.
+          cultural Science and Technology, 4, 107-115.
+                                                              Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury,
+                                                                   J., Chanan, G., . . . Chintala, S. (2019). Pytorch:
+     Mozifian, M., Higuera, J.C.G., Meger, D., Dudek, G.           An imperative style, high-performance deep
+          (2019). Learning domain randomization distri-            learning library. H. Wallach, H. Larochelle,
+          butions for training robust locomotion policies.         A. Beygelzimer, F. d'Alché-Buc, E. Fox, &
+          arXiv preprint arXiv:1906.00410.                         R. Garnett (Eds.), Advances in neural informa-
+                                                                   tion processing systems 32 (pp. 8024–8035).
+                                                                   Curran Associates, Inc.            Retrieved from
+     M. Sánchez-Banderas, R., & A. Otaduy, M. (2018).              http://papers.neurips.cc/paper/9015-pytorch-
+          Strain rate dissipation for elastic deformations.        an-imperative-style-high-performance-deep-
+          Computer Graphics Forum, 37(8), 161-170.                 learning-library.pdf
+
+                                                              Paulus, C.J., Untereiner, L., Courtecuisse, H., Cotin,
+     Mu, X., Xue, Y., Jia, Y.-B. (2019). Robotic cut-               S., Cazier, D. (2015). Virtual cutting of
+          ting: Mechanics and control of knife motion.              deformable objects based on efficient topolog-
+          Ieee international conference on robotics and             ical operations. The Visual Computer, 31(6),
+          automation (icra) (pp. 3066–3072).                        831–841.
+     Müller, M., Heidelberger, B., Hennix, M., Ratcliff, J.
+          (2007). Position based dynamics. Journal of         Peyré, G., & Cuturi, M. (2019). Computational
+          Visual Communication and Image Representa-                optimal transport: With applications to data
+          tion, 18(2), 109–118.                                     science. Now Publishers.
+
+                                                              Platt, J.C., & Barr, A.H. (1988). Constrained differen-
+     Murthy, J.K., Macklin, M., Golemo, F., Voleti, V.,              tial optimization for neural networks. Advances
+          Petrini, L., Weiss, M., . . . Fidler, S. (2021).           in Neural Information Processing Systems.
+          gradSim: Differentiable simulation for system
+          identification and visuomotor control. Interna-
+          tional conference on learning representations.      Qiao, Y.-L., Liang, J., Koltun, V., Lin, M.C. (2020).
+                                                                    Scalable differentiable physics for learning and
+     Narang, Y., Sundaralingam, B., Macklin, M., Mousa-             control. Icml.
+          vian, A., Fox, D. (2021). Sim-to-real for robotic
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting      23
+
+  Ramos, F., Possas, R., Fox, D. (2019). BayesSim:                 the material point method. Proc. ACM Comput.
+      adaptive domain randomization via probabilis-                Graph. Interact. Tech., 2(2).
+      tic inference for robotics simulators. Robotics:
+      Science and systems (rss).
+                                                             Wang, Y. (2014). Virtual node algorithms for simulat-
+  Rubner, Y., Tomasi, C., Guibas, L.J. (2000). The                ing and cutting deformable solids (Unpublished
+       earth mover’s distance as a metric for image               doctoral dissertation). UCLA.
+       retrieval. International Journal of Computer
+       Vision, 40(2), 99-121.                                Welling, M., & Teh, Y.W. (2011). Bayesian learn-
+                                                                   ing via stochastic gradient langevin dynamics.
+                                                                   International conference on machine learning
+  Sifakis, E., Der, K.G., Fedkiw, R. (2007). Arbitrary             (icml) (p. 681-688).
+        cutting of deformable tetrahedralized objects.
+        Proceedings of the 2007 acm siggraph/euro-           Wijayarathne, L., Sima, Q., Zhou, Z., Zhao, Y., Ham-
+        graphics symposium on computer animation                  mond, F.L. (2020). Simultaneous trajectory
+        (pp. 73–80).                                              optimization and force control with soft contact
+                                                                  mechanics. Ieee/rsj international conference on
+  Sifakis, E., Shinar, T., Irving, G., Fedkiw, R. (2007).         intelligent robots and systems (iros) (p. 3164-
+        Hybrid simulation of deformable solids. Pro-              3171).
+        ceedings of the 2007 acm siggraph/eurograph-
+        ics symposium on computer animation (pp. 81–         Wolper, J., Chen, Y., Li, M., Fang, Y., Qu, Z., Lu,
+        90).                                                      J., . . . Jiang, C. (2020). Anisompm: Animat-
+                                                                  ing anisotropic damage mechanics. ACM Trans.
+  Smith, B., Goes, F.D., Kim, T. (2018, March). Sta-              Graph., 39(4).
+       ble neo-hookean flesh simulation. ACM Trans.
+       Graph., 37(2).
+                                                             Wolper, J., Fang, Y., Li, M., Lu, J., Gao, M., Jiang, C.
+                                                                  (2019). Cd-mpm: Continuum damage material
+  Thananjeyan, B., Garg, A., Krishnan, S., Chen, C.,              point methods for dynamic fracture animation.
+       Miller, L., Goldberg, K. (2017, jun). Multi-               ACM Trans. Graph., 38(4).
+       lateral surgical pattern cutting in 2d orthotropic
+       gauze with deep reinforcement learning policies
+       for tensioning. Ieee international conference on      Wu, C., Guo, Y., Hu, W. (2014). An introduction to
+       robotics and automation (icra).                            the ls-dyna smoothed particle galerkin method
+                                                                  for severe deformation and failure analyses in
+  Tieleman, T., & Hinton, G. (2012). Coursera: Neu-               solids. International ls-dyna users conference
+        ral netwroks for machine learning (lecture 6.5 -          (pp. 1–20).
+        rmsproprop).
+                                                             Wu, C., Wu, Y., Crawford, J.E., Magallanes, J.M.
+  Toni, T., Welch, D., Strelkowa, N., Ipsen, A., Stumpf,          (2017). Three-dimensional concrete impact and
+        M.P. (2008, Jul). Approximate Bayesian com-               penetration simulations using the smoothed par-
+        putation scheme for parameter inference and               ticle Galerkin method. International Journal of
+        model selection in dynamical systems. Journal             Impact Engineering, 106, 1-17.
+        of The Royal Society Interface, 6(31), 187–202.
+
+                                                             Wu, J., Westermann, R., Dick, C. (2015). A sur-
+  U.S. Department of Agriculture, A.R.S. (2019). Food-            vey of physically based simulation of cuts in
+        data central. Retrieved from fdc.nal.usda.gov             deformable bodies. Computer Graphics Forum,
+                                                                  34(6), 161–187.
+  Wang, S., Ding, M., Gast, T.F., Zhu, L., Gagniere, S.,
+       Jiang, C., Teran, J.M. (2019, July). Simula-
+       tion and visualization of ductile fracture with
+24         DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+     Appendix A            Additional                            Algorithm 4 SGLD with Adam update rule
+                           Algorithmic Details                    1: Given: learning rate α, initial parameters θ0 ,
+                                                                     likelihood function l(·)
+     A.1     Adam Optimizer                                       2: m0 ← 0
+                                                                  3: v0 ← 0
+     At its core, Adam updates the √ parameters θ interac-
+                                                                  4: for i = 1 . . . max_iterations do
+     tively as θi ← θi−1 − α · m̂i /( v̂i + ε), where α is
+                                                                  5:     gi ← ∇θ U(θi−1 )
+     the learning rate, m̂i and v̂i represent the first and
+                                                                  6:     mi ← β1 · mi−1 + (1 − β1 ) · gi
+     second order decaying averages (or momentum) after
+                                                                  7:     vi ← β2 · vi−1 + (1 − β2 ) · g2i
+     correcting for biases, and ε is a small value to pre-
+                                                                  8:     m̂i ← mi /(1 − β1i )
+     vent numerical issues. The full algorithm is shown in
+                                                                  9:     v̂i ← vi /(1 − β2i )√
+     Algorithm 3. In Algorithm 4, we describe Stochastic                                             
+                                                                 10:     Ai ← diag 1 ( v̂i + ε)
+     Gradient Langevin Dynamics (SGLD) with the Adam
+                                                                 11:     ηi ∼ N (0, αAi )
+     update rule. A detailed description of SGLD is given
+                                                                 12:     θi ← θi−1 − α · m̂i · Ai + ηi
+     in subsection 4.2.
+                                                                 13: end for
+                                                                 14: return θi
+     Algorithm 2 Frank-Wolfe method
+      1: Result: Barycentric coordinate u of point on edge
+         (p1 , p2 ) with lowest signed distance w.r.t. SDF d :   A.2    Loss Functions
+         R3 → R                                                  We investigated various loss functions for evaluating
+      2: u ← 1/2                                                 the closeness between knife force profiles effectively.
+      3: for i = 0 . . . max_iterations do                       Given the two-dimensional parameter inference exper-
+                     ∂
+      4:     δ←          d ((1 − u)p1 + up2 )                    iment from subsection 5.1, we test the following cost
+                    ∂u                                           functions which we minimize via the Adam optimizer:
+      5:     if δ < 0 then
+      6:           s←1                                           • L1 loss
+      7:     else                                                • L2 loss
+      8:           s←0                                           • Inverse Cosine Similarity
+      9:     end if                                              • LogSumExp
+                      2
+     10:     γ←                                                      We visualize the trace of the optimized param-
+                    2+i
+     11:     u ← u + γ(s − u)                                    eters in Figure A1. The L1 loss function compares
+     12: end for                                                 favorably to the other formulations as it allows for
+                                                                 a relatively fast convergence to the true parameters,
+                                                                 while also yielding a “bouncing” behavior when the
+     Algorithm 3 Stochastic gradient descent with Adam           iterates are close to the (local) optimum. Since we
+      1: Given: learning rate α, initial parameters θ0 ,         use the L1 loss function in the likelihood term for our
+         likelihood function l(·)                                probabilistic parameter inference experiments 5.1, the
+      2: m0 ← 0                                                  likelihood distribution corresponds to a Laplace distri-
+      3: v0 ← 0                                                  bution which is known to have sharp peaks and heavy
+      4: for i = 1 . . . max_iterations do                       tales.
+      5:     gi ← ∇θ l(θi−1 )
+      6:     mi ← β1 · mi−1 + (1 − β1 ) · gi                     A.3    BayesSim Implementation
+      7:     vi ← β2 · vi−1 + (1 − β2 ) · g2i
+      8:     m̂i ← mi /(1 − β1i )                                BayesSim approximates the posterior over the simula-
+      9:     v̂i ← vi /(1 − β2i ) √                              tion parameters as
+     10:     θi ← θi−1 − α · m̂i /( v̂i + ε)
+     11: end for
+                                                                            p(θ | φ ) ≈ p(θ )/ p̃(θ ) q(θ | φ ),
+     12: return θi
+                                                                 where p(θ ) is the prior distribution and p̃(θ ) is a
+                                                                 proposal prior used to sample the simulator and col-
+                                                                 lect N samples, {θi , φis }Ni=1 , to learn q(θ | φ ). When
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting               25
+
+                      L1 Loss |φ s − φ r |                        a real trajectory φ r is observed, BayesSim computes
+                                                                  p(θ | φ = φ r ) that represents the posterior over sim-
+                                                                  ulation parameters given the real data. As inferring
+                                                                  simulator parameters given trajectories is a type of
+                                                                  inverse problem, it can admit a multitude of solutions.
+                                                                      For the BayesSim baseline, we train a mixture den-
+                                                                  sity network (MDN) representing q(θ | φ ) with 10
+                                                                  components on a dataset consisting of 500 knife force
+                                                                  trajectories that have been generated in our simula-
+                     L2 Loss kφ s − φ r k2                        tor by uniformly sampling the simulation parameters
+                                                                  within their respective bounds. Depending on the
+                                                                  experiment, we limit ourselves to only a subset of
+                                                                  all the available parameters, due to the exponential
+                                                                  increase in sample complexity. As summary statistics
+                                                                  input to BayesSim, we downsample the 0.9 s knife
+                                                                  force profiles consisting of 90,000 time steps by a
+                                                                  factor of 1000 to 90-dimensional summary statistics
+                                                                  using polyphase filtering. While training the MDN, we
+                                           φs ·φr
+                                                                  project the true parameter values to the unit interval
+     Inverse Cosine Similarity 1 −                                using their possible ranges (see Table A2), as we found
+                                     max(kφ s k2 · kφ r k2 , ε)
+                                                                  the MDN to be sensitive to the scale of the parameters,
+                                                                  and to perform more accurately with homogeneous
+                                                                  value ranges.
+
+                                                                  A.4     Optimal Transport of Cutting
+                                                                          Spring Parameters
+                                                                  The Earth Mover’s Distance can be interpreted as the
+                                                                  minimal cost associated with transforming a constant
+           LogSumExp log [∑t exp (φ s [t] − φ r [t])]             volume pile of dirt into another, where the cost is
+                                                                  defined as the amount of dirt moved multiplied by
+                                                                  the distance travelled. Formally, given two sets of ver-
+                                                                  tices P and Q, associated sets of vertex weights wP
+                                                                  and wQ , and a cost matrix given by the Euclidean
+                                                                  distance between two points D = |di, j | = kpi − q j k2 ,
+                                                                  optimal transport finds the solution of the optimization
+                                                                  problem
+
+                                                                                          1 m n
+  Fig. A1: Evaluation of various loss functions on the                              min
+                                                                                     F
+                                                                                            ∑ ∑ fi, j di, j ,
+                                                                                          Z i=1
+                                                                                                                       (A1)
+  actual_2d scenario from subsection 5.1. For 500                                               j=1
+  randomly sampled parameter vectors, the trajectories
+  are simulated (shown as dots) and the loss is com-              where F = fi, j is the movement or flow between pi and
+  puted between the simulated trajectory φ s and the              q j which we try to minimize, and Z = ∑m        n
+                                                                                                             i=1 ∑ j=1 f i, j
+  ground-truth knife force profile φ r . The interpolated         is a normalization constant. In our formulation, we
+  loss landscape is shown one the left, and the training          assume uniform weights for both sets of vertices.
+  loss evolution using the Adam optimizer is shown on                 This problem can be efficiently solved using the
+  the right. Overall, the L1 loss performs favorably com-         network simplex algorithm Cunningham (1976) and
+  pared to the other cost functions and is therefore our          has typical complexity O(n3 ), but sparsity can be
+  choice to evaluate the closeness between knife force            exploited to reduce this cost.
+  trajectories across this work.
+26         DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                                                                                                 Material                                E (N m−2 )    ν     ρ (kg m−3 )
+
+                                                                                                                 Apple4                               3.0 × 106       0.17       787
+                                                                                                                 Potato4                              2.0 × 106       0.45       630
+                                                                                                                 Cucumber4                            2.5 × 106       0.37       950
+                                                                                                                 Banana5                         0.003048 × 106       0.28      1350
+
+                                                                                                                                         4 Jamdagni and Jia (2019)
+
+                                                                                                                      5 Kulkarni, Satyanarayana, Rohatgi, and Vijayan (1983)
+
+           0.040             Source samples                                                                     Table A1: Properties of common biomaterials:
+                             Target samples
+           0.035                                                                                                Young’s modulus E, Poisson’s ratio ν, density ρ.
+           0.030
+           0.025
+                                                                                                                                                       depth
+           0.020
+                                                                                                                                                       spine_dim
+           0.015
+           0.010
+                                                                                                                                        spine_height
+           0.005
+           0.000
+                              0.02                  0.01                0.00                   0.01    0.02
+                                                                                                                                y         tip_height
+
+                                                                                                                            z       x                  edge_dim
+                                                              . Q L I H  ) R U F H  > 1 @
+                              * U R X Q G W U X W K                                                             Fig. A3: Parameters that describe the knife geometry.
+                            7 U D Q V I H U U H G  3 D U D P H W H U V
+
+               
+                                                                                                                connect them (see subsection 3.2). In Table A2, we
+               
+                                                                                                                list each available parameter with its description and
+                                                                                                              default value. Parameters that are allowed to be indi-
+                                                                                                              vidually tuned for each spring can be set in two
+                                                                                                                modes:
+                
+                                                                                                 • Shared parameterization: the parameter is a single
+                                                                     7 L P H  > V @
+                                                                                                                  scalar that gets replicated across all cutting springs.
+     Fig. A2: Optimal transport of simulation parameters
+                                                                                                                • Individual parameterization: the parameter is a vec-
+     from one mesh of a real potato (top left) to another real
+                                                                                                                  tor where each entry can be tuned separately for
+     potato mesh (top right). The correspondences (center)
+                                                                                                                  each spring.
+     have been found via optimal transport using the Earth
+     Mover’s Distance (Equation A1) between cutting                                                                  To enforce hard parameter limits in our simulator,
+     springs in two potato meshes. The weighted mapping                                                         throughout our experiments, we impose bounds on the
+     between the 2D positions of the springs at the cutting                                                     estimated simulation parameters by projecting them
+     interface from the source domain (ybj_potato1) to                                                          through the sigmoid function. Thus, given an uncon-
+     the target domain (ybj_potato2) is used to transfer                                                        strained real number x to be optimized, the resulting
+     the cutting spring parameters between the two topo-                                                        projected parameter value is sigmoid(x) · (pub − plb ) +
+     logically different meshes, resulting in a close fit to the                                                plb , where plb and pub are the upper and lower bounds
+     ground-truth trajectory (bottom).                                                                          of the parameter, and sigmoid(x) = 1/(1 + exp(−x)).
+
+                                                                                                                B.2      Commercial Simulation Setup
+     Appendix B                                        Details of
+                                                                                                                In the commercial solver, each simulation consisted
+                                                       Experimental Setup                                       of a rigid knife, 1 of 3 deformable fruits/vegetables
+                                                                                                                (apple, cucumber, or potato), and a rigid table. The
+     B.1       Simulation Parameters
+                                                                                                                apple, cucumber, and potato geometries were rep-
+     DiSECt introduces additional degrees of freedom via                                                        resented by sphere, cylinder, and rectangular shape
+     the insertion of virtual nodes and cutting springs that
+DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting                                  27
+
+   Name                            Description                                                                                        Default value
+
+   Knife geometry parameters (fixed)
+   edge_dim                    Lower diameter of knife (see Figure A3 right)                                                          0.08    mm
+   spine_dim                   Upper diameter of knife (spine)                                                                        2       mm
+   spine_height                Height of knife spine                                                                                  40      mm
+   tip_height                  Height of knife tip                                                                                    0.04    mm
+   depth                       Length of knife blade (along z axis)                                                                   150     mm
+
+   Knife motion
+   velocity_y                      Vertical knife velocity                                                                            -0.05   m s−1
+   initial_y                       Initial vertical knife position (height)                                                           80      mm
+
+   Spring-damper parameters (individual for each spring)
+   cut_spring_ke              Spring stiffness coefficient at the start of the simulation (initial stiffness of the cutting spring)   500
+   cut_spring_kd              Spring damping coefficient                                                                              0.1
+   cut_spring_softness Softness coefficient γ used in the linear spring loosening (Equation 2)                                        500
+
+   Knife contact dynamics parameters (individual for each spring)
+   sdf_radius                 Radius around SDF to consider for contact dynamics                                                      0.5     mm
+   sdf_ke                     Positional penalty coefficient (contact normal stiffness)                                               1000
+   sdf_kd                     Damping coefficient                                                                                     1
+   sdf_kf                     Contact friction stiffness (tangential stiffness used in Coulomb friction model)                        0.01
+   sdf_mu                     Friction coefficient (µ)                                                                                0.5
+
+   Ground contact dynamics parameters (fixed)
+   ground_ke                  Positional penalty coefficient (contact normal stiffness)                                               100
+   ground_kd                  Damping coefficient                                                                                     0.1
+   ground_kf                  Contact friction stiffness (Coulomb friction model)                                                     0.2
+   ground_mu                  Friction coefficient (µ)                                                                                0.6
+   ground_radius              Radius around mesh vertices                                                                             1       mm
+
+   Material properties
+   young                           Young’s modulus E                                                                                  see Table A1
+   poisson                         Poisson’s ratio ν                                                                                  see Table A1
+   density                         Density ρ                                                                                          see Table A1
+
+
+                          Table A2: Overview of the model parameters used by our cutting simulator.
+
+
+  primitives, respectively. Each primitive had a 10 mm-                        method (EFG) (Belytschko et al., 1994), and has been
+  thick slice, centered along the long axis, that defined                      validated for simulating large deformation and failure
+  the volumetric region that could be cut. All regions                         of elastoplastic solids (C. Wu, Guo, & Hu, 2014). Con-
+  were assigned an isotropic elastic failure material                          tinuity conditions were imposed between the non-slice
+  model, with density, Lamé parameters (see Table A1),                         mesh and the slice particles. Coulomb frictional con-
+  yield stress, and failure strain obtained from the                           tact was defined between the knife and the deformable
+  agricultural mechanics literature (El Said, Atallah,                         object, as well as between the object and the table,
+  Khalil, & El-Lithy, 2011; Y. Li, Du, Wang, & Lei,                            with a coefficient of friction of 0.6. A constant down-
+  2018/02; Mousavizadeh, Mashayekhi, Daraei Gar-                               ward velocity was applied to the knife until contact
+  makhany, Ehtesham Nia, & M, 2010) and the Food-                              with the surface of the table, and gravity was applied
+  Data Central database from the U.S. Department of                            to the deformable object.
+  Agriculture (U.S. Department of Agriculture, 2019).
+  The non-slice regions were simulated using FEM                               Appendix C                  Additional
+  with a tetrahedral mesh-based discretization. The slice
+  region was simulated using the smoothed particle
+                                                                                                           Experiments
+  Galerkin (SPG) method with a particle-based dis-
+                                                                               C.1       Generalization Results
+  cretization. SPG is a numerical method related to
+  smoothed particle hydrodynamics (SPH) (Liu & Liu,                            Figure A4 shows the trajectories for the generalization
+  2010; Monaghan, 1992) and the element-free Galerkin                          experiment (subsubsection 5.4.1) where the parame-
+                                                                               ters have been optimized for a shorter simulation time
+28                 DiSECt: A Differentiable Simulator for Parameter Inference and Control in Robotic Cutting
+
+                                       Force Prediction beyond Training Interval
+                         100           Groundtruth
+                                       Individual
+                          80           Shared
+       Knife Force [N]
+
+
+
+
+                          60
+
+                          40
+
+                          20
+
+                           0                                                               Fig. A5: Velocity generalization results for a cylin-
+                               0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8   0.9   der mesh with cucumber material properties given
+                                                       Time [s]
+                                                                                           ground-truth simulations with different vertical knife
+     Fig. A4: Generalization performance on the apple cut-
+                                                                                           velocities from a commercial solver. Two versions of
+     ting trajectory by simulating the parameters which
+                                                                                           DiSECt were calibrated: by sharing the parameters
+     have been optimized from a 0.4 s ground-truth tra-
+                                                                                           across all cutting springs (blue) and by optimizing
+     jectory (highlighted in yellow) from a commercial
+                                                                                           each value individually (orange), given a ground-truth
+     simulator. At test time, the force profile is simulated
+                                                                                           trajectory with the knife sliding down at 50 mm s−1
+     over a duration of 0.9 s (see subsubsection 5.4.1).
+                                                                                           speed (highlighted in green). The normalized mean
+     The blue line shows the estimated trajectory when all
+                                                                                           absolute error (MAE) is evaluated against the ground-
+     parameters were optimized individually for each cut-
+                                                                                           truth by rolling out the estimated parameters for the
+     ting spring. Shown in orange is the resulting trajectory
+                                                                                           given knife velocity.
+     from optimizing parameters shared across all cutting
+     springs.
+                                                                                           C.2         Posterior Over Simulation
+     window of 0.4 s, and tested against the ground-truth                                              Parameters
+     trajectory (green, dashed line) over a duration of 0.9 s.                             The marginal plots in Figure A6 and Figure A7 show
+          Analogous to the apple cutting results with                                      the posteriors from iterative BayesSim and SGLD,
+     ground-truth from the commercial solver in Figure 10,                                 respectively. These densities over a subset of the sim-
+     the bar plot in Figure A5 visualizes the normalized                                   ulation parameters (shared across the cutting springs)
+     mean absolute error (NMAE) for different knife veloc-                                 have been inferred from knife force profiles of cutting
+     ities at test time. The simulation parameters have been                               a sphere mesh using apple material properties. The
+     optimized for a vertical downward velocity of 50 mm                                   ground-truth, from which the posteriors are inferred,
+     (green shade in the background), given a knife force                                  stems from a high-fidelity commercial simulator (see
+     profile of cutting a cylindrical mesh with cucumber                                   description in subsection 5.2).
+     material properties from the commercial simulator.
+     At test time, we use the same optimized simulation
+     parameters to evaluate the accuracy of the force profile
+                                                                                           Appendix D                    Code Snippets
+     simulation against the commercial simulator on dif-                                   We provide abridged Python code samples that
+     ferent downward velocities. As in the experiments of                                  demonstrate the usage of our simulator, whose source
+     cutting an apple (Figure 10), the results in Figure A5                                code we released previously6 . Our simulator pro-
+     show that the individual cutting spring parameteriza-                                 vides gradients of all its parameters w.r.t. the calcu-
+     tion outperforms the shared parameterization across                                   lated force profile (and any other simulation outputs).
+     all tested velocities. While the performance improve-                                 We embed the differentiable dynamics function as
+     ment over the shared parameterization becomes less                                    a PyTorch (Paszke et al., 2019) module, such that
+     significant, it can be concluded that the individual                                  DiSECt can be leveraged by the existing deep learn-
+     parameterization generalizes better to novel test veloc-                              ing ecosystem, including gradient-based optimizers
+     ities.                                                                                and tensor operations that manipulate the inputs and
+                                                                                           outputs of the simulator.
+
+
+                                                                                             6
+                                                                                                 https://github.com/NVlabs/DiSECt
+                                                                      DiSECt: A Differentiable Simulator for Parameter Infe
+
+
+
+
+Fig. A6: Posterior obtained by SGLD in our differentiable simulator after 300 trajectory roll-outs. Marginals are
+shown on the diagonal. The sampled chain is visualized for pairs of parameter dimensions in the upper triangle,
+along with an approximate rendering of the loss surface as heatmap in the background. The heatmaps in the lower
+triangle visualize the kernel densities for all pair-wise combinations of the parameters.
+                                                          30     DiSECt: A Differentiable Simulator for Parameter Inference a
+
+
+
+
+Fig. A7: Posterior obtained by BayesSim after 100 iterative updates of the training dataset with 20 new trajectories
+per iteration. Marginals are shown on the diagonal. Parameter samples are represented by the dots in the scatter
+plots from the upper triangle. The heatmaps in the lower triangle visualize the kernel densities for all pair-wise
+combinations of the parameters.
+                                                                              DiSECt: A Differentiable Simulator for Parameter Infe
+
+     D.1    Parameter Inference
+     The following code snippet demonstrates how the differentiability of DiSECt can be leveraged to infer the simula-
+     tion parameters from real-world force measurements. We instantiate our simulator to cut an apple in the same way
+     it was cut in the real world, by applying a prescribed knife motion that follows the recorded end-effector trajectory.
+     Note that the simulation settings which are loaded from a JSON file include the file name of the tetrahedral mesh
+     of the fruit we cut, as well as settings pertaining to the cutting springs and contact model, the material properties,
+     boundary conditions, and integration procedure, among others (see Table A2). Given the recorded force profile,
+     we select the Adam optimizer to tune the simulation parameters in a way that the L2 error between the simulated
+     and real force profile is minimized.
+ 1   from cutting import CuttingSim, load_settings, PredefinedCartesianMotion
+ 2   # load the simulation settings for a real apple
+ 3   settings = load_settings("experiments/config/real_apple.json")
+ 4   # create DiSECt instance with GPU support (CUDA) and enabled gradient computation
+ 5   sim = CuttingSim(settings, dataset="real", adapter="cuda", requires_grad=True)
+ 6   # load data (force, position measurements) that we recorded from the real robot
+ 7   with open("assets/real/apple/vertical_cutting_apple.pkl", "rb") as f:
+ 8       real_data = pickle.load(f)
+ 9   real_force = np.linalg.norm(real_data["force"][:, :3], axis=1) # force profile
+10   real_dt = real_data["time"][1] - real_data["time"][0] # time step of the recorded measurements
+11   ee_pos = real_data["position"][:, :3] # trajectory of end-effector 3D positions
+12   ee_vel = real_data["velocity"][:, :3] # trajectory of end-effector 3D velocities
+13   times = real_data["time"] # time stamps of the recorded real measurements
+14   # create a prescribed knife motion from the recorded end-effector trajectory
+15   sim.motion = PredefinedCartesianMotion(q=ee_pos, qd=ee_vel, time=times)
+16   # select reference force profile, optionally interpolate in case the recording time step does
+17   # not match the simulation time step
+18   sim.load_groundtruth(real_force, groundtruth_dt=real_dt)
+19   sim.cut() # preprocessing step that cuts the mesh and inserts cutting springs
+20   opt_params = sim.init_parameters() # retrieve tensors of simulation parameters to be optimized
+21   opt = torch.optim.Adam(opt_params, lr=learning_rate)
+22   # optimization loop in which the Adam optimizer tunes the simulation parameters to minimize the L2 error
+23   # between the real and simulated force profile
+24   for iteration in range(num_iters):
+25       hist_knife_force = sim.simulate() # simulate a force profile
+26       # compute L2 loss of force profile against ground-truth
+27       loss = torch.square(hist_knife_force - sim.groundtruth_torch[:len(hist_knife_force)]).mean()
+28       # log some information of the inference process (loss, plot of force profile and knife trajectory)
+29       logger.add_scalar("loss", loss.item(), iteration)
+30       fig = sim.plot_simulation_results()
+31       logger.add_figure("simulation", fig, iteration)
+32       opt.zero_grad()
+33       loss.backward()
+34       # update the simulation parameters
+35       opt.step()
+
+     Listing 1: Code example where the simulation parameters are inferred from real force measurements through
+     gradient-based optimization.
+                                                                 32     DiSECt: A Differentiable Simulator for Parameter Inference a
+
+     D.2    Slicing Motion Optimization
+     In the following code snippet, we implement our trajectory optimization loop from subsection 5.5 where a lateral
+     slicing motion is tuned to minimize the force that acts on the knife. Following Equation 10, we add hard constraints
+     on the motion of the knife to ensure that the blade touches the cutting board at the end of the cut (i.e., the object is
+     fully cut), and that the lateral motion does not exceed the length of the blade.
+1    import mdmm # package that implements the Modified Differential Method of Multipliers (MDMM)
+2    from cutting import CuttingSim, load_settings, SlicingMotion
+3    # load the simulation settings for the right half of a real apple we cut before
+4    settings = load_settings("experiments/config/real_apple_right.json")
+5    # create DiSECt instance with GPU support (CUDA) and enabled gradient computation
+6    sim = CuttingSim(settings, dataset="real", adapter="cuda", requires_grad=True)
+7    slicing_waypoints = 5 # number of waypoints in the trajectory
+8    slicing_kernel_width = 0.4 # widths of the kernels of the trajectory waypoints
+9    # the following tensors parameterize the knife motion, and require gradients to be optimizable
+10   slicing_amplitudes = torch.tensor(np.ones(slicing_waypoints) * 0.001, requires_grad=True)
+11   pressing_velocities = torch.tensor(np.ones(slicing_waypoints) * velocity_y, requires_grad=True)
+12   slicing_frequency = torch.tensor(5., requires_grad=True)
+13   # set up slicing motion of the knife with the parameters that we will optimize
+14   sim.motion = SlicingMotion(
+15       initial_pos=torch.tensor([0.0, sim.settings.initial_y, 0.], device="cuda"),
+16       slicing_frequency=slicing_frequency, slicing_amplitudes=slicing_amplitudes,
+17       pressing_velocities=pressing_velocities, slicing_kernel_width=slicing_kernel_width,
+18       slicing_times=np.linspace(0.0, settings.sim_duration, slicing_waypoints))
+19   sim.cut() # preprocessing step that cuts the mesh and inserts cutting springs
+20   # add constraint to have the blade touch the ground at the end of the cut
+21   knife_height_constraint = mdmm.EqConstraint(
+22       lambda: sim.hist_knife_pos[-1, 1] + sim.blade_bottom_center_point_offset[1],
+23       0.0, scale=height_constraint_scale, damping=height_constraint_damping)
+24   # determine blade length and maximal lateral extents of the mesh
+25   blade_length = sim.knife.depth
+26   mesh_min_z = np.array(sim.builder.particle_q)[:, 2].min()
+27   mesh_max_z = np.array(sim.builder.particle_q)[:, 2].max()
+28   blade_min = mesh_max_z - blade_length / 2
+29   blade_max = mesh_min_z + blade_length / 2
+30   # add constraint to prevent the knife from moving laterally further than its blade length
+31   blade_length_constraint = mdmm.EqConstraint(
+32       lambda: (sim.hist_knife_pos[:, 2].clamp(blade_min, blade_max) - sim.hist_knife_pos[:, 2]).sum(),
+33       0.0, scale=blade_constraint_scale, damping=blade_constraint_damping)
+34   # set up MDMM optimization problem with the constraints; use Adamax as optimizer
+35   constraints = [knife_height_constraint, blade_length_constraint]
+36   mdmm_module = mdmm.MDMM(constraints)
+37   parameters = [slicing_frequency, slicing_amplitudes, pressing_velocities]
+38   opt = mdmm_module.make_optimizer(parameters, optimizer=torch.optim.Adamax)
+39   # optimize knife motion parameters to minimize mean knife force while adhering to the constraints
+40   for iteration in range(num_iters):
+41       # objective is to minimize mean knife force
+42       hist_knife_force = sim.simulate()
+43       mean_knife_force = torch.mean(hist_knife_force)
+44       mdmm_return = mdmm_module(mean_knife_force)
+45       # log the current average knife force, add plots of the simulation and the trajectory parameters
+46       logger.add_scalar("mean_knife_force", mean_knife_force.item(), iteration)
+47       fig = sim.plot_simulation_results()
+48       logger.add_figure("simulation", fig, iteration)
+49       fig = sim.motion.plot(sim_duration=settings.sim_duration)
+50       logger.add_figure("motion", fig, iteration)
+51       opt.zero_grad()
+52       # calculate gradient of the MDMM Lagrangian
+53       mdmm_return.value.backward()
+54       opt.step() # update motion parameters
+
+     Listing 2: Code example where the knife’s slicing motion is optimized to reduce the knife force while adhering to
+     constraints.
+

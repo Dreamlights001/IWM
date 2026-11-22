@@ -1,0 +1,32 @@
+{
+  "id": "P14",
+  "slug": "URDFormer",
+  "arxiv_id": "2405.11656",
+  "family": "asset",
+  "source_url": "https://arxiv.org/abs/2405.11656",
+  "accessed": "2026-11-09",
+  "title": "URDFormer: A Pipeline for Constructing Articulated Simulation Environments from Real-World Images",
+  "authors": [
+    "Chen, Zoey",
+    "Walsman, Aaron",
+    "Memmel, Marius",
+    "Mo, Kaichun",
+    "Fang, Alex",
+    "Vemuri, Karthikeya",
+    "Wu, Alan",
+    "Fox, Dieter",
+    "Gupta, Abhishek"
+  ],
+  "publication_date": "2024/05/19",
+  "submitted_date": "2024/05/31",
+  "abstract": " Constructing simulation scenes that are both visually and physically realistic is a problem of practical interest in domains ranging from robotics to computer vision. This problem has become even more relevant as researchers wielding large data-hungry learning methods seek new sources of training data for physical decision-making systems. However, building simulation models is often still done by hand. A graphic designer and a simulation engineer work with predefined assets to construct rich scenes with realistic dynamic and kinematic properties. While this may scale to small numbers of scenes, to achieve the generalization properties that are required for data-driven robotic control, we require a pipeline that is able to synthesize large numbers of realistic scenes, complete with 'natural' kinematic and dynamic structures. To attack this problem, we develop models for inferring structure and generating simulation scenes from natural images, allowing for scalable scene generation from web-scale datasets. To train these image-to-simulation models, we show how controllable text-to-image generative models can be used in generating paired training data that allows for modeling of the inverse problem, mapping from realistic images back to complete scene models. We show how this paradigm allows us to build large datasets of scenes in simulation with semantic and physical realism. We present an integrated end-to-end pipeline that generates simulation scenes complete with articulated kinematic and dynamic structures from real-world images and use these for training robotic control policies. We then robustly deploy in the real world for tasks like articulated object manipulation. In doing so, our work provides both a pipeline for large-scale generation of simulation environments and an integrated system for training robust robotic control policies in the resulting environments.",
+  "submission_history": "Submission history From: Qiuyu Chen [ view email ] [v1] Sun, 19 May 2024 20:01:29 UTC (32,524 KB) [v2] Wed, 29 May 2024 23:01:14 UTC (32,524 KB) [v3] Fri, 31 May 2024 16:44:06 UTC (32,524 KB)",
+  "version": "v3",
+  "pdf_url": "https://arxiv.org/pdf/2405.11656v3",
+  "local_pdf": "papers/P14_URDFormer_2405.11656v3.pdf",
+  "sha256": "2add59f2e2691afd9f8b72f135657e50d1a197fea7ebc31a0611ad79970ddc88",
+  "bytes": 39018752,
+  "pages": 23,
+  "text_file": "research/P14_URDFormer.txt",
+  "status": "downloaded_and_text_extracted"
+}

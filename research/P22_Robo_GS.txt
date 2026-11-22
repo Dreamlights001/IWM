@@ -1,0 +1,572 @@
+                                           Robo-GS: A Physics Consistent Spatial-Temporal Model for Robotic Arm
+                                                               with Hybrid Representation
+                                                        Haozhe Lou1∗ , Yurong Liu2∗ , Yike Pan3∗ , Yiran Geng4∗ , Jianteng Chen5∗ , Wenlong Ma6 ,
+                                                          Chenglong Li6 , Lin Wang6 , Hengzhen Feng6 , Lu Shi9 , Liyi Luo8 , Yongliang Shi†7
+
+                                            Abstract— The Real2Sim2Real (R2S2R) paradigm is critical
+                                         for advancing robotic learning. Existing methods lack a com-
+                                         prehensive solution to accurately reconstruct real-world objects
+
+
+
+
+                                                                                                                          Static
+                                         with both spatial representations and their associated physics
+arXiv:2408.14873v2 [cs.RO] 17 Sep 2024
+
+
+
+
+                                         attributes in the Real2Sim stage.
+                                            We propose a Real2Sim pipeline to generate digital assets                               Ground Truth           Mesh   Gaussian            URDF
+                                         enabling high-fidelity simulation. We design a hybrid repre-
+                                         sentation model that integrates mesh geometry, 3D Gaussian
+                                         kernels, and physics attributes to enhance the representation
+
+
+
+
+                                                                                                                          Dynamic
+                                         of robotic arms in digital assets. This hybrid representa-
+                                         tion is implemented through a Gaussian-Mesh-Pixel binding
+                                         technique, which establishes an isomorphic mapping between
+                                         mesh vertices and the Gaussian model. This enables a fully                                       Ground Truth video        Forward Rendered video
+                                         differentiable rendering pipeline that can be optimized through
+                                         numerical solvers, achieves high-fidelity rendering via Gaussian              Fig. 1.   The reconstructed digital assets include the extracted mesh,
+                                         Splatting, and facilitates physically plausible simulation of the             Gaussian Models [3], a dynamically consistent kinematic model.
+                                         robotic arm’s interaction with its environment through mesh
+                                         geometry. With the digital assets, we propose a fully manip-                  format used to describe the physical configuration, joints,
+                                         ulable Real2Sim pipeline that standardizes coordinate systems                 and kinematic structure of robots) [4], [5], as a spatial rep-
+                                         and scales, ensuring the seamless integration of multiple com-                resentation and integrates governing equations with physics
+                                         ponents. To demonstrate its effectiveness, we include datasets                parameters as the forward deformation mechanism. This
+                                         covering various robotic manipulation tasks with their mesh
+                                                                                                                       combination enables accurate collision detection and consis-
+                                         reconstructions. Our model achieves state-of-the-art results in
+                                         realistic rendering and mesh reconstruction quality for robotic               tent rendering across both simulation and Gaussian Splatting
+                                         applications. Our code and datasets will be made publicly                     (GS) environments [6], [7].
+                                         available at robostudioapp.com.                                                  The core to our method is a Gaussian-Mesh-Pixel bind-
+                                                                                                                       ing, which establishes an isomorphic relationship between
+                                                                  I. I NTRODUCTION                                     mesh vertices, Gaussian kernels [3], and image pixels. Each
+                                            Real2Sim2Real plays a critical role in robotic arm control                 Gaussian is assigned a semantic label and a corresponding
+                                         and reinforcement learning but remains a challenging task                     ID, enabling the precise application of transformation matri-
+                                         due to the complex physical properties of robots and the                      ces governed by the URDF. This ensures a seamless transfer
+                                         objects they manipulate. It tackles well-known problems of                    of trajectories between real-world video, simulation results,
+                                         existing learning frameworks in robot autonomy such as                        and rendered images. The advantages of this binding in-
+                                         model generalization ability and label availability [1]. Still,               clude (i) End-to-end differentiable gradient passing between
+                                         it has yet to be fully realized due to significant challenges in              each representation, allowing backward optimization to be
+                                         spatial and color representation as well as rendering quality                 performed across different backends; (ii) Superior collision
+                                         within current Real2Sim approaches [2]. These challenges                      detection through our state-of-the-art mesh reconstruction;
+                                         hinder transferring learned policies from simulation to real-                 and (iii) High rendering quality.
+                                         world applications and compromise the reliability and perfor-                    Our system ensures a faithful Real2Sim process, allowing
+                                         mance of robotic systems trained in simulated environments.                   learned policies to be effectively deployed in real-world
+                                            In this paper, we target the Real2Sim and demonstrate                      scenarios (Please see the supplementary video). Additionally,
+                                         a holistic reconstruction of robotic arm operation scenes,                    it supports editing within the robotic simulator Isaac Sim
+                                         which requires a (i) manipulable robot model, (ii) recon-                     (Gym) [7], [8] backend, enabling novel-pose and novel-
+                                         structed background and objects, (iii) physical parameters                    policy adjustments. Optimized for robotic arms in CR3,
+                                         such as mass and friction. Our approach employs Unified                       CR5 [9] and UR5 [10] product sequences, our method is
+                                         Robot Description Format(URDF, which is a standard XML                        versatile enough to generalize to other robotic arm models.
+                                                                                                                       Our method achieves state-of-the-art performance in mesh
+                                           ∗ Equal contribution, † Corresponding author.                               reconstruction and dynamic rendering compared to current
+                                            1 University of Southern California, 2 National University of Singapore,
+                                         3 University of Michigan, Ann Arber,4 Peking University, 5 Hong Kong
+                                                                                                                       methods [11].
+                                         University of Science and Technology, 6 Beijing Institute of Technology,         Furthermore, we propose a new format for digital assets,
+                                         7 Tsinghua University, 8 Xiaomi Robotics Lab, 9 AIR, Tsinghua University.     represented by a combination of mesh, Gaussian Splatting,
+    Monocular video               Gaussian in static              Gaussian with motion          scenes [11], [20], [21]. MD-Splatting [22] explores Gaussian-
+                                                                                                based reconstruction of highly deformable objects, utilizing
+                                                                                                NeRF and particle-based representations. However, these
+                                                                                                methods often lack high-fidelity rendering capabilities [23].
+                                                                                                Our approach enhances 4D Gaussian Splatting quality by
+               Construct Gaussian-mesh-pixel binding                  Forward Rendering
+                                                                                                replacing traditional MLP-based deformation fields [19],
+                                                                                                [24], [25] with numerical ODE solvers [1], [26].
+                                                                                                   Asset Extraction: Significant progress in mesh recon-
+                                                        Control
+                                                                                                struction and simulation integration has been made with
+                                                       Commands
+                                                                                                NeRFmeshing [27] and SUGAR [28], [29]. NeRFmeshing
+                                                                   Updated trajectory of both   utilizes NeRFs for mesh reconstruction, while SUGAR em-
+                                       Simulate in                object and robotic arm from
+        Mesh                           Isaac Gym                        numerical solver        ploys Gaussian Splatting for mesh extraction. However, the
+                                                                                                complex and sparse nature of robotic arm structures often
+Fig. 2. (Left) Our method converts monocular video to 3D meshes and
+Gaussians, URDF models, and generates trajectories through Gaussian-                            leads to non-smooth reconstructions due to challenges in nor-
+Mesh-Pixel binding, and (Right) renders dynamic interactions using forward                      mal estimation. The 2DGS method [30] effectively addresses
+deformation based on updated object and robotic arm trajectories.                               non-smooth surface issues by introducing a planar-like 2DGS
+                                                                                                representation. After applying cleaning and matching tech-
+and real-world motion [12], as shown in Fig.1. This approach                                    niques, the quality of meshes generated by 2DGS proves
+surpasses traditional textured mesh and material attributes                                     sufficient for robotic simulation purposes.
+by integrating critical physics parameters, such as mass and                                       Control: In the Real2Sim2Real paradigm, robotic arm
+friction, extracted from real-world motion videos [13].                                         control typically employs pose-based methods, transferring
+   • We introduce a holistic framework for robotic arm                                          end-effector pose trajectories [31] between real-world and
+      control and simulation, combining mesh geometry, 3D                                       simulation policies. This approach uses inverse kinematics
+      Gaussian kernels, and physics attributes to achieve high-                                 to derive pre-joint control information [32]. Current control
+      fidelity scene reconstruction and physically accurate                                     policies include diffusion-based models [33] and trajectory-
+      simulation of robotic manipulation tasks. Our method,                                     to-video generation methods like IRASim [34], which utilize
+      based on a Gaussian-Mesh-Pixel binding technique,                                         generative methods driven by trajectory for simulation [35]
+      ensures seamless integration between simulation, ren-                                     and representation. However, these methods are limited in
+      dering, and real-world data, allowing for precise policy                                  fully representing 3D and 4D real-world scenarios [36],
+      training and control optimization in complex environ-                                     [37]. Traditional robotic arm control connects linkages with
+      ments.                                                                                    predefined joints, using angles for path control [38]–[40].
+   • We address the challenges of accurately reconstructing                                     In a Gaussian setting, where each Gaussian is treated as an
+      robotic arm movements, including occlusions and in-                                       independent element [41], this approach can lead to motion
+      consistencies between simulated and real-world data.                                      inconsistencies. Our method addresses this issue through
+   • Experiments and ablations demonstrate the effectiveness                                    isomorphism Mesh-Gaussian binding.
+      of our method. It achieves state-of-the-art performance                                      Recent innovations include a signed distance field-based
+      in mesh reconstruction and high-quality rendering, sig-                                   approach for robotic arm morphology [42], using joint angles
+      nificantly outperforming previous approaches in both                                      as input with a neural decoder guiding the deformation
+      static and dynamic scenarios.                                                             field. However, this method lacks explicit compatibility with
+                                                                                                the MOVEIT path-based control pipeline [43] and current
+                                II. RELATED WORK                                                reinforcement training toolkits [38], [44] UMI on Legs
+   Rendering: The Real2Sim2Real paradigm, crucial for                                           demonstrates the potential of simulation-based manipulation
+bridging physical and simulated environments, relies on                                         tasks, though scene and object reconstruction remains a
+advanced rendering techniques. Recent innovations in 3D                                         challenge [45].
+reconstruction, such as Gaussian Splatting and Neural Ra-                                          Physically embodied Gaussian Splatting [46] employs
+diance Fields (NeRF) [3], [14]–[17], have significantly en-                                     Gaussian distributions and particles derived from pre-built
+hanced the creation of high-fidelity digital twins, essential                                   meshes to generate movement [47], tested on simulated data.
+for accurate simulations.                                                                       Our approach advances this concept by utilizing meshes
+   Robotic simulation has progressed with the use of trans-                                     extracted from video data for more accurate representation,
+formation matrices and Linear Blend Skinning (LBS) [18]                                         coupled with real-world scenario data collection.
+control modes. However, these methods often struggle with
+                                                                                                                       III. METHOD
+maintaining geometric consistency in robotic arms due to
+rigid mesh motions. SC-GS [19] addresses this by employing                                      A. Representation
+sparse control points, though it falls short in accurately                                         Our digital asset is represented by a mesh, a set of
+simulating robotic arm movements.                                                               Gaussian primitives, and the spatial-temporal trajectory of
+   Further advancements include the use of NeRFs and                                            the assets. Traditionally, digital asset production focuses on
+Gaussian Splatting for reconstructing robotic operation                                         the textured mesh and material attributes [48]. However,
+   Mesh Vertices 𝑽
+                                                                                              to mesh (backward optimization) and from mesh to Gaussian
+              Faces
+                𝑭           Gaussian-Mesh Mapping (Eq. 1)                                     to rendered video (forward rendering).
+                                      𝝁: 𝑮 ⟷ 𝑽, 𝑭
+
+
+                                                    Re-projection Mapping
+         Gaussian 𝑮
+                                                            (Eq. 3)                           B. Mesh extraction
+                                                            𝝅∘𝝁
+                                                                                                 To obtain necessary geometric cues from the video se-
+                              Projection Mapping (Eq. 2)
+                                   𝝅: 𝑷 𝒖, 𝒗 ×ℝ ↔ 𝑮                                           quences, we first collect a set of static images of the
+                                                                                              scene and utilize Gaussian Splatting techniques to prepare
+                                                                            GT Images         the meshes. We extract linkage, object, and background
+   Panoptic Segmentation                                                                      mesh through our mesh extraction and cleaning technique.
+                                                                                              Specifically, we adapt surfel-based Gaussian Splatting [30],
+Fig. 3. Gaussian-Mesh-Pixel binding: This binding preserves the structural                    along with vertex cleaning and our re-orientation strategy.
+properties between Gaussian G, mesh (V, F ), and pixel location P under                          We follow 2DGS [30] and represent a Gaussian with a
+affine transformation, which is a composition (right) a Gaussian-Mesh
+mapping (top-left), and a projective Pixel-Gaussian binding (top-right).                      “2D” surfel rather than a full 3D Gaussian kernel, this is
+                                                                                              characterized by a center vector xp , a tangent vector tp =
+physical parameters such as mass and friction coefficients                                    (tu , tv ), and scaling sp = (su , sv ). The normal vector of the
+are necessary to enable Sim2Real policy training for down-                                    Gaussian primitive is thereby defined as Nw = tu × tv . A
+stream robotic manipulation tasks. Thus we incorporate these                                  Gaussian surfel is then defined in a local tangent plane as:
+physical parameters in our representation.
+   A polygon mesh M = (V, F ) is defined by a set of                                                 xp (u, v) = xp + su tu u + sv tv v = H(u, v, 1)T      (4)
+vertices V = {ν1 , ν2 , . . . , νn }, νi ∈ R3 and faces F =                                                                                        
+{f1 , f2 , . . . , fk }. Similar to 3DGS [3], we use a set of 3D                                         s t          sv tv   0   pk    RS       pk
+                                                                                                      H= u u                          =                    (5)
+Gaussian primitives {G}p∈P , where each Gaussian primitive                                                 0            0     0   1      0       1
+G includes a center xp , an opacity σp , a covariance matrix
+Cp , a set of spherical harmonic (SH) coefficients SHp , and                                  where H ∈ R4×4 is a homogeneous transformation matrix
+a semantic category of the Gaussians Sp , respectively [49].                                  representing the geometry of the Gaussian surfel. For the
+   We here describe the proposed Gaussian-Mesh-Pixel bind-                                    point u = (u, v) in uv space, its probability
+                                                                                                                                       2density function
+                                                                                                                                              2
+ing (Fig. 3): We first define a Gaussian-Mesh mapping µ that                                  can then be expressed as: G(u) = exp − u +v   2    .
+associates each Gaussian primitive with a set of mesh vertices                                  After the reconstruction process, we can extract a mesh
+(and faces). Second, we project the Gaussian primitives into                                  based on the Gaussian kernels using TSDF fusion [53]. How-
+2D via projection mapping, thus establishing an isomorphism                                   ever, there are discrepancies between the extracted meshes
+between pixel locations P and Gaussian kernels G. By                                          and the requirements for URDF production.
+compositing the above mappings, we define an isomorphic                                         We identify four major issues and propose solutions for
+binding between Gaussians, mesh, and pixels. Here we define                                   each to achieve alignment between the real-world robotic
+each mapping concretely:                                                                      arm and Gaussian Splatting.
+   1) Gaussian-Mesh Mapping: An order-preserving map-                                           • Define a Unified Coordinate System and Origin:
+       ping µ : R3 → V associates A with a vertex in V :                                          A unified coordinate system integrates real-world and
+                      µ(G(x, y, z)) = {νn , fk |νn ∈ V, fk ∈ F }.                       (1)       simulation scenes using the OpenGL y-up axis, which is
+                                                                                                  consistent in both Gaussian Splatting and the simulation
+   2) Projection Mapping: Given a known camera pose                                               engine. A reference point, such as the base of the robotic
+      represented in SE(3) and camera intrinsic, any known                                        arm, must be set as the origin in Gaussian Splatting to
+      3D point location can be re-projected to the 2D image                                       ensure a consistent coordinate definition.
+      plane using the perspective projection model:                                             • Scale Adjustment: To compensate for discrepan-
+
+                                    (u, v) = π(G(x, y, z)).                             (2)       cies between the reconstructed scene and the real
+                                                                                                  world—inevitable when reconstructing from monocular
+   3) Re-projection Mapping: Through the composition of                                           videos but essential to address for accurate robotic
+      the above mappings, we define an isomorphic rela-                                           control and simulation—we manually correct them by
+      tionship ϕ that associates Gaussian G with both pixel                                       establishing a standard based on real-world measure-
+      location P and vertices V [6]:                                                              ments using MeshLab.
+                                                                                                • Orientation Alignment: The reconstructed mesh from
+                           ϕ(G(x, y, z)) = (π ◦ µ)(G(x, y, z)).                         (3)
+                                                                                                  Gaussian Splatting may not be axis-aligned due to
+   This mapping connects the trajectory between real-world                                        the settings of Structure-from-Motion (SfM) [54]. To
+scenes captured on the image plane, simulation results from                                       correct this, we use a scene re-orientation technique to
+the mesh-based engine, and rendered scenes [50]–[52]. It                                          align the reconstructed scenes with the simulation en-
+unifies the representations of Gaussian Splatting, mesh, and                                      gine’s coordinate system [17]. This alignment is crucial
+real-world motion, ensuring spatio-temporal consistency and                                       for accurately reproducing simulated movements and
+allowing gradients to flow from real-world video to Gaussian                                      interactions in the real world.
+   1 4D Gaussian Splatting                           2 RoboStudio
+                                                                                                  tailored for Gaussian-based robotic arm and gripper pose
+                                                         Static Scene         Dynamic scene
+                                                                                                  control, focusing on controlling the end-effector’s pose and
+                                                                                                  using inverse kinematics to generate control signals for each
+                                                                                                  joint in the real world.
+                             Robotic arm and
+                                                                                                     The kinematics of the robotic arm are adapted to Gaus-
+                                                                               Robotic arm and
+                              object motion                                     object motion     sian Splatting using Modified Denavit-Hartenberg (MDH)
+                                                                                                  parameters and coordinate transformations across Gaussian
+                                                                                                  Splatting, simulation, and real-world settings. A point on
+                                                                                                  link i in Cartesian coordinates can be described using the
+                                                                                                  MDH parameters [58], which include link length (ai ), link
+       Camera projection      MLP based Motion         Camera projection     Governing equation
+         optimization           optimization             optimization        based optimization   twist (αi ), link offset (di ), and joint angle (θi ). These
+                                                                                                  parameters define the forward kinematic transformation ma-
+                      Joint Loss                                    Separate Loss
+
+              Cannot optimize together                              Optimize separately
+                                                                                                  trix Ti between consecutive coordinate frames, allowing the
+                                                                                                  transformation from link i − 1 to link i.
+                                         Eulerian   Lagrangian
+
+                                                                                                             i
+Fig. 4. Comparison between deformable Gaussian Splatting (left) and
+                                                                                                            Ti−1 = Rx (θi−1 )Tx (ai−1 )Rz (αi )Tz (di )        (6)
+our solution. (Left) In general deformation-based Gaussian Splatting [11],
+[19], the dynamics of the scene are embedded in each Gaussian primitive,
+resulting in a high-dimensional degree of freedom (DoF). This causes failure
+                                                                                                                                                               
+                                                                                                            cos θi          − sin θi         0          ai
+during the training process in complex dynamic scenes, as observed in our
+setting. (Right) Our approach decomposes the motion into a small number of
+                                                                                                       sin θi cos αi     cos θi cos αi   − sin αi  − sin αi di 
+                                                                                                  Ti = 
+                                                                                                        sin θi sin αi
+                                                                                                                                                                
+linkages and objects driven by governing equations, significantly reducing                                                cos θi sin αi    cos αi    cos αi di 
+the degrees of freedom. This allows numerical solvers to optimize more                                         0                0            0           1
+efficiently.
+                                                                                                                                                               (7)
+                                                                                                  The value of MDH parameter can be supplied from either
+   •    Generate Physics Parameters: The URDF requires                                            CAD designing, real-world measuring, or manual values.
+        mass, friction, and damping factors for physics simu-                                        In this approach, the mesh serves as an intermediary for
+        lation. We embed the LLM-inferred physics parameters                                      mapping movements. The motion of each mesh is transferred
+        and governing equation categories into the URDF asset,                                    to the Gaussian bound to it, guiding the movement of the
+        based on Panoptic information [55], [56].                                                 Gaussian [59], [60]. Unlike traditional inverse kinematic
+                                                                                                  control method [61], which represents trajectories under
+C. Kinematic Governing Equation                                                                   continuous space, we model the system as a discrete state
+   Optimizing 3DGS involves minimizing the re-projection                                          space. In this model, each timestamp is independent but
+error between the Gaussian representation and pixel data. In                                      shares a common coordinate system (Fig. 4). To account for
+4D Gaussian Splatting, input images include both pixel data                                       deformation between timestamp 0 and timestamp t, we first
+and timestamps, aiming to optimize the 4D reconstruction                                          map the point P0 = (x0 , y0 , z0 ) to its base coordinate Pbase :
+under the XYZT representation. This non-convex problem is
+challenging due to the lack of multi-view consistency in this                                                            Pbase = (Ti0 )−1 P0                   (8)
+setting, as shown in Fig. 4.
+   We find that the optimal solution to this ill-posed prob-                                      Then, map the point forward to the new frame at time t,
+lem in robotic scenes is to decompose the original 4D                                             Pt = (xt , yt , zt ):
+reconstruction problem into a two-stage process: static and
+dynamic stages. We treat static scenes using the Eulerian                                                                  Pt = Ti0t Pbase                     (9)
+representation and dynamic scenes using the Lagrangian                                            The overall transformation from the initial frame to the new
+representation [51]. The static stage aims to optimize the                                        frame at time t1 is:
+camera reprojection loss, while the dynamic stage focuses
+on simulating the motion of objects and the robotic arm                                                               Pt1 = Ti0t (Ti0 )−1 P0                  (10)
+based on their corresponding governing equations. Through
+our Mesh-Pixel-Gaussian binding approach, we can pass                                               Since the initial position of the robotic arm is the default
+gradients and accurately simulate the results.                                                    position, we can simply load the trajectory from the policy
+   In our system, control information is aligned with a prede-                                    and transform it into the mesh and Gaussian kernels form.
+fined governing equation for physics simulation and render-
+ing [57]. However, when simulating these scenes in a Gaus-                                        D. Dynamic Governing Equation
+sian Splatting framework, the joint angle based trajectory                                           The dynamics of the rigid asset are governed by the
+representation are incompatible with the discrete Gaussian                                        Newton-Euler equations. The governing equation transforms
+setting because the spatial-temporal correspondence between                                       the optimization problem from 6n degrees of freedom (DOF)
+joints and Gaussians cannot be accurately determined [42].                                        to 6A DOF, where A is the number of movable parts
+To overcome this, we define a kinematic and dynamic system                                        defined by instance segmentation, and n is the number of
+Gaussian [56], [62]. This can simplify the representation and      box annotations, physics parameters, mesh geometry, policy,
+optimization of the numerical solver.                              and trajectory information [69], [70], and real-world motion
+   Following [50], [52], we define the Newton-Euler equa-          data of both the object and the robotic arm during policy
+tions as                                                           implementation, along with URDF files for CR and UR
+                                                           robotic arm sequences. We find that this dataset format
+            mI3×3 0 v̇           f           0                     provides all the necessary information for policy training
+                              =      −                   (11)
+              0       I ω̇       τ       ω × Iω                    while ensuring millimeter and millisecond-level precision.
+The simulation of forces, inertial, and torque are performed       B. Rendering Results:
+in a physics simulator based on our generated mesh and
+                                                                      We compare the current state-of-the-art in 4D Gaussian
+inferences parameter. We simply perform the semi-implicit
+                                                                   Splatting and 4D-NeRF, including SC-GS [19] and K-
+Euler integration from Gradsim [50] for numerical solving.
+                                                                   Planes [71], with our method. Fig. 5 illustrates the recon-
+Dynamic governing equation generates the transformation
+                                                                   struction of a robotic arm performing a series of trajectories.
+matrix of force based control of robotic arm and the motion
+                                                                   We observe that both K-Planes and SC-GS struggle to
+of rigid object. The simulation of soft body can follow PAC-
+                                                                   accurately optimize the transformation of the robotic arm
+nerf, PhysGaussian and Simplicits [51], [60], [63].
+                                                                   and object motion, resulting in poor rendering outcomes.
+   We decompose the Gaussian movement into a global
+                                                                   As discussed in section III-D, unlike SC-GS and K-Planes,
+transformation matrix under the supervision of kinematics
+                                                                   which optimize the representation across the entire space, our
+and dynamics. Unlike the deformation-based Gaussian Splat-
+                                                                   method simplifies the dynamic Gaussian Splatting optimiza-
+ting [19], [64], which treats movement as an MLP deforma-
+                                                                   tion process by employing Newton-Euler equations, focus-
+tion field, our approach explicitly updates the position of
+                                                                   ing specifically on spatiotemporal variations. This approach
+Gaussians in each timestamp and is particularly effective for
+                                                                   makes our rendering more robust to rigid and linkage motion
+objects with rigid and linked motion.
+                                                                   changes, and the results demonstrate our method’s ability to
+   To render a view, Gaussian Splatting projects these 3D
+                                                                   handle complex trajectories and motions.
+Gaussians onto the image plane. The final color of each pixel         For a dynamic robotic manipulation scene simulator, ren-
+is computed as [51], [60]                                          dering the manipulated object is equally crucial. Fig. 6
+                 X                       k−1
+                                         Y                         illustrates the reconstruction of a robotic arm pushing a box.
+           C=          αk SH(dk ; Ck )         (1 − αj ).   (12)   As shown, both KPlanes and SC-GS fail to accurately capture
+                 k∈P                     j=1                       the dynamic motion of the robotic arm and the rigid body,
+Here, αk represents the z-depth ordered effective opacity, i.e.,   consistent with the findings from Robo360 [65]. In contrast,
+products of the Gaussian weights and their overall opacity         our method successfully preserves motion and geometric
+σk ; dk stands for the view direction from the camera to xk .      consistency during robotic manipulation tasks.
+We only compute transformation for the kth Gaussians that          C. Mesh Quality:
+shares same panoptic mask with this pixel.
+                                                                      We compare our method against SOTA video-based mesh
+  For the effect of global transformation matrix Tpsam apply       reconstruction approaches, including 2DGS [30], Gaustu-
+on static scenes, we decompose it into the effect of Rotation      dio [16], SUGAR [28], as well as ground truth data obtained
+and translation:                                                   from a commercial 3D scanner. As shown in Fig.7, compared
+                                                                   to SUGAR and Gaustudio, our approach results in better
+                       ft (d) = f0 (RT d).                  (13)   mesh quality with texture. Mean Square Error (MSE) and
+The equation ft (d) represents the effect of rotation on the       F-score, with a tolerance of 1e-5, were employed to evaluate
+view direction of Gaussian [60]. We define τ to represent          reconstruction precision and spatial consistency, respectively.
+the position update of each Gaussian center at a new time t,       Building on 2DGS for our mesh reconstruction, the surface
+according to a transformation conditioned on the kinematics        quality remains largely consistent. However, the suboptimal
+and dynamics of the moving part,                                   opacity optimization in 2DGS can lead to the inner shell
+                                                                   within the robotic arm’s mesh, adversely affecting the quanti-
+                τ̃p (X, t, S) = RtS · xSp + TtS .           (14)   tative results (Table I). This issue also compromises collision
+                                                                   detection, reducing the realism of the simulation. Our mesh-
+where S indicates the instance ID of the moving part.
+                                                                   cleaning technique eliminates redundant meshes generated
+                       IV. E XPERIMENT                             by TSDF, enhancing alignment and sampling and yielding
+A. Datasets:                                                       improved quantitative outcomes. Therefore, our model ef-
+                                                                   fectively reconstructs the collision groups of various small
+   Current datasets [65]–[68] contain only videos, lan-            modules of the robotic arm in the URDF implementation.
+guage commands, and robot trajectories. Building digital
+assets based on these datasets would result in a significant       D. Manipulable Robotic Model:
+Real2Sim gap [65]. To address this gap, we propose that a             In our approach, the simulation generates the movement
+comprehensive representation for a Real2Sim dataset should         of objects and the robotic arm, resulting in simulated trajec-
+include monocular video with panoptic labeling, bounding           tories for each object and robotic linkages. These trajectories
+        GT
+
+
+    K-Planes
+
+
+        SCGS
+
+
+        Ours
+
+
+                                                         Fig. 5.    Qualitative result for Novel-pose
+
+
+
+         GT
+
+
+    K-Planes
+
+
+        SCGS
+
+
+        Ours
+
+
+                                                          Fig. 6.   Qualitative result for Push-box
+
+
+
+                                                                                  ing a set of trajectory of end-effector pose from policy [48]
+                                                                                  based on the position of object from the reconstruction of our
+                                                                                  digital asset with rendering and simulation in our method.
+                                                                                  We currently support custom trajectory editing in Isaac
+                                                                                  Gym and policy implementation, demonstrating the ability
+                                                                                  for Sim2Real and Sim2Render applications based on this
+                                                                                  paradigm (details are shown on part Policy Implementation
+                                                                                  of our webpage).
+
+   GT            Gaustudio   Sugar           2DGS         Ours                                          V. C ONCLUSION
+                                                                                     Our goal was to develop a robust Real2Sim framework
+Fig. 7. Qualitative result for mesh reconstruction, and the white inner shell     that significantly reduces the gap between real-world robotic
+of 2DGS mesh is raised by the TSDF sampling strategy, whereas our mesh
+solves this issue.                                                                manipulation tasks and their simulated counterparts. We ac-
+                             TABLE I                                              complished this by introducing a hybrid representation model
+               M ESH RECONSTRUCTION ABLATION STUDY                                that integrates mesh geometry, Gaussian kernels, and physics
+                                                                                  attributes. This approach ensures high-quality, realistic, and
+               Methods               MSE             F-score                      physics-consistent rendering of robotic arm manipulation
+               Gaustudio             0.153            0.268                       scenes. Our model was trained and validated across CR [9]
+                Sugar                0.159            0.375                       and UR [10] product, demonstrating its effectiveness in con-
+                2DGS                 0.153            0.228                       structing accurate URDFs from video data. This method not
+                 Ours                0.151            0.721
+                                                                                  only enhances the fidelity of simulated environments but also
+                                                                                  generalizes well to other robotic applications, advancing the
+                                                                                  state-of-the-art in robotic learning and control. Our current
+are then transformed into the pre-timestamp global transfor-                      grasping approach uses a position-based policy. However,
+mation matrix. We enable editing in the Isaac simulation                          Gaussian kernels serves as a world representation, enabling
+backend [7] and seamless rendering in Dynamic Gaussian                            accurate rendering from any in-scene camera pose [73]. Our
+Splatting (details are shown in the attached video). Addition-                    engine also supports vision-based grasping policies using our
+ally, our approach also supports novel-policy editing [72].                       assets and model, allowing for the setup of the render camera
+Novel-policy allows training a position-based policy, distill-                    and providing precise rendering.
+                              R EFERENCES                                             The 16th International Workshop on the Algorithmic Foundations of
+                                                                                      Robotics (WAFR), 2024.
+ [1] C. Wang, K. Ji, J. Geng, Z. Ren, T. Fu, F. Yang, Y. Guo, H. He,             [23] W. F. Whitney, T. Lopez-Guevara, T. Pfaff, Y. Rubanova, T. Kipf,
+     X. Chen, Z. Zhan, et al., “Imperative learning: A self-supervised                K. Stachenfeld, and K. R. Allen, “Learning 3d particle-based simula-
+     neural-symbolic learning framework for robot autonomy,” arXiv                    tors from rgb-d videos,” arXiv preprint arXiv:2312.05359, 2023.
+     preprint arXiv:2406.16087, 2024.                                            [24] L. Xie, J. Julin, K. Niinuma, and L. A. Jeni, “Gaussian splatting lk,”
+ [2] Y. Ze, G. Yan, Y.-H. Wu, A. Macaluso, Y. Ge, J. Ye, N. Hansen, L. E.             arXiv preprint arXiv:2407.11309, 2024.
+     Li, and X. Wang, “Multi-task real robot learning with generalizable         [25] R. Yang, Z. Zhu, Z. Jiang, B. Ye, X. Chen, Y. Zhang, Y. Chen,
+     neural feature fields,” CoRL, 2023.                                              J. Zhao, and H. Zhao, “Spectrally pruned gaussian fields with neural
+ [3] B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis, “3d gaussian             compensation,” 2024.
+     splatting for real-time radiance field rendering,” ACM Transactions on      [26] Z. Zhan, X. Li, Q. Li, H. He, A. Pandey, H. Xiao, Y. Xu, X. Chen,
+     Graphics, vol. 42, July 2023.                                                    K. Xu, K. Cao, et al., “Pypose v0. 6: The imperative programming
+ [4] C. Li, F. Xia, R. Martı́n-Martı́n, M. Lingelbach, S. Srivastava, B. Shen,        interface for robotics,” arXiv preprint arXiv:2309.13035, 2023.
+     K. Vainio, C. Gokmen, G. Dharan, T. Jain, et al., “igibson 2.0: Object-     [27] M.-J. Rakotosaona, F. Manhardt, D. M. Arroyo, M. Niemeyer,
+     centric simulation for robot learning of everyday household tasks,”              A. Kundu, and F. Tombari, “Nerfmeshing: Distilling neural radiance
+     arXiv preprint arXiv:2108.03272, 2021.                                           fields into geometrically-accurate 3d meshes,” in 2024 International
+ [5] “Urdf.” http://wiki.ros.org/urdf, 2024.                                          Conference on 3D Vision (3DV), pp. 1156–1165, IEEE, 2024.
+ [6] C. Jambon, B. Kerbl, G. Kopanas, S. Diolatzis, T. Leimkühler, and          [28] A. Guédon and V. Lepetit, “Sugar: Surface-aligned gaussian splatting
+     G. Drettakis, “Nerfshop: Interactive editing of neural radiance fields,”         for efficient 3d mesh reconstruction and high-quality mesh rendering,”
+     Proceedings of the ACM on Computer Graphics and Interactive                      in Proceedings of the IEEE/CVF Conference on Computer Vision and
+     Techniques, vol. 6, no. 1, 2023.                                                 Pattern Recognition, pp. 5354–5363, 2024.
+ [7] V. Makoviychuk, L. Wawrzyniak, Y. Guo, M. Lu, K. Storey, M. Mack-           [29] I. Liu, H. Su, and X. Wang, “Dynamic gaussians mesh: Consis-
+     lin, D. Hoeller, N. Rudin, A. Allshire, A. Handa, et al., “Isaac gym:            tent mesh reconstruction from monocular videos,” arXiv preprint
+     High performance gpu-based physics simulation for robot learning,”               arXiv:2404.12379, 2024.
+     arXiv preprint arXiv:2108.10470, 2021.                                      [30] B. Huang, Z. Yu, A. Chen, A. Geiger, and S. Gao, “2d gaussian splat-
+ [8] C. K. Liu and D. Negrut, “The role of physics-based simulators                   ting for geometrically accurate radiance fields,” in ACM SIGGRAPH
+     in robotics,” Annual Review of Control, Robotics, and Autonomous                 2024 Conference Papers, pp. 1–11, 2024.
+     Systems, vol. 4, no. 1, pp. 35–58, 2021.                                    [31] Z. Wu, T. Liu, L. Luo, Z. Zhong, J. Chen, H. Xiao, C. Hou, H. Lou,
+ [9] CR5, “Dobot cr5 robotic arm — key to the flexible and                            Y. Chen, R. Yang, Y. Huang, X. Ye, Z. Yan, Y. Shi, Y. Liao, and
+     safe future.” https://www.dobot-robots.com/products/                             H. Zhao, “Mars: An instance-aware, modular and realistic simulator
+     cr-series/cr5.html.                                                              for autonomous driving,” CICAI, 2023.
+[10] U. Robots, “Collaborative robotic automation— cobots from universal         [32] Q. Dai, Y. Zhu, Y. Geng, C. Ruan, J. Zhang, and H. Wang, “Graspnerf:
+     robots,” 2019.                                                                   Multiview-based 6-dof grasp detection for transparent and specular ob-
+[11] J. Sun, H. Jiao, G. Li, Z. Zhang, L. Zhao, and W. Xing, “3dgstream:              jects using generalizable nerf,” in 2023 IEEE International Conference
+     On-the-fly training of 3d gaussians for efficient streaming of photo-            on Robotics and Automation (ICRA), pp. 1757–1763, IEEE, 2023.
+     realistic free-viewpoint videos,” in Proceedings of the IEEE/CVF            [33] I. Kapelyukh, V. Vosylius, and E. Johns, “Dall-e-bot: Introducing web-
+     Conference on Computer Vision and Pattern Recognition, pp. 20675–                scale diffusion models to robotics,” IEEE Robotics and Automation
+     20685, 2024.                                                                     Letters, vol. 8, no. 7, pp. 3956–3963, 2023.
+[12] M. Ding, Z. Chen, T. Du, P. Luo, J. Tenenbaum, and C. Gan, “Dynamic         [34] F. Zhu, H. Wu, S. Guo, Y. Liu, C. Cheang, and T. Kong, “Irasim:
+     visual reasoning by learning differentiable physics models from video            Learning interactive real-robot action simulators,” arXiv:2406.12802,
+     and language,” Advances In Neural Information Processing Systems,                2024.
+     vol. 34, pp. 887–899, 2021.                                                 [35] G. Lu, S. Zhang, Z. Wang, C. Liu, J. Lu, and Y. Tang, “Manigaussian:
+[13] D. Shim, S. Lee, and H. J. Kim, “Snerl: Semantic-aware neural ra-                Dynamic gaussian splatting for multi-task robotic manipulation,” arXiv
+     diance fields for reinforcement learning,” in International Conference           preprint arXiv:2403.08321, 2024.
+     on Machine Learning, pp. 31489–31503, PMLR, 2023.                           [36] Y. Jiang, C. Wang, R. Zhang, J. Wu, and L. Fei-Fei, “Transic: Sim-to-
+[14] B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoor-           real policy transfer by learning from online correction,” in Conference
+     thi, and R. Ng, “Nerf: Representing scenes as neural radiance fields for         on Robot Learning, 2024.
+     view synthesis,” Communications of the ACM, vol. 65, no. 1, pp. 99–         [37] J. Whitman, M. Travers, and H. Choset, “Learning modular robot
+     106, 2021.                                                                       control policies,” IEEE Transactions on Robotics, vol. 39, no. 5,
+[15] P. Wang, L. Liu, Y. Liu, C. Theobalt, T. Komura, and W. Wang, “Neus:             pp. 4095–4113, 2023.
+     Learning neural implicit surfaces by volume rendering for multi-view        [38] D. Coleman, I. Sucan, S. Chitta, and N. Correll, “Reducing the barrier
+     reconstruction,” arXiv preprint arXiv:2106.10689, 2021.                          to entry of complex robotic software: a moveit! case study,” arXiv
+[16] C. Ye, Y. Nie, J. Chang, Y. Chen, Y. Zhi, and X. Han, “Gaustudio:                preprint arXiv:1404.3785, 2014.
+     A modular framework for 3d gaussian splatting and beyond,” arXiv            [39] Y.-L. Qiao, J. Liang, V. Koltun, and M. C. Lin, “Efficient differentiable
+     preprint arXiv:2403.19632, 2024.                                                 simulation of articulated bodies,” in International Conference on
+[17] M. Tancik, E. Weber, E. Ng, R. Li, B. Yi, T. Wang, A. Kristoffersen,             Machine Learning, pp. 8661–8671, PMLR, 2021.
+     J. Austin, K. Salahi, A. Ahuja, et al., “Nerfstudio: A modular frame-       [40] Y. Zheng, X. Chen, Y. Zheng, S. Gu, R. Yang, B. Jin, P. Li,
+     work for neural radiance field development,” in ACM SIGGRAPH 2023                C. Zhong, Z. Wang, L. Liu, et al., “Gaussiangrasper: 3d language gaus-
+     Conference Proceedings, pp. 1–12, 2023.                                          sian splatting for open-vocabulary robotic grasping,” arXiv preprint
+[18] T. Jeruzalski, D. I. Levin, A. Jacobson, P. Lalonde, M. Norouzi, and             arXiv:2403.09637, 2024.
+     A. Tagliasacchi, “Nilbs: Neural inverse linear blend skinning,” arXiv       [41] K. Wang, W. R. Johnson, S. Lu, X. Huang, J. Booth, R. Kramer-
+     preprint arXiv:2004.05980, 2020.                                                 Bottiglio, M. Aanjaneya, and K. Bekris, “Real2sim2real transfer for
+[19] Y.-H. Huang, Y.-T. Sun, Z. Yang, X. Lyu, Y.-P. Cao, and X. Qi, “Sc-              control of cable-driven robots via a differentiable physics engine,” in
+     gs: Sparse-controlled gaussian splatting for editable dynamic scenes,”           2023 IEEE/RSJ International Conference on Intelligent Robots and
+     in Proceedings of the IEEE/CVF Conference on Computer Vision and                 Systems (IROS), pp. 2534–2541, IEEE, 2023.
+     Pattern Recognition, pp. 4220–4230, 2024.                                   [42] B. Chen, R. Kwiatkowski, C. Vondrick, and H. Lipson, “Fully body
+[20] E. Šlapak, E. Pardo, M. Dopiriak, T. Maksymyuk, and J. Gazda,                   visual self-modeling of robot morphologies,” Science Robotics, vol. 7,
+     “Neural radiance fields in the industrial and robotics domain: applica-          no. 68, p. eabn1944, 2022.
+     tions, research opportunities and use cases,” Robotics and Computer-        [43] Z. Zhong, J. Cao, S. Gu, S. Xie, W. Gao, L. Luo, Z. Yan, H. Zhao,
+     Integrated Manufacturing, vol. 90, p. 102810, 2024.                              and G. Zhou, “Assist: Interactive scene nodes for scalable and realistic
+[21] T. Chen, O. Shorinwa, W. Zeng, J. Bruno, P. Dames, and M. Schwa-                 indoor simulation,” arXiv preprint arXiv:2311.06211, 2023.
+     ger, “Splat-nav: Safe real-time robot navigation in gaussian splatting      [44] M. Bauza, A. Bronars, Y. Hou, I. Taylor, N. Chavan-Dafle, and
+     maps,” arXiv preprint arXiv:2403.02751, 2024.                                    A. Rodriguez, “Simple, a visuotactile method learned in simulation to
+[22] Y. Y. Bardienus P. Duisterhof, Zhao Mandi, “Deformgs: Scene flow                 precisely pick, localize, regrasp, and place objects,” Science Robotics,
+     in highly deformable scenes for deformable object manipulation,” in              vol. 9, no. 91, p. eadi8808, 2024.
+[45] H. Ha, Y. Gao, Z. Fu, J. Tan, and S. Song, “Umi on legs: Making             [65] L. Liang, L. Bian, C. Xiao, J. Zhang, L. Chen, I. Liu, F. Xiang,
+     manipulation policies mobile with manipulation-centric whole-body                Z. Huang, and H. Su, “Robo360: A 3d omnispective multi-material
+     controllers,” arXiv preprint arXiv:2407.10353, 2024.                             robotic manipulation dataset,” arXiv preprint arXiv:2312.06686, 2023.
+[46] J. Abou-Chakra, K. Rana, F. Dayoub, and N. Sünderhauf, “Physically         [66] Z. Fu, T. Z. Zhao, and C. Finn, “Mobile aloha: Learning bimanual
+     embodied gaussian splatting: A realtime correctable world model for              mobile manipulation with low-cost whole-body teleoperation,” arXiv
+     robotics,” in 8th Annual Conference on Robot Learning, 2024.                     preprint arXiv:2401.02117, 2024.
+[47] V. Lim, H. Huang, L. Y. Chen, J. Wang, J. Ichnowski, D. Seita,              [67] Q. Vuong, S. Levine, H. R. Walke, K. Pertsch, A. Singh, R. Doshi,
+     M. Laskey, and K. Goldberg, “Real2sim2real: Self-supervised learning             C. Xu, J. Luo, L. Tan, D. Shah, et al., “Open x-embodiment: Robotic
+     of physical single-step dynamic actions for planar robot casting,” in            learning datasets and rt-x models,” in Towards Generalist Robots:
+     2022 International Conference on Robotics and Automation (ICRA),                 Learning Paradigms for Scalable Skill Acquisition@ CoRL2023, 2023.
+     pp. 8282–8289, IEEE, 2022.                                                  [68] H. Liu, C. Ye, Y. Nie, Y. He, and X. Han, “Lasa: Instance recon-
+[48] M. Torne, A. Simeonov, Z. Li, A. Chan, T. Chen, A. Gupta,                        struction from real scans using a large-scale aligned shape annotation
+     and P. Agrawal, “Reconciling reality through simulation: A real-                 dataset,” in Proceedings of the IEEE/CVF Conference on Computer
+     to-sim-to-real approach for robust manipulation,” arXiv preprint                 Vision and Pattern Recognition, pp. 20454–20464, 2024.
+     arXiv:2403.03949, 2024.                                                     [69] Q. Wang, Y.-Y. Chang, R. Cai, Z. Li, B. Hariharan, A. Holynski,
+[49] D. Qu, Q. Chen, P. Zhang, X. Gao, B. Zhao, D. Wang, and X. Li,                   and N. Snavely, “Tracking everything everywhere all at once,” in
+     “Livescene: Language embedding interactive radiance fields for phys-             Proceedings of the IEEE/CVF International Conference on Computer
+     ical scene rendering and control,” arXiv preprint arXiv:2406.16038,              Vision, pp. 19795–19806, 2023.
+     2024.                                                                       [70] Y. Xiao, Q. Wang, S. Zhang, N. Xue, S. Peng, Y. Shen, and X. Zhou,
+[50] K. M. Jatavallabhula, M. Macklin, F. Golemo, V. Voleti, L. Petrini,              “Spatialtracker: Tracking any 2d pixels in 3d space,” in Proceedings
+     M. Weiss, B. Considine, J. Parent-Lévesque, K. Xie, K. Erleben,                 of the IEEE/CVF Conference on Computer Vision and Pattern Recog-
+     et al., “gradsim: Differentiable simulation for system identification            nition, pp. 20406–20417, 2024.
+     and visuomotor control,” arXiv preprint arXiv:2104.02646, 2021.             [71] S. Fridovich-Keil, G. Meanti, F. R. Warburg, B. Recht, and
+[51] X. Li, Y.-L. Qiao, P. Y. Chen, K. M. Jatavallabhula, M. Lin, C. Jiang,           A. Kanazawa, “K-planes: Explicit radiance fields in space, time,
+     and C. Gan, “Pac-nerf: Physics augmented continuum neural radiance               and appearance,” in Proceedings of the IEEE/CVF Conference on
+     fields for geometry-agnostic system identification,” arXiv preprint              Computer Vision and Pattern Recognition, pp. 12479–12488, 2023.
+     arXiv:2303.05512, 2023.                                                     [72] F. Barthel, A. Beckmann, W. Morgenstern, A. Hilsmann, and P. Eis-
+[52] E. Sifakis and J. Barbic, “Fem simulation of 3d deformable solids: a             ert, “Gaussian splatting decoder for 3d-aware generative adversarial
+     practitioner’s guide to theory, discretization and model reduction,” in          networks,” 2024.
+     Acm siggraph 2012 courses, pp. 1–50, 2012.                                  [73] B. Wen, W. Yang, J. Kautz, and S. Birchfield, “Foundationpose:
+[53] J. Choe, S. Im, F. Rameau, M. Kang, and I. S. Kweon, “Volumefusion:              Unified 6d pose estimation and tracking of novel objects,” in Proceed-
+     Deep depth fusion for 3d scene reconstruction,” in Proceedings of the            ings of the IEEE/CVF Conference on Computer Vision and Pattern
+     IEEE/CVF International Conference on Computer Vision, pp. 16086–                 Recognition, pp. 17868–17879, 2024.
+     16095, 2021.
+[54] J. L. Schonberger and J.-M. Frahm, “Structure-from-motion revisited,”
+     in Proceedings of the IEEE conference on computer vision and pattern
+     recognition, pp. 4104–4113, 2016.
+[55] Y. Weng, B. Wen, J. Tremblay, V. Blukis, D. Fox, L. Guibas, and
+     S. Birchfield, “Neural implicit representation for building digital twins
+     of unknown articulated objects,” in Proceedings of the IEEE/CVF
+     Conference on Computer Vision and Pattern Recognition, pp. 3141–
+     3150, 2024.
+[56] R.-Z. Qiu, G. Yang, W. Zeng, and X. Wang, “Feature splatting:
+     Language-driven physics-based scene synthesis and editing,” arXiv
+     preprint arXiv:2404.01223, 2024.
+[57] K. Ehsani, T. Gupta, R. Hendrix, J. Salvador, L. Weihs, K.-H. Zeng,
+     K. P. Singh, Y. Kim, W. Han, A. Herrasti, et al., “Spoc: Imitating
+     shortest paths in simulation enables effective navigation and manipu-
+     lation in the real world,” in Proceedings of the IEEE/CVF Conference
+     on Computer Vision and Pattern Recognition, pp. 16238–16250, 2024.
+[58] P. I. Corke, “A simple and systematic approach to assigning denavit–
+     hartenberg parameters,” IEEE transactions on robotics, vol. 23, no. 3,
+     pp. 590–594, 2007.
+[59] Y. Jiang, C. Yu, T. Xie, X. Li, Y. Feng, H. Wang, M. Li, H. Lau,
+     F. Gao, Y. Yang, et al., “Vr-gs: a physical dynamics-aware interactive
+     gaussian splatting system in virtual reality,” in ACM SIGGRAPH 2024
+     Conference Papers, pp. 1–1, 2024.
+[60] T. Xie, Z. Zong, Y. Qiu, X. Li, Y. Feng, Y. Yang, and C. Jiang, “Phys-
+     gaussian: Physics-integrated 3d gaussians for generative dynamics,” in
+     Proceedings of the IEEE/CVF Conference on Computer Vision and
+     Pattern Recognition, pp. 4389–4398, 2024.
+[61] S. Kucuk and Z. Bingul, “The inverse kinematics solutions of indus-
+     trial robot manipulators,” in Proceedings of the IEEE International
+     Conference on Mechatronics, 2004. ICM ’04., pp. 274–279, 2004.
+[62] C. M. Kim, M. Wu, J. Kerr, K. Goldberg, M. Tancik, and A. Kanazawa,
+     “Garfield: Group anything with radiance fields,” in Proceedings of the
+     IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+     pp. 21530–21539, 2024.
+[63] V. Modi, N. Sharp, O. Perel, S. Sueda, and D. I. Levin, “Simplicits:
+     Mesh-free, geometry-agnostic elastic simulation,” ACM Transactions
+     on Graphics (TOG), vol. 43, no. 4, pp. 1–11, 2024.
+[64] Z. Yang, X. Gao, W. Zhou, S. Jiao, Y. Zhang, and X. Jin, “Deformable
+     3d gaussians for high-fidelity monocular dynamic scene reconstruc-
+     tion,” in Proceedings of the IEEE/CVF Conference on Computer Vision
+     and Pattern Recognition, pp. 20331–20341, 2024.
+

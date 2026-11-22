@@ -1,0 +1,26 @@
+{
+  "id": "P96",
+  "slug": "MuJoCo_Physics_Engine",
+  "title": "MuJoCo: A physics engine for model-based control",
+  "authors": [
+    "Emanuel Todorov",
+    "Tom Erez",
+    "Yuval Tassa"
+  ],
+  "publication_date": "2012",
+  "doi": "10.1109/IROS.2012.6386109",
+  "booktitle": "2012 IEEE/RSJ International Conference on Intelligent Robots and Systems",
+  "source_url": "https://doi.org/10.1109/IROS.2012.6386109",
+  "pdf_url": "https://roboti.us/lab/papers/TodorovIROS12.pdf",
+  "accessed": "2026-11-12",
+  "arxiv_id": "",
+  "family": "sim2wm",
+  "version": "institutional-copy",
+  "submitted_date": "",
+  "local_pdf": "papers/P96_MuJoCo_Physics_Engine.pdf",
+  "bytes": 447792,
+  "sha256": "31bab10428d0714ad2baeb905eaa9eb6010c27aff1173681ca91b7ebb2e82372",
+  "text_file": "research/P96_MuJoCo_Physics_Engine.txt",
+  "pages": 8,
+  "status": "downloaded_and_text_extracted"
+}

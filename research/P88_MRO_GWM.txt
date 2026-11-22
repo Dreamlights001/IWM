@@ -1,0 +1,525 @@
+                                            Learning Action-Conditional and Object-Centric Gaussian Splatting
+                                                             World Models for Rigid Objects
+                                                                                   Jens U. Kreber, Lukas Mack, Joerg Stueckler
+
+
+                                            Abstract— World models enable intelligent agents to predict
+                                         the consequences of their actions on the environment. In this
+                                         paper, we propose Multi Rigid Object Gaussian World Model
+                                         (MRO-GWM), a novel model that learns action-conditional
+                                         dynamics of rigid objects in 3D. Using object-centric Gaussians,
+                                         we can represent arbitrary object shapes and multi-object scenes.
+arXiv:2606.01950v2 [cs.RO] 26 Oct 2026
+
+
+
+
+                                         We develop a novel temporal-spatial transformer architecture
+                                         that predicts future rigid body motion from a history of
+                                         object Gaussians and future actions. Objects are represented by
+                                         Gaussians in an object-centric frame, which allows to describe
+                                         object motion as a rigid body transformation. Our model is
+                                         trained on reconstructions from multiple viewpoints, which
+                                         requires the model to also handle partial observations of objects
+                                         due to occlusions. We analyze prediction performance of our
+                                                                                                                   Fig. 1: Method overview. Gaussian representations are ob-
+                                         approach on synthetic datasets composed of typical household              tained by object-centric Gaussian splatting. The Gaussians
+                                         objects with multi-object dynamics and interactions by a robot            are efficiently encoded in anchors. The Gaussian-based shape
+                                         end effector. We also evaluate our model in model-predictive              representations are rigidly transformed by the history of recent
+                                         control for non-prehensile manipulation in simulation and                 object and end-effector poses as input to a transformer that
+                                         for image-based tracking and prediction of object motion in
+                                         simulated and real-world scenes.
+                                                                                                                   predicts the future object poses. Additionally, we condition
+                                                                                                                   the dynamics prediction on the future robot end-effector
+                                                                 I. I NTRODUCTION                                  poses as actions by also inputting their Gaussian-based shape
+                                            Intelligent agents that interact physically with the envi-             representation into the transformer.
+                                         ronment need world models to predict the consequences of
+                                         potential actions in perceived scenes and to plan ahead. World
+                                         models capture task-agnostic properties of the environment                Gaussian-based shape representations by rigid object and end-
+                                         and therefore form a keystone of generalization abilities.                effector poses. We also use the representation for object pose
+                                         A challenging problem for world modeling are rigid-body                   estimation and tracking with a render-and-compare approach.
+                                         dynamics in robot manipulation scenes where many objects                     We evaluate our method on simulated tabletop scenes
+                                         of highly varying shapes are closely placed next to each                  containing closely placed household objects of varying shapes.
+                                         other. An interaction with one object might have indirect                 We compare model variants and ablations regarding prediction
+                                         effect on surrounding ones and the objects might not be fully             performance on unseen objects. Furthermore, we evaluate
+                                         observable due to occlusions.                                             model-predictive control with our model in simulation for
+                                            Our novel Multi Rigid Object Gaussian World Model                      two non-prehensile manipulation tasks and demonstrate that
+                                         (MRO-GWM) represents the scene using object-centric 2D                    it can successfully solve the tasks in several multi-object
+                                         Gaussians [1] and learns the dynamics on this representation              scenes. Finally, we demonstrate our model for image-based
+                                         end-to end. We choose Gaussians as our shape representation,              tracking and prediction of object motion in simulated and
+                                         since they capture geometry for modeling object interactions              real-world scenes.
+                                         and enable real-time rendering for object detection, pose                    In summary, our contributions are as follows: (1) We
+                                         estimation, and tracking. We propose a novel temporal-spatial             propose to use object-centric Gaussian splatting as scene
+                                         transformer architecture which predicts future object poses               representation for seamlessly enabling dynamics prediction
+                                         and is conditioned on a history of object and end-effector                and scene perception. (2) We introduce a novel transformer
+                                         states. The state history is obtained by transforming per-object          architecture for dynamics prediction that operates on this
+                                                                                                                   representation using temporal and spatial attention as well as
+                                            This work has been supported by Hightech Agenda Bayern and Deutsche    a new temporal-spatial attention layer. (3) We integrate and
+                                         Forschungsgemeinschaft (DFG) project no. 466606396. We gratefully         demonstrate our world model for image-based tracking and
+                                         acknowledge the HPC resources provided by the Erlangen National High
+                                         Performance Computing Center (NHR@FAU) of the Friedrich-Alexander-        prediction of object motion and model-predictive control in
+                                         Universität Erlangen-Nürnberg (FAU) under the BayernKI project v119ee.    non-prehensile manipulation.
+                                         BayernKI funding is provided by Bavarian state authorities.
+                                            All authors are with the Intelligent Perception in Tech-                                   II. R ELATED W ORK
+                                         nical    Systems    Group,    University    of   Augsburg,    Germany
+                                         firstname.lastname@uni-a.de.                      Project      website:     Several approaches for learning world models have been
+                                         https://embodiedvision.github.io/mro-gwm/                                 proposed in recent years in the machine learning, robot
+learning, and computer vision communities. One approach is
+to learn action-conditional video prediction models [2], [3].
+The approach in [4] learns a 3D world model for multi-object
+interactions, but uses implicit NeRF representations of object
+shape. Gaussian representations provide an alternative explicit
+3D representation which has recently attracted attention.
+Gaussians are specifically suitable for real-time rendering
+from novel view points and therefore enable the detection and
+tracking of the 3D pose of objects. Moreover, the Gaussians
+represent object geometry which can be used for learning
+physical dynamics. In this work, we demonstrate both aspects
+by image-based tracking and prediction of object motion and
+using the learned model for model-predictive control.
+      a) Integrating Physics Models with Gaussians: Some
+approaches integrate physics models with Gaussian repre-           Fig. 2: Dynamics prediction transformer. Top left: temporal
+sentations to enable dynamics prediction. PIN-WM [5] use           and temporal-spatial attention relates all spatially correspond-
+differentiable rendering of Gaussians and differentiable rigid-    ing tokens along the temporal dimensions. Bottom left:
+body physics [6] to infer physical parameters from visual ob-      spatial attention relates tokens at the same time step which
+servations. ContactGaussian-WM [7] uses a complementary-           are in a local spatial neighborhood. Right: temporal-spatial
+free differentiable physics engine to propagate objects rep-       transformer: Spatial grid pooling and spatial attention blocks
+resented by 3D Gaussians. Differently to our setting, these        are combined with temporal attention and a newly proposed
+works only consider single-object scenes. Rigid objects and        temporal-spatial attention layer. Given a history and future
+deformables are simulated in a differentiable particle physics     end-effector poses, future object poses are predicted. τ̂iobj
+simulation by Embodied Gaussians [8]. It couples Gaussians         indicate predicted poses and τ∅obj a fixed dummy pose.
+for visual scene representation with particles of a point-based
+dynamics simulation. Visual reconstruction errors are mapped
+to physical forces on the particles. Related approaches,           a feed-forward multi-view Gaussian reconstruction by shape
+such as [9], [10], [11], integrate physics simulation using        completion. We train a transformer model on partial shapes
+the material point method [12] for deformables into a 3D           to implicitly model unobserved parts.
+Gaussian reconstruction of a scene. Physics-based simulation
+is, however, restricted to the model class of the simulator and                            III. M ETHOD
+cannot cope with strong violations of the physical model. Also,       We propose a novel approach for world modeling by
+differently to our learning-based model, these approaches          predicting rigid-object dynamics in multi-object scenes
+require that the scene and objects shapes are fully known or       conditioned on robot actions based on a Gaussian shape
+observed so that physics-based simulation becomes feasible.        representation. Our world model represents the geometry
+      b) Predicting Neural Physical Dynamics for Gaussians:        and appearance of objects as Gaussians and predicts action-
+Several recent works learn deep learning-based dynamics            conditional object dynamics using a transformer-based deep
+prediction for Gaussian scene representations [13], [14],          learning architecture. By using Gaussians, we can render
+[15], [16], [17], [18], [19]. The models are demonstrated          objects from novel view points for object perception. More-
+for imitation learning, model-based reinforcement learning,        over, this shape representation provides object geometry
+model-predictive control or failure detection when executing       information for dynamics and interaction modeling. The
+motion plans. 3DGSim [20] trains transformers for simulating       representation can be reconstructed from multi-view RGB-
+the dynamics and deformations of objects represented as 3D         D images. A specific challenge when using Gaussian-based
+Gaussians. The transformer aggregates unstructured point           representations is to devise an efficient and suitable deep
+clouds from multiple time steps into a single-step per-point       learning architecture. To this end, we propose a novel object-
+prediction. Our approach uses a spatial aggregation whose          centric, transformer-based architecture that operates on a
+structure is shared over time and predicts multi-step per-object   compressed anchor representation in a window of time steps
+rigid pose changes. Differently to the above approaches,           using spatial and temporal attention layers. It predicts future
+our approach estimates an object-centric Gaussian scene            object pose trajectories given robot end-effector actions. By
+representation and predicts rigid body motion of the objects       using an object-centric representation, we can transform the
+using a transformer architecture. Neural Gaussian Force Fields     shape representation of an object by its observed or predicted
+(NGFF [21]) learn an object-centric dynamics model for             SE(3) pose and predict relative motion in SE(3).
+multi-object scenes. They predict forces acting on objects
+with a neural interaction network architecture and use ODE         A. Scene Representation By Object-Aware Gaussian Splatting
+solvers to determine object motion and deformations. Contrary         We follow ObjectGS [1] to extract the Gaussian rep-
+to our approach, they do not model robot actions by end-           resentation of the objects in the scene from multi-view
+effector motions. Furthermore, the approach fills occlusions in    image by Gaussian splatting [22]. We assume access to
+                                                                                        obj
+multiple posed RGB-D images I ⊂ Rnimg ×wimg ×himg ×4 with                   objects ∆τh+1:h+p     within a prediction horizon p at the same
+corresponding camera poses ξicam ∈ SE(3) in the world                       rate as the input history. We represent the object shape
+frame. We also assume corresponding object segmentation                     in their object-centric coordinate frames, but model object
+masks O ⊂ Nnimg ×wimg ×himg ×Nobj to be known, e.g., we use                 dynamics in the world frame. Notably, the object frame can
+ground-truth or SAM3 [23] object masks in our simulation                    be freely chosen during the initial scene reconstruction, i.e.,
+or real-world experiments, respectively. ObjectGS is an                     no canonical object frame is required, since only relative
+extension of ScaffoldGS [24], which does not optimize 3D                    motion is predicted.
+Gaussians directly, but represents the scene by a grid of                         a) Transformer Inputs: Central to our architecture is
+voxels and representative points in each voxel called anchors.              the idea to rigidly transform the shape representations of
+Each anchor carries a latent feature which encodes a fixed                  each object according to their observed poses in the history
+number of Gaussians in a local neighborhood of the anchor.                  and input these as tokens into the transformer. By using
+The location of the Gaussians is represented by offsets to                  relative operations on 3D positions in the transformer, the
+the anchor position and scale factors for the offsets. The                  transformer becomes translation-invariant. To input actions,
+Gaussians are decoded with an MLP and the anchor features                   we also transform the shape representation of the end effector
+are optimized with a splatting rendering loss. ScaffoldGS                   with its poses. The SE(3) motion of the objects in future time
+demonstrates that this provides a compressed representation,                steps is predicted by the transformer. To input their initial
+while maintaining similar rendering quality than direct Gaus-               tokens to the transformer, we use the identity transform. This
+sian splatting. ObjectGS extends ScaffoldGS by assigning                    results in h + p scene representations for different object and
+object identities (ids) to each anchor and corresponding                    end-effector poses. We support Gaussians and anchors as
+decoded Gaussian based on object segmentation masks for                     input tokens to the transformer. For the anchors, we can just
+each image in a voting process. Since we consider scenes                    provide their position or also their Gaussian attributes (i.e.,
+which are closely populated with objects, we only consider                  offsets, scale, latent features). In all cases, we also embed the
+an object id vote, if the projected depth of the anchor is                  corresponding object index and a Boolean representing if the
+within a 1 cm range of the measured depth at the pixel. We                  token is part of a history or future time step and concatenate
+use the 2D Gaussian variant [25] of ObjectGS, which we                      these embeddings. The scene representation can have a large
+observed to represent surfaces better than 3D Gaussians [1]                 spatial extent due to the background being included. However,
+in our setting.                                                             it is reasonable to assume that interactions can only occur
+     a) Scene-Agnostic Anchor Features: We aim at learning                  close to objects. In order to safe unnecessary computation,
+dynamics prediction which generalizes across various objects                we do not input background anchors that are further than
+and scenes. However, ObjectGS trains encoders for the anchor                some threshold (e.g., 10 cm in our experiments) away from
+features for each scene separately. We generalize the method                object or end-effector anchors.
+to various objects and scenes by training shared feature                          b) Temporal-Spatial Transformer Architecture: We
+encoders across multiple scenes. We split the anchor features               choose transformers for our problem of dynamics predictions,
+into 16 dimensions for spatial information, i.e. scale, rotation,           since they relate features within and between objects and
+opacity, and 16 for color. MLPs are shared for the former                   time steps which is important to model the object motion and
+and distinct per scene for the latter. Dynamics prediction only             their physical interactions. The dynamics prediction by the
+uses the spatial part.                                                      transformer should be translation-invariant in the choice of
+     b) Robot End-Effector Representation: Additionally, we                 origin of the world frame. Moreover, the transformer needs
+render multiple views of a robot end effector and reconstruct               to operate on unordered sets of spatial tokens with arbitrary
+its Gaussian representation in a similar way like the scene.                continuous positions. To tackle these challenges, we use the
+This allows us to place the end effector spatially into the                 spatial attention mechanism of PTv2 [26] for processing the
+scene and vary its pose. Note that we use a distinct MLP                    input tokens. In this spatial attention, neighboring points
+to model the end effector with higher quality. We did not                   exchange information to form new output features. For each
+observe a clear loss in prediction performance compared to                  point, the attention is computed over its k-nearest neighbors,
+using the shared MLP of the scenes.                                         where the position is only processed in spatial relation
+                                                                            features, rendering the representation translation-invariant.
+B. Dynamics Prediction                                                         For increasing the efficiency of our model, we support an
+  We implement dynamics prediction in our world model                       initial per-object encoding and grid pooling of the inputs to
+by a transformer-based architecture. It predicts future motion              a certain intermediate input resolution using PTv2. Next, our
+of the objects conditioned on the future motion of the robot                model uses Ns stages of several attention layer operations in
+end-effector. To this end, we input the Gaussian shape repre-               the spatial and temporal dimensions to form features of the
+                                   obj
+sentations in a history of object τ1:h := τ1obj , . . . , τhobj , τiobj ∈   motion and interaction of tokens between objects and predict
+                                   ee
+SE(3) and end-effector poses τ1:h       := τ1ee , . . . , τhee , τiee ∈     the future relative motion of the objects. The token features
+SE(3) to the transformer at a certain temporal model rate,                  in a stage are processed across all time steps simultaneously.
+where h is the length of the history. Given the end-effector                Each stage has the form si = bi,Nb ◦ . . . ◦ bi,0 ◦ pe ◦ pooli ,
+Gaussian shape representation in future poses, the transformer              where bi,j are individual blocks and Nb is the number of
+predicts the future relative sequential SE(3) motion of the                 attention blocks in a stage. The stage begins with downsam-
+pling the input tokens using a pooling layer pooli . By this, the   types such as a geodesic loss and other loss schemes, such
+stages spatially aggregate the Gaussian-based representation        as computing the loss on orthogonalized rotation matrices
+of the objects successively into a single abstract token feature    or first orthogonalizing and normalizing again. However, the
+per object from which the relative object motion is predicted.      described method performed best in our experiments. For the
+Similar to pooling in PTv2, it combines features from points in     relative position, we divide the ground truth motion by its
+the same grid cell and averages the respective coordinates per      mean norm over the training set and compute the squared l2
+object. The pooling is performed in local object coordinates        norm against the prediction.
+at the resolution of each stage. Besides saving computation,
+this also establishes correspondence between the tokens of          C. Object Pose Estimation and Tracking
+different time steps, which simplifies the attention calculation      We detect and track the 3D pose of objects by rendering the
+along the temporal dimension. After the pooling, a positional       Gaussians in a render-and-compare approach. We augment
+encoding pe for the time index is added. We do not add a            FoundationPose [29] to use the renderings of the objects.
+positional encoding of the token coordinates in the world
+                                                                                          IV. E XPERIMENTS
+frame to keep the architecture translation-invariant.
+   Subsequently multiple residual blocks bi,j with several          A. Experiment Setup
+residual layers are applied before proceeding to the next                 a) Scene generation and datasets: We train and evaluate
+stage. For determining features of the temporal evolution           our model on datasets obtained using the Maniskill simulator
+of the scene, we relate token features across the temporal          [30]. We consider tabletop scenes populated with varying
+dimension in a temporal attention layer using standard self-        counts of 1 to 5 of objects from the YCB object set [31]. We
+attention [27] over time. The coordinates of the tokens are         generate scenes where objects are closely positioned next to
+not used in this attention. For modeling object interactions        each other and therefore likely interacting during manipulation
+and aggregating information spatially across tokens between         by the robot. We use disjoint object pools for our train,
+objects in each time step, we use a spatial attention layer         validation (val) and test datasets to analyze generalization to
+based on PTv2’s spatial attention mechanism. Lastly, we also        unseen objects. The YCB object set contains 75 objects from
+determine features of the temporal evolution of the tokens          which we use 65 for training, 5 for validation, and 5 for testing.
+which takes spatial motion of the tokens into account. To this      To asses the importance of object variety seen during training,
+end, we propose a novel temporal-spatial attention layer, in        for one ablation we only use 16 of the 21 objects from [32].
+which each token in a time step is related to its corresponding     The remaining 5 objects are used for our val set. For the
+tokens at different time steps. We use PTv2’s spatial attention     test pools, we sample one object from each of the categories
+mechanism based on the token coordinates.                           proposed by [31]. We augment our train and val sets by
+   We stack the layers in the following order: spatial attention    generating additional scenes that use the exact same objects
+→ temporal-spatial attention → temporal attention → MLP,            as the initially sampled ones, but new random pose sampling
+where the attention operations are followed by a pointwise          and interaction data collection. For these augmented scenes,
+MLP operation. For the last stage, we choose a grid cell            we use the same splatting representation as the initial scene,
+size that spans the whole scene to aggregate a single token         since only object poses are changed, thereby obtaining more
+feature for relative motion prediction. The motion is predicted     interaction data with the same number of splatted scenes. Our
+using a linear layer. Note that we discard the predictions for      main training set contains 100 original scenes and for each
+background and end effector as we assume their motion to            of those 100 augmented ones. To avoid sampling scenes with
+be fixed or given as actions, respectively.                         heavily occluded objects which can barely be reconstructed,
+      c) Prediction Representation and Losses: We train our         we reject scenes where objects are not visible by at least
+model to predict the relative motion in position and orientation    50% and 1024 pixels in at least 25% of the views. We
+in world coordinates between two time steps across the pre-         model a Franka Panda robot with a stick-like end-effector,
+diction horizon for each object. Following [28], we represent       similarly to the tasks already shipped with Maniskill. The end-
+rotations as 9D rotation matrices and apply orthogonalization       effector actions are relative 3D position changes executed by
+on the predictions to achieve valid 3D rotations. We use            an inverse kinematics controller. Interaction data is generated
+the squared Frobenius norm of predicted and ground truth            by sampling points in the vicinity of the objects and moving
+matrices, which corresponds to the commonly used squared            the end effector to these points with a constant speed of 5 cm/s.
+chordal distance in the case of rotation matrices [28]. Since we    By this, the robot moves around or pushes objects. The
+predict relative rotation, which is often small, we need a way      simulator is stepped with 20 Hz.
+to normalize this data to train the network. We apply a vector-        For prediction evaluation, we create a test set with 20
+like normalization, where we first subtract the identity from       scenes for each object count from 1 to 5, resulting in 100
+the target relative rotation matrix R ∈ SO(3) and then divide       scenes total. We do not use augmentations, but sample 3
+each component by its standard deviation over the training set.     different interaction trajectories. For planning evaluation, we
+To obtain a valid rotation from a prediction, the normalization     create 8 scenes per object count from 1 to 5, resulting in
+process is reversed and the resulting matrix orthogonalized.        40 in total. To capture a scene, we obtain 32 images at two
+Note that we determine the loss in the normalized space,            different elevation angles, constant radius and equally spaced
+before orthogonalization. We experimented with other loss           azimuth angles. We perform object-aware Gaussian splatting
+as described above with a default anchor resolution of 1 cm                         Prediction error over horizon in s
+for 5,000 steps. We use rendered masks and depths as input.        0.50                         0.050
+      b) Model training: As training examples, we split the                                                                   0.4
+recorded interaction trajectories into small chunks according      0.25                         0.025
+                                                                                                                              0.2
+to the model’s prediction horizon (default p = 4) and
+modeling frequency (default 5 Hz). We use a fixed history          0.00                         0.000                         0.0
+size of h = 3. We find hyperparameters of our model such                  0          2                  0          2                0           2
+                                                                          Pos dist in cm, all           Pos dist in cm, all             Rot in deg, all
+as number of stages, pooling size and number of channels
+                                                                                                  1.0
+by an automated hyperparameter search with limited training           2
+                                                                                                                              10
+budget using the two objectives prediction error and training
+time. We select two variants from the Pareto front: Our base          1                           0.5
+                                                                                                                               5
+model (B), which we use as default for all experiments, with
+best error using 3 stages and no object encoder as well as a          0                    0.0                    0
+fast model (F) with fewer parameters, 2 stages and a 1-stage            0         2            0         2          0        2
+object encoder. We conduct training with a batch size of 45          Pos dist in cm, moving Pos dist in cm, moving Rot in deg, moving
+
+for 60,000 steps, which takes approximately 10.7 h for the                   B 4@10Hz                   B 8@5Hz                B 4@5Hz (mean)
+base and 2.7 h for the fast model on an Nvidia H100. By                      B 4@5Hz                    F 4@5Hz
+default, we input anchors with Gaussian attributes.
+      c) Prediction performance evaluation: We assess pre-         Fig. 3: Prediction errors over horizon for different model
+diction performance on trajectory chunks of varying sizes          variants, considering either all poses at the prediction horizon
+which requires different counts of recurrent model calls. We       (top) or only those where a ground truth movement for the
+compare the predicted poses at certain prediction horizons         respective object occurs during the horizon (bottom). The
+with the ground truth and report the Euclidean distance            first column shows mean and median as well as the area
+between positions and the geodesic angle between rotations.        between the 25% and 75% quantile. Other plots show only
+We provide a study on variants and ablations of our model          the median. Predictions of 5 model training seeds were used.
+to assess design choices. Note that there is no other work         The base model at 5 Hz performs best.
+available that allows for direct comparison in our setting
+of multi-object dynamics with partial observations. For [4],
+which is closest in setting, there is no code available. It        area, distances of the end effector to non-cleared objects,
+is also not feasible to compare with [20], since code and          and a penalty for pushing objects far to the front or back
+rigid object datasets are not available. Furthermore, the          of the table. We also compare with a heuristic that selects
+approach is evaluated on single-object scenes and reports          the object with furthest goal distance and moves into it until
+visual fidelity instead of trajectory accuracy. The multi-object   reaching the goal area. We run episodes for both tasks for
+dynamics learning approach in [21] does not directly support       1200 environment steps, i.e., 1 min. Each task is evaluated
+conditioning on end-effector position actions.                     over the 40 planning test scenes with 5 episodes per scene.
+      d) Planning performance evaluation: We evaluate plan-             e) Tracking performance evaluation: Tracking perfor-
+ning performance with our learned world model in two               mance with our model is evaluated with a subset of 5 YCB
+tasks using a variant of iCEM [33]. It performs sampling-          objects without continuous rotational symmetries. The rest
+based optimization of keypoint-parametrized end-effector           is used for training the dynamics prediction from which
+trajectories with respect to a set of task-specific costs over     we use 5 for tuning FoundationPose. For each interaction
+a planning horizon. The end-effector keypoints are linearly        trajectory, we perform pose estimation at the first step and
+interpolated at a constant velocity for execution and passing      subsequently track the objects. We only consider trajectories
+them into the dynamics prediction. In task 1, the robot needs      up to the point where one object fails our visibility criterion
+to push objects to goal locations which we consider successful     introduced earlier. We select a constant view point out of
+if the distance is below 1 cm. We also provide the area under      several candidates on a separate validation set with the highest
+the curve (AUC) of the success rate for thresholds ranging         fraction of visible object frames. For tracking, we use a
+from 1 cm to 5 cm in 5 mm steps. As objective function for         Gaussian splatting representation with voxel resolution 0.005
+planning, we minimize a combination of object-goal and             and no view dependence, which we found to perform best on
+end-effector-object distances. In task 2, the robot needs to       the validation set. We only evaluate tracking of the objects
+move all objects outside a center region on the table in the       but not the end effector.
+sidewards interval [−15 cm, 15 cm]. We evaluate the smaller
+distance from object center to either bound and sum these          B. Prediction Results
+up for all objects as goal distance. Success is determined            In Figure 3, we analyze the prediction performance in
+on 1 cm distance to bounds for all objects. We also evaluate       position and rotation error and of model variants with different
+a success AUC metric for thresholds from 0 cm to 5 cm in           time resolution and prediction horizons. We distinguish results
+5 mm steps. As objective function for planning, we minimize        considering all errors at the prediction horizon (all) and those
+a combination of the distances of the objects to the goal          where a ground truth movement (pos. change > 1 · 10−4 m,
+                         Mean pos         Mean rot        Full std
+ Variant
+                         err in cm        err in deg      pos, rot
+ Base model             0.717 (0.002)   12.484 (0.099)   0.86   18.16
+ Fast model             0.758 (0.004)   13.093 (0.082)   0.89   19.16
+ Few objects            0.816 (0.010)   13.611 (0.140)   0.94   19.34
+ Anchor res 0.005       0.713 (0.004)   12.571 (0.119)   0.86   18.38
+ Anchor res 0.02        0.734 (0.002)   12.473 (0.059)   0.87   17.99
+ Explicit Gaussians     0.719 (0.008)   12.486 (0.168)   0.87   18.08
+ No anchor attributes   0.718 (0.003)   12.468 (0.050)   0.87   18.06
+ No attr., res 0.02     0.745 (0.006)   12.693 (0.088)   0.87   18.44
+ No temp.-sp. attn.     0.754 (0.008)   12.787 (0.107)   0.87   18.27
+ Single obj. token      0.827 (0.003)   14.107 (0.069)   0.92   19.49
+ Limited view           0.724 (0.003)   12.970 (0.106)   0.88   18.63
+
+TABLE I: Prediction performance of model variants and
+ablations, computed over moving chunks only. The mean over
+5 model training seeds is shown with standard deviation over
+seeds in parentheses. The last two columns show the standard
+deviation over all values. We observe strong prediction
+performance drops for architectural ablations, the fast model
+variant and few training objects. Anchor attributes become
+relevant at coarser resolution.
+
+
+rot. change > 1 · 10−2 rad for single step) happens during
+the horizon for the considered object (moving). The spread
+between 25% and 75% quantiles can be explained by the
+variation caused by static and moving objects. We also
+observe that the error is more pronounced in rotation which             Fig. 4: Predicted sequences over horizon 2.4 s (3 model invo-
+we attribute to object dynamics such as rolling or toppling             cations) and ground truth (atop predictions for each sequence)
+over. Regarding variations in model frequency and prediction            replayed in simulation. From top to bottom: smallest, second
+horizon, we observe that for position error, p = 4 works                smallest, median and worst prediction error rank (see text for
+equally well at 5 Hz and 10 Hz, while p = 8 or the fast                 details on the ranking). The object interactions are predicted
+model (F) lead to a similar performance drop. The base                  closely to the ground truth for the two smallest error ranks.
+model (B) at 5 Hz performs best in rotational error.                    For the median and worst ranks, small deviations in the
+                                                                        interactions between gripper and objects can cause large
+      a) Model variants and ablations: In Table I, we compare
+                                                                        deviations in object motion and are harder to predict.
+our base model with several ablations. The fast model provides
+less accurate prediction at lower inference time of 0.063 s
+at batch size 45 compared to 0.168 s for the base model.
+The performance drop for few training objects demonstrates
+that a large object variety is important for generalization.
+Performance is marginally better in position for smaller anchor         predictions. For predictions, we render the Gaussian represen-
+size, but drops slightly for a resolution of 0.02, which is             tation. We determine the evaluated chunks with 10% largest
+expected due to the coarser scene geometry representation.              changes in accumulated ground-truth position and rotation
+Using Gaussians leads to similar prediction accuracy like               at 2.4 s prediction horizon (3 recurrent model calls). These
+the base model with coarser anchors, but requires 0.326 s               chunks are ranked according to the sum of position and
+inference time. We observe that using anchor attributes brings          rotation prediction error. We visualize the best, second best,
+an improvement for resolution 0.02, while it has similar                median and worst rank example. In the examples, meaningful
+performance to using no anchor attributes at resolution 0.01.           interactions can be observed, where for the ones with smallest
+Removing the temporal-spatial attention layer leads to a                rank the model predicts motion of a single round object which
+strong performance drop. Using only a single token per                  closely follows the ground truth. For the median example,
+object strongly degrades accuracy, which is expected due                the predicted rolling direction of the orange object differs
+to the complex geometry of objects in our datasets. Limiting            from the actual one and the orange interacts differently with
+azimuth angles during reconstruction between 0 and 180◦                 the golf ball. This might be in parts due to the slightly non-
+performs only slightly worse than training on the full set of           spherical shape of the orange object. The worst example
+views. This indicates that the model to some extent learns to           shows a difficult multi-object interaction setting where a
+cope with partial shape information.                                    small change in end-effector position can result in contact or
+      b) Qualitative results: In Figure 4, we show rendered             non-contact with an object and a large difference in motion.
+scene representations over time for ground truth and model              Videos of the results can be found on the project website.
+                                                                                                    pos err        rot err
+                                                                                                  abs     rel    abs      rel   ADD    ADD-S
+                                                                           tracking               0.35           5.09           0.57    0.29
+                                                                           pred., gt input        1.77   1.77   13.51   13.51   2.35    1.38
+                                                                           pred., tracked input   2.24   2.10   19.44   15.73   3.05    1.69
+
+                                                                         TABLE III: Mean errors for tracking, computed over moving
+                                                                         chunks only. Position error and ADD(-S) in cm, rotation
+Fig. 5: Examples for MPC with 5 objects and largest initial
+                                                                         error in deg. Averaged over 5 model training seeds. Tracking
+objective value. Top: task 1, push object (left screwdriver)
+                                                                         introduces estimation errors which also affect predictions.
+to position (green sphere). Bottom: task 2, clear middle (red
+area). The tasks are successfully solved.
+
+
+                                                 SR    dgoal    dgoal
+   task                          tsucc   SR
+                                                AUC    final   initial
+   1. position object            18.5    0.79   0.85    2.57   14.29
+   2. clear middle, all          24.8    0.74   0.72    3.19   30.23
+      cl. mid., all, heuristic   26.0    0.14   0.15   23.65   30.23
+      clear middle, per obj              0.88   0.83
+
+TABLE II: Planning performance on different tasks where
+our model is used in a MPC setting. All metrics are computed
+by taking the mean over all episodes for one training model
+seed. Final goal distance is measured at success or time out.
+Then, the mean over 5 model training seeds is computed
+and shown here. A majority of runs is successful and error               Fig. 6: Qualitative real-world tracking and prediction results.
+metrics are reduced from their initial values.                           The objects are tracked until the first frame and our model
+                                                                         is used to predict interactions of objects and end-effector.
+
+C. Planning Results
+                                                                         the power drill. Elongated objects seem difficult to predict,
+   We provide planning results in Table II. Our approach                 presumably since the center of mass strongly affects rotation.
+achieves success rates (SR) of 0.79 and 0.74 in the first and
+second task, respectively. When measuring for success for                D. Joint Tracking and Prediction Results
+individual objects in the second task, our approach achieves                In Table III, we provide results for object tracking in
+a higher success rate of 0.88. Goal distances for both tasks             images and dynamics prediction based on the estimated
+are strongly reduced compared to their values at the episode             object poses. We evaluate chunks classified as moving at a
+start. For task 2, we also show that the heuristic policy that           prediction horizon of 2.4 s, i.e., 3 recurrent dynamics model
+moves towards the object with the highest goal distance                  calls. Tracking error is evaluated at the last time step of the
+achieves a success rate of 0.14 and only slightly reduces                input history for each chunk. Notably, ADD-S [32] is smaller
+goal distance. This demonstrates that the capability to predict          than ADD, which hints at discrete rotational symmetries of the
+the consequences of actions and planning with the world                  objects that get confused by the pose estimation. Prediction
+model is important. In Figure 5, we visualize successful                 error is evaluated at the end of the prediction horizon for
+episodes for both tasks on scenes of 5 objects with the largest          ground-truth and estimated trajectory inputs. Relative errors
+initial objective value. In the task 1 example, the left target          are computed with respect to the last history step. One can
+screwdriver is successfully moved to the goal. The task 2                observe that the absolute prediction errors on tracked input
+example shows that the robot pushes two objects together                 are higher than for ground truth input and slightly higher than
+twice initially. While it incorrectly moves the remaining spoon          adding the errors from the tracking. Expectedly, dynamics
+from the side first, it finds a better mode by pushing differently       prediction performs worse on tracked trajectories, presumably
+and achieves success. We perform visual inspection of failed             due to tracking errors and trajectory noise not observed in the
+episodes for both tasks on scenes with five objects (for one             training data. In Figure 4, we demonstrate qualitative results
+model training seed) and identify the following typical failure          for tracking and prediction in two real-world recordings, in
+cases: Multiple episodes of task 2 time-out due to the robot             which a Panda robot pushes objects in predefined end-effector
+switching several times between approaching different target             motions. The scene is captured using an Intel RealSense D435
+objects or getting stuck in the center of an object cluster with         camera and camera poses are obtained using [34]. In these
+no clear incentive which object to interact with next. Such              examples, our approach tracks object pose well and predicts
+behavior could be alleviated by a more intricate design of               plausible interactions between objects and the end effector
+the cost functions. In some failure cases of both tasks the              initially. At later steps in the second scene, the model misses
+robot struggles to manipulate the screwdriver, the spoon and             the interaction between box and end effector, presumably as
+prediction gets out of distribution due to prediction errors, e.g.,                 [9] T. Zhang, H. Yu, R. Wu, B. Y. Feng, C. Zheng, N. Snavely, et al.,
+objects and end effector penetrate, or insufficient training data                       “PhysDreamer: Physics-based interaction with 3D objects via video
+                                                                                        generation,” in ECCV, 2024.
+which could be addressed in future work by noise simulation                        [10] T. Xie, Z. Zong, Y. Qiu, X. Li, Y. Feng, Y. Yang, et al., “PhysGaussian:
+or domain randomization.                                                                Physics-integrated 3D Gaussians for generative dynamics,” in CVPR,
+                                                                                        2024.
+                     V. C ONCLUSIONS                                               [11] H. Zhao, H. Wang, X. Zhao, H. Fei, H. Wang, C. Long, et al., “Efficient
+                                                                                        physics simulation for 3D scenes via MLLM-guided gaussian splatting,”
+   We present MRO-GWM, a novel action-conditional world                                 CoRR, vol. abs/2411.12789, 2025.
+model that operates on an object-centric Gaussian splatting                        [12] Y. Hu, Y. Fang, Z. Ge, Z. Qu, Y. Zhu, A. Pradhana, et al., “A moving
+representation and predicts rigid body movement. The Gaus-                              least squares material point method with displacement discontinuity
+                                                                                        and two-way rigid body coupling,” ACM Trans. Graph., vol. 37, no. 4,
+sians are compressed in anchors which are represented in the                            2018.
+object frames and are rigidly transformed to condition the                         [13] G. Lu, S. Zhang, Z. Wang, C. Liu, J. Lu, and Y. Tang, “ManiGaussian:
+model on a history of object poses. We further propose a                                Dynamic Gaussian splatting for multi-task robotic manipulation,” in
+                                                                                        ECCV, 2024.
+transformer architecture that operates on this representation                      [14] T. Yu, G. Lu, Z. Yang, H. Deng, S. S. Chen, J. Lu, et al., “Mani-
+and uses temporal and spatial attention layers as well as                               Gaussian++: General robotic bimanual manipulation with hierarchical
+a new temporal-spatial attention layer. We evaluate our                                 Gaussian world model,” in IROS, 2025.
+                                                                                   [15] S. Pan, Y. Xu, R. Xu, Z. Zhou, S. Wu, and Z. Yu, “Self-correcting
+model on simulated tabletop scenes in which up to five                                  robot manipulation via Gaussian-splatted foresight,” in AAAI, 2025.
+typical household objects are closely placed next to each                          [16] G. Lu, B. Jia, P. Li, Y. Chen, Z. Wang, Y. Tang, et al., “GWM: Towards
+other and interaction is caused by a robot end effector. We                             scalable Gaussian world models for robotic manipulation,” ICCV, 2025.
+                                                                                   [17] Y. Chai, L. Deng, R. Shao, J. Zhang, K. Lv, L. Xing, et al., “GAF:
+compare prediction performance of several model variants                                Gaussian action field as a 4d representation for dynamic world modeling
+and ablations. We also demonstrate the performance of our                               in robotic manipulation,” in ICRA, 2026.
+approach for image-based object tracking and prediction in                         [18] M. Zhang, K. Zhang, and Y. Li, “Dynamic 3D Gaussian tracking for
+                                                                                        graph-based neural dynamics modeling,” in CoRL, 2024.
+simulated and real scenes and that model-predictive control                        [19] W. Tseng, E. Zhang, K. M. Jatavallabhula, and F. Shkurti, “Gaussian
+with our model can successfully tackle two non-prehensile                               splatting visual MPC for granular media manipulation,” in ICRA, 2025.
+manipulation tasks in simulation in several multi-object                           [20] M. Zhobro, A. R. Geist, and G. Martius, “3DGSim: Learning 3D-
+                                                                                        Gaussian simulators from RGB videos,” in ICML, 2026.
+configurations. A limitation of our approach is that Gaussian                      [21] S. Li, R. Shen, J. Ni, C. Pan, C. Zhang, and Y. Zhu, “Learning physics-
+reconstruction precedes tracking or planning in separate                                grounded 4D dynamics with neural Gaussian force fields,” in ICLR,
+phases. Incremental reconstruction is an interesting direction                          2026.
+                                                                                   [22] B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis, “3D Gaussian
+for future research. Future research could also investigate                             splatting for real-time radiance field rendering,” ACM Trans. Graph.,
+improving sim2real transfer by noise modeling and domain                                vol. 42, no. 4, 2023.
+randomization. Improving efficiency of model or planning                           [23] N. Carion, L. Gustafson, Y.-T. Hu, S. Debnath, R. Hu, D. Suris, et al.,
+                                                                                        “SAM 3: Segment anything with concepts,” CoRR, vol. abs/2511.16719,
+for real-time control is also interesting for future work.                              2025.
+                                                                                   [24] T. Lu, M. Yu, L. Xu, Y. Xiangli, L. Wang, D. Lin, et al., “Scaffold-GS:
+                   ACKNOWLEDGMENT                                                       Structured 3D Gaussians for view-adaptive rendering,” in CVPR, 2024.
+  We thank Marlene Hermelink for her support in software                           [25] B. Huang, Z. Yu, A. Chen, A. Geiger, and S. Gao, “2D Gaussian
+                                                                                        splatting for geometrically accurate radiance fields,” in SIGGRAPH,
+development of the data preprocessing pipeline for the real-                            2024.
+world experiments.                                                                 [26] X. Wu, Y. Lao, L. Jiang, X. Liu, and H. Zhao, “Point transformer
+                                                                                        v2: Grouped vector attention and partition-based pooling,” in NeurIPS,
+                              R EFERENCES                                               2022.
+                                                                                   [27] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N.
+ [1] R. Zhu, M. Yu, L. Xu, L. Jiang, Y. Li, T. Zhang, et al., “ObjectGS:
+                                                                                        Gomez, et al., “Attention is all you need,” in NeurIPS, 2017.
+     Object-aware scene reconstruction and scene understanding via Gaus-
+                                                                                   [28] A. R. Geist, J. Frey, M. Zhobro, A. Levina, and G. Martius, “Learning
+     sian splatting,” in ICCV, 2025.
+                                                                                        with 3D rotations, a hitchhiker’s guide to SO(3),” in ICML, 2024.
+ [2] D. Hafner, T. P. Lillicrap, I. Fischer, R. Villegas, D. Ha, H. Lee, et al.,
+                                                                                   [29] B. Wen, W. Yang, J. Kautz, and S. Birchfield, “FoundationPose: Unified
+     “Learning latent dynamics for planning from pixels,” in ICML, 2019.
+                                                                                        6D pose estimation and tracking of novel objects,” in CVPR, 2024.
+ [3] J. Bruce, M. D. Dennis, A. Edwards, J. Parker-Holder, Y. Shi,
+                                                                                   [30] S. Tao, F. Xiang, A. Shukla, Y. Qin, X. Hinrichsen, X. Yuan, et al.,
+     E. Hughes, et al., “Genie: Generative interactive environments,” in
+                                                                                        “ManiSkill3: Gpu parallelized robotics simulation and rendering for
+     ICML, 2024.
+                                                                                        generalizable embodied AI,” RSS, 2025.
+ [4] D. Driess, Z. Huang, Y. Li, R. Tedrake, and M. Toussaint, “Learning
+                                                                                   [31] B. Çalli, A. Walsman, A. Singh, S. S. Srinivasa, P. Abbeel, and A. M.
+     multi-object dynamics with compositional neural radiance fields,” in
+                                                                                        Dollar, “Benchmarking in manipulation research: Using the Yale-CMU-
+     CoRL, 2023.
+                                                                                        Berkeley object and model set,” IEEE Robot. Autom. Mag., vol. 22,
+ [5] W. Li, H. Zhao, Z. Yu, Y. Du, Q. Zou, R. Hu, et al., “PIN-WM: learning
+                                                                                        no. 3, 2015.
+     physics-informed world models for non-prehensile manipulation,”
+                                                                                   [32] Y. Xiang, T. Schmidt, V. Narayanan, and D. Fox, “PoseCNN: A
+     CoRR, vol. abs/2504.16693, 2025.
+                                                                                        convolutional neural network for 6D object pose estimation in cluttered
+ [6] F. de Avila Belbute-Peres, K. A. Smith, K. R. Allen, J. Tenenbaum,
+                                                                                        scenes,” in RSS, 2018.
+     and J. Z. Kolter, “End-to-end differentiable physics for learning and
+                                                                                   [33] C. Pinneri, S. Sawant, S. Blaes, J. Achterhold, J. Stueckler, M. Rolinek,
+     control,” in NeurIPS, 2018.
+                                                                                        et al., “Sample-efficient cross-entropy method for real-time planning,”
+ [7] M. Wang, W. Jin, K. Cao, L. Xie, and Y. Hong, “ContactGaussian-
+                                                                                        in CoRL, 2021.
+     WM: Learning physics-grounded world model from videos,” CoRR,
+                                                                                   [34] C. Campos, R. Elvira, J. J. G. Rodríguez, J. M. M. Montiel, and
+     vol. abs/2602.11021, 2026.
+                                                                                        J. D. Tardós, “Orb-slam3: An accurate open-source library for visual,
+ [8] J. Abou-Chakra, K. Rana, F. Dayoub, and N. Suenderhauf, “Physically
+                                                                                        visual–inertial, and multimap slam,” IEEE Trans. Robot., vol. 37, no. 6,
+     embodied Gaussian splatting: A visually learnt and physically grounded
+                                                                                        2021.
+     3D representation for robotics,” in CoRL, 2025.
+

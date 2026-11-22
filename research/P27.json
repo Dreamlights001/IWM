@@ -1,0 +1,30 @@
+{
+  "id": "P27",
+  "slug": "ArtiTwinSplat",
+  "arxiv_id": "2606.24628",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2606.24628",
+  "accessed": "2026-11-09",
+  "title": "ArtiTwinSplat: Interactable Digital Twin Reconstruction via Gaussian Splatting from RGB-D videos",
+  "authors": [
+    "Mishra, Pranjal",
+    "Zurbrügg, René",
+    "Wilder-Smith, Max",
+    "Hutter, Marco",
+    "Pollefeys, Marc",
+    "Bauer, Zuria",
+    "Blum, Hermann"
+  ],
+  "publication_date": "2026/06/23",
+  "submitted_date": "2026/06/23",
+  "abstract": " Deploying robots in unstructured real-world environments needs accurate, interactive models of the objects. Constructing these models at scale remains a critical bottleneck for robotic system integration. We present ArtiTwinSplat, a framework that automatically constructs articulated, photo-realistic digital twins of objects directly from RGB-D videos, requiring no CAD models, simulation assets, or manual annotations. Our method is built on 3D Gaussian Splatting that preserve geometric fidelity and photometric realism, coupled with an unsupervised articulation discovery pipeline that recovers part structure and joint kinematics from observed motion alone. With tracking and optimization stages our method provides stable, queryable digital twins that support real-time rendering, viewpoint control, and interactive manipulation. Unlike prior methods confined to simulation, ArtiTwinSplat operates directly on real-world observations and produces twins that are immediately usable by downstream robot planning and learning systems. This method offers a practical, scalable pathway toward digital twin construction, lowering the integration barrier for articulated object manipulation in embodied AI and human-robot collaboration contexts.",
+  "submission_history": "Submission history From: Pranjal Mishra [ view email ] [v1] Tue, 23 Jun 2026 14:24:07 UTC (12,788 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2606.24628v1",
+  "local_pdf": "papers/P27_ArtiTwinSplat_2606.24628v1.pdf",
+  "sha256": "8454590816561c12925ec38c34aa59b304ce6180e4c2e395a5279900ddad4efa",
+  "bytes": 13390369,
+  "pages": 4,
+  "text_file": "research/P27_ArtiTwinSplat.txt",
+  "status": "downloaded_and_text_extracted"
+}

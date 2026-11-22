@@ -1,0 +1,1096 @@
+                                                                            TesserAct: Learning 4D Embodied World Models
+
+                                                        Haoyu Zhen1 ∗                Qiao Sun1 ∗ Hongxin Zhang1 Junyan Li1                                                Siyuan Zhou2
+                                                                                             Yilun Du3 Chuang Gan1
+                                                                                1                                 2                   3
+                                                                                    UMass Amherst                     HKUST               Harvard University
+                                                                                         https://TesserActWorld.github.io
+arXiv:2504.20995v1 [cs.CV] 29 Apr 2025
+
+
+
+
+                                              Unseen scene, unseen object                 Input Instruction: Pick up the brown cup – Franka Panda Robot       Put shoes in box – Franka Panda Robot
+                                                          RGB-DN Video Generation                      4D Scene Reconstruction & Explicit Actions                       In Domain: RLBench (Sim)
+                                                                                                                                                          Point Cloud
+
+                                                                                                    Reach the target
+                                                RGB                                                                                           Lift             1. Open Box                          Input Image
+
+
+
+
+                                                Depth
+                                                                                                                                                                            2. Put Shoes
+
+
+                                               Normal                                                Mesh
+
+
+                                              Cross Domain                    Input Instruction: Pick up the apple from white bowl – Trossen WidowX 250      Move coke can near bottle - Google Robot
+                                                         RGB-DN Video Generation                       4D Scene Reconstruction & Explicit Actions                  In Domain: Fractal Data (Real)
+                                                                                                                                                          Point Cloud
+
+
+
+                                                RGB                                                                   Grasp
+
+
+
+
+                                                Depth
+
+
+
+
+                                               Normal                                             Point Cloud                                             Input Image
+
+
+                                         Figure 1. We propose TesserAct, the 4D Embodied World Model, which takes an input image and text instruction to generate RGB, depth,
+                                         and normal videos, reconstructing a 4D scene and predicting actions. Our model not only achieves strong performance on in-domain data
+                                         (right) but also generalizes effectively to unseen scenes, novel objects (top left), and cross-domain scenarios (bottom left).
+
+                                                                       Abstract                                                 we first extend existing robotic manipulation video datasets
+                                                                                                                                with depth and normal information leveraging off-the-shelf
+                                         This paper presents an effective approach for learning novel                           models. Next, we fine-tune a video generation model on this
+                                         4D embodied world models, which predict the dynamic evo-                               annotated dataset, which jointly predicts RGB-DN (RGB,
+                                         lution of 3D scenes over time in response to an embodied                               Depth, and Normal) for each frame. We then present an
+                                         agent’s actions, providing both spatial and temporal consis-                           algorithm to directly convert generated RGB, Depth, and
+                                         tency. We propose to learn a 4D world model by training                                Normal videos into a high-quality 4D scene of the world.
+                                         on RGB-DN (RGB, Depth, and Normal) videos. This not                                    Our method ensures temporal and spatial coherence in 4D
+                                         only surpasses traditional 2D models by incorporating de-                              scene predictions from embodied scenarios, enables novel
+                                         tailed shape, configuration, and temporal changes into their                           view synthesis for embodied environments, and facilitates
+                                         predictions, but also allows us to effectively learn accurate                          policy learning that significantly outperforms those derived
+                                         inverse dynamic models for an embodied agent. Specifically,                            from prior video-based world models.
+                                            ∗ Equal contribution.
+1. Introduction                                                   annotations, or the RGB image, depth, and normal informa-
+                                                                  tion needed to train our approach. To overcome this, we
+Learned world models [21, 64, 67, 77], which simulate envi-       collect a 4D embodied video dataset consisting of synthetic
+ronmental dynamics, play a crucial role in enabling embod-        data with ground truth depth and normal information and
+ied intelligent agents. Such models enable flexible policy        real-world data with estimated depth and normal information
+synthesis [15, 40], data simulation and generation [67, 80],      with off-the-shelf estimators.
+and long-horizon planning [14, 28, 74]. However, while the            Overall, our paper has the following contributions:
+physical world is three-dimensional in nature, existing world
+                                                                  • We collect a 4D embodied video dataset with compact
+models operate in the space of 2D pixels. This limitation
+                                                                     and high-quality RGB, depth, and normal annotations and
+leads to an incomplete representation of spatial relationships,
+                                                                     learn a 4D embodied world model.
+impeding tasks that require precise depth and pose informa-
+                                                                  • We present an algorithm to convert the generated RGB-DN
+tion. For instance, without accurate depth and 6-DoF pose
+                                                                     video into high-quality 4D scenes coherent across both
+estimations, robotic systems struggle to determine the exact
+                                                                     time and space.
+position and orientation of objects. Furthermore, existing 2D
+                                                                  • Extensive experiments demonstrate our 4D embodied
+models can produce unrealistic results, such as inconsistent
+                                                                    world model can predict high-fidelity 4D scenes and
+object sizes and shapes across time steps, which limits their
+                                                                     achieve superior performance in downstream embodied
+use in data-driven simulations and robust policy learning.
+                                                                     tasks compared to traditional video-based world models.
+    In this paper, we explore how we can instead learn a
+4D embodied world model, TesserAct, which simulates the
+                                                                  2. Related Work
+dynamics of a 3D world. This 4D embodied world model
+allows us to generate realistic 3D interactions, such as grasp-   Embodied Foundation Models A flurry of recent work
+ing objects or opening drawers, with a level of detail that       has focused on constructing foundation models for general
+traditional 2D-based models cannot achieve. By modeling           purpose agents [18, 68]. One line of work has focused on
+spatial and temporal dimensions, our model provides the           constructing multimodal language models that operate over
+depth and pose information essential for robotic manipula-        images [13, 20, 29, 39, 51, 63, 73] as well as 3D inputs [24,
+tion. However, the task of learning a 4D embodied world           25] and output text describing the actions of an agent. Other
+model is challenging as the dynamics of the world are ex-         works have focused on the construction of vision-language-
+tremely computationally expensive to train and learn, requir-     action (VLA) models that directly output action tokens [7,
+ing models to generate outputs in three-dimensional space         34, 76]. Both of the previous approaches aim to construct
+and time. To efficiently represent and predict the dynamics       foundation model policies (over text or continuous actions).
+of the world, we propose a substantially more lightweight         In contrast, our work aims to instead construct a foundation
+representation of the 4D world, consisting of predicting a        4D world model for embodied agents, which can then be
+sequence of RGB, depth, and normal maps of the scene. This        used for downstream applications such as planning [14, 74]
+combined representation accurately captures the appearance,       or policy synthesis [15, 40].
+geometry, and surface of a scene while being substantially        Learning World Models Learning dynamics model of the
+lower dimensional than explicitly predicting world dynam-         world given control inputs has been a long-standing chal-
+ics. Furthermore, such a representation shares substantial        lenge in system identification [42], model-based reinforce-
+similarities to existing video models, allowing us to directly    ment learning [56], and optimal control [4, 81]. A large
+use the generative capabilities of existing video models to       body of work focused on learning world models in the low
+effectively construct our 4D world model.                         dimensional state space [1, 17, 38], which while being effi-
+    Given this intermediate representation, we present an ef-     cient to learn, is difficult to generalize across many environ-
+ficient algorithm to reconstruct accurate 4D scenes from          ments. Other works have explored how world models may
+generated RGB-DN videos. For each frame, we use a com-            be learned over pixel-space images [11, 12, 21, 22, 43], but
+bination of both depth and normal prediction to integrate a       such models are trained on simple game environments. With
+smooth 3D surface of the scene. We then use optical flow be-      advances in generative modeling, a large flurry of recent
+tween generated frames to distinguish between background          research has focused on using video models as foundation
+and dynamic regions in the reconstructed 3D scene across          world models [8, 46, 64, 67, 77, 79] but such models operate
+frames and introduce two novel loss functions to enforce con-     over the space of 2D pixels which does not fully simulate
+sistency across scenes over time. As shown in Figure 1, our       the 3D world. Most similar to our work are [76], which
+4D Embodied World Model enables the construction of high-         predicts only the 3D goal state for robotic tasks, and [57],
+fidelity 4D-generated scenes, facilitating strong-performance     an geometric-aware world model trained purely on synthetic
+action planning for downstream tasks.                             data without language grounding or downstream robotic
+    A key challenge for training TesserAct is a lack of ac-       tasks; in contrast, our approach models the 4D scene from
+cess to existing large-scale datasets with high-quality 4D        RGB-DN videos and supports language-conditioned control.
+    Dataset                              Domain          Depth Source           Normal Source            Embodiment           # of videos
+    RLBench [26]                        Synthetic          Simulator         Depth2Normal [2]            Franka Panda              80k
+    RT1 Fractal Data [6]                                                                                Google Robot              80k
+    Bridge [61]                            Real       Rolling Depth [31]        Marigold [32]             WidowX                  25k
+    SomethingSomethingV2 [19]                                                                           Human Hand                100k
+
+                                         Table 1. Overview of the 4D embodied video datasets.
+
+
+4D Video Generation The task of 4D video generation has                reverse process is defined as:
+gained increasing attention in recent years [55, 71], driven                                                                                
+by advancements in diffusion models [23, 47, 54], neural ra-            pθ (xt−1 |xt , x0 , T ) = N xt−1 ; µθ (xt , t, x0 , T ), Σθ (xt , t) (2)
+diance fields [44], and 3D Gaussian splatting [33]. However,
+                                                                       Once the denoised latent x0 is obtained, the model maps it
+existing methods often suffer from slow optimization due
+                                                                       back to the pixel space to obtain the final RGB-DN video.
+to hybrid frameworks [3, 41, 65, 75] and the convergence
+challenges of SDS loss [30, 53]. Instead, we represent 4D              3.2. Depth Optimization via Normal Integration
+scenes using RGB-DN videos, which offer more efficient
+                                                                       As discussed in [9, 66], normal maps provide essential infor-
+training and provide high-accuracy 3D information crucial
+                                                                       mation about surface orientation, which is vital for enforcing
+for embodied tasks. Furthermore, our approach is the first
+                                                                       geometric constraints and imposing surface smoothness and
+to directly predict 4D scenes from the current frame and the
+                                                                       continuity during depth optimization. This spatial optimiza-
+embodied agent’s action described in the text.
+                                                                       tion leads to more accurate and reliable depth estimates that
+                                                                       closely align with the true 3D geometry and capture fine
+3. Preliminaries                                                       surface details.
+                                                                           To formalize the process, we use the perspective camera
+3.1. Latent Video Diffusion Models
+                                                                       model to set constraints on the depth and surface normal. In
+Diffusion models [23, 54] are capable of learning the data             the coordinate system of the 2D image at frame i, a pixel
+distribution p(x) by progressively adding noise to the data            position is given as u = (u, v)T ∈ V i , and its corresponding
+until it resembles a Gaussian distribution through a forward           depth scalar, normal vector is d ∈ Di , n = (nx , ny , nz ) ∈
+process. During inference, a denoiser ϵ is trained to recover          N i . Under the assumption of a perspective camera with
+the data from this noisy state. Latent video diffusion models          focal length f and the principal point (cu , cv )T , as proposed
+[77] utilize a Variational Autoencoder (VAE) [35, 60] to               by [16], the log-depth d˜ = log(d) should satisfy the follow-
+encode the data in the latent space, maintaining high-quality          ing equations: ñz ∂u d˜+ nx = 0 and ñz ∂v d˜+ ny = 0 where
+outputs while more efficiently modeling the data distribution.         ñz = nx (u − cu ) + ny (v − cv ) + nz f . In addition, we can
+   We formulate the task of RGB V, depth D, and normal                 add the assumption that all locations are smooth surfaces [9].
+N video generation as a conditional denoising generation               We can convert the above constraint to the quadratic loss
+task, i.e., we model the distribution p(v, d, n|v0 , d0 , n0 , T ),    function, allowing us to find the optimized depth map:
+where v, d, n represent the predicted future latent sequences                   ZZ
+of RGB, depth, and normal maps, respectively; the condi-                    min      (ñz ∂u d˜ + nx )2 + (ñz ∂u d˜ + ny )2 dudv. (3)
+                                                                            d
+tions v0 , d0 , n0 , T are the latent of RGB image, depth and                       Ω
+
+normal maps, and embodied agent’s action in text.                      Following [9], we can convert the above objective to an
+   The forward diffusion process adds Gaussian noise to the            iteratively optimized loss objective. At iteration step t, we
+latent z ∈ {v, d, n} over T timesteps, defined as:                     can compute the matrix W (d˜t ) and iteratively optimize for
+                               √                                       a refined depth prediction d˜t+1 :
+         q(zt |zt−1 ) = N (zt ; αt zt−1 , (1 − αt )I)          (1)                                                    def
+                                                                        d˜t+1 = arg mind˜(Ad˜ − b)T W (d˜t )(Ad˜ − b) = arg minD̃ Ls (D̃, N i )
+where t ∈ {1, 2, . . . , T } denotes the diffusion step, αt is
+                                                                       where A and b are defined by normals and camera intrinsic.
+a parameter controlling the noise influence at each step,
+and I is the identity matrix. In the reverse process, the
+model aims to recover the original latent from the noise.
+                                                                       4. Learning a 4D Embodied World Model
+Let x = [v, n, d] denoting the concatenation of v, n, d, a
+denoising network ϵθ (xt , t, x0 , T ) with learning parameters        Learning how 3D scenes may change over time based on the
+θ is trained to predict the noise added at each timestep. The          current observation and action is crucial for embodied agents.
+                                                                                                                                                2
+                                Depth                                                       Training
+                                                         User Instruction 𝑇
+                               Projector                                                   Objective
+
+
+                                                                                                              Predicted noise 𝜖𝑣Ƹ , 𝜖𝑑Ƹ , 𝜖𝑛Ƹ
+
+
+                                 RGB                                                 RGB Out
+                                                Add               DiT
+                               Projector                                             Projector
+
+
+
+                                                                                                                                     DN Out
+                                                                                                                                    Projector
+                                Normal
+                               Projector                    CogVideoX Backbone         Zero Initialization
+
+
+                                                                                                             concat                  Conv3D
+
+
+
+                                   Figure 2. Architecture and Training Overview of TesserAct.
+
+
+We propose to learn a 4D embodied world model, TesserAct,               state-of-the-art video depth estimator RollingDepth [31] to
+by training on RGB-DN videos and reconstructing the 4D                  annotate the videos with affine-invariant depth. As affine-
+scenes from it. We first introduce the 4D embodied video                invariant depth map does not directly yield normal map as
+dataset we collected in Sec. 4.1, then discuss the model                metric depth does and a reliable video normal estimator
+architecture and training strategy in Sec. 4.2. In Sec. 4.3, we         is currently unavailable, we annotate normal maps using
+propose an efficient optimization algorithm with two novel              Temporal-Consistent Marigold-LCM-normal1 . These two
+loss functions to convert the generated RGB-DN videos into              approaches allow us to obtain high-quality, sharp, and tempo-
+4D scenes. Finally, in Sec. 4.4, we demonstrate how the 4D              rally consistent video depth and normal annotations. Specifi-
+world model can help downstream embodied tasks.                         cally, we select two high-quality datasets from OpenX [58],
+                                                                        the Fractal data [6], and the Bridge [61] dataset. Moreover,
+4.1. 4D Embodied Video Dataset                                          to further increase the diversity of the instructions, we in-
+                                                                        corporated the human-object interaction dataset, Something
+Learning 4D embodied world models requires large-scale
+                                                                        Something V2 [19]. Detailed statistics are shown in Table 1.
+4D datasets, which are expensive to collect in the real world.
+In this section, we present a data collection and annota-               4.2. Model Architecture and Training Strategy
+tion pipeline that enables us to automatically construct 4D
+datasets from existing video datasets.                                  Training a diffusion model to generate temporal RGB-DN
+   Simulator-synthesized data provide ground truth depth                data is challenging. To effectively train RGB video models,
+information, so we first selected 20 tasks of relatively high           large-scale video datasets containing billions of high-quality
+difficulty from RLBench [26] and generated 1000 instances               samples are typically employed [69, 77]. In contrast, our
+captured from 4 different views for each task, making 80k               RGB-DN dataset, even with automatic annotation, comprises
+synthetic 4D embodied videos in total. Although the simula-             only about 200k data points, which is insufficient to train a
+tor provides metric depth information, it lacks surface nor-            world model from scratch. To overcome this limitation, we
+mal data. To estimate normals, we use the depth2normal                  modify and fine-tune CogVideoX [69] to serve as our RGB-
+function from DSINE [2]. To enhance the generalization, we              DN prediction model, leveraging the pre-trained knowledge
+adopt the scene randomization techniques from the Colos-                within it to effectively bootstrap our 4D model.
+seum data generation pipeline [48], which alters the back-                 Our architecture is illustrated in Figure 2. First, we uti-
+ground, table texture and light of the scene.                           lize the 3D VAE [35, 60] from CogVideoX to separately
+   While synthetic data provides depth and normal data of               encode the RGB (v), depth (d), and normal (n) videos,
+high quality, their diversity is limited, resulting in a gap            without any additional fine-tuning of the VAE. These latent
+compared to real-world scenarios. To bridge this gap, we                   https : / / huggingface . co / docs / diffusers / en /
+also incorporate real-world video datasets. As most of these            using - diffusers / marigold _ usage # frame - by - frame -
+datasets lack depth and normal annotations, we employ the               video-processing-with-temporal-consistency
+                                                                          w/ consistency loss
+
+
+
+
+                                                                          wo/ consistency loss
+
+
+
+
+         w/                                                                                 wo/
+    regularization                                                                     regularization
+
+
+
+ Figure 3. Effect of consistency and regularization loss on 4D scene reconstruction. The red boxes highlight the inconsistent regions.
+
+
+representations are perturbed with noise to get xt , and are                           4.3. 4D Scene Reconstruction
+then fed into our model along with the corresponding image
+                                                                                      After obtaining the RGB-DN video, we further optimize
+latent head x0 . For the input design, we introduce three
+                                                                                      the depth and reconstruct the 4D scene. Similar to prior
+separate projectors for each modality to extract the embed-
+                                                                                      works [32, 70], our depth representation for each image is
+dings: fz = InputProj(zt , z0 ), where z ∈ {v, d, n}.
+                                                                                      given by a relative map in the range [0, 1], and thus can-
+DiT then takes the sum of these embeddings as input, con-
+                                                                                      not directly reconstruct the entire scene. While past work
+ditioned on the textual input T and  Pdenoising step t, to                            has sidestepped this by assuming either a default scale for
+obtain the hidden state: h = DiT( fz , t, T ). To distin-
+                                                                                      depth [72] or by directly predicting metric depth [10, 76],
+guish between different robot arms, T is defined as [action
+                                                                                      such reconstructions from depth are often coarse and often
+instruction] + [robot arm name], e.g., “pick up apple google
+                                                                                      cause reconstructed planes or walls to be tilted.
+robot”. On the output side, we retain the original RGB
+                                                                                          With the normal maps N i , we can optimize the depth
+output method: ϵ∗v = OutputProj(h). However, we in-
+                                                                                      maps Di via normal integration for refined depth maps
+troduce additional modules for depth and normal prediction.
+                                                                                      D̂i as introduced in Sec. 3.2 with a loss term Ls for spa-
+A Conv3D layer is used to encode the concatenation of
+                                                                                      tial consistency. However, this approach optimizes depth
+the input latents and the predicted RGB denoised output.
+                                                                                      frame by frame, which lacks temporal consistency across
+These are then combined with the hidden states produced
+                                                                                      the dynamic scene. To address this, we compute optical
+by the DiT backbone and passed through the output projec-
+                                                                                      flow between frames [59] F = RAFT(V) and enforce
+tor to obtain the denoised predictions for depth and nor-
+                                                                                      consistency of depth across frames. We define the static
+mal: ϵ∗d,n = DNProj(h, Conv3D(ϵ∗v , [zt ; z0 ]z∈{v,d,n} )).
+                                                                                      regions of each frame as the pixels with the magnitude of
+To preserve the pretrained knowledge, we initialize our
+                                                                                      optical flow smaller than threshold c and obtain its mask by
+model with the CogVideoX weights. All other modules
+                                                                                      Mis = ∥F i ∥ ≤ c. We then define the dynamic parts of an
+are initialized with zeros, ensuring that the RGB output at
+                                                                                      image as Mid = ¬Mis . We further define the background of
+the beginning of training matches the output of CogVideoX.
+                                                                                      an image as static regions that are fixed across image frames,
+During training, we randomly select samples from the 4D
+                                                                                      Mib = Mis ∩ Mi−1   s
+embodied dataset (V, D, N , T ) constructed above and apply
+                                                                                          Since optical flow represents the movement of objects in
+Eq.1 to add noise ϵv , ϵd , and ϵn to the RGB-DN data at
+                                                                                      the 2D-pixel space, we can retrieve the depth at any position
+timestep t, minimizing the following objective:
+                                                                                      from the previous frame to impose consistency constraints.
+                                                                                      To compute the depth values from the previous frame at
+                     "
+                                                                  2
+                                                                      #               positions corresponding to the current frame, we utilize the
+   L = Ev0 ,T ,t,ϵ       [ϵv , ϵd , ϵn ] − ϵθ (xt , t, x0 , T )             (4)       optical flow F i→(i−1) . For each pixel (u, v) in frame i, the
+                                                                                      optical flow provides the displacement (∆u, ∆v), allowing
+                                                                                      us to find the corresponding pixel in frame i − 1 at position
+                                                                                      (u − ∆u, v − ∆v). Based on this mapping, we define the
+                                                   RGB                                   Depth                      Normal                Point Cloud
+  Domain       Method
+                                       FVD ↓      SSIM ↑       PSNR ↑         AbsRel ↓     δ1 ↑    δ2 ↑   Mean ↓   Median ↓   11.25◦ ↑   Chamfer L1 ↓
+               4D Point-E                 -           -           -              -          -       -       -           -        -          0.2211
+               OpenSora                 23.67       71.31       19.25          31.41      60.39   79.97   41.82      32.15     13.58        0.3013
+  Real
+               CogVideoX                20.64       79.38       22.39          26.17      64.82   81.62   19.53      10.09     22.70        0.2191
+               TesserAct (Ours)         21.59       75.86       20.27          22.07      66.80   82.60   15.74       7.32     27.80        0.2030
+               4D Point-E                 -           -           -              -          -       -       -          -         -          0.1086
+               OpenSora                 54.11       65.90       19.28          18.40      65.02   91.20   12.94      7.58      25.02        0.2570
+  Synthetic
+               CogVideoX                41.23       76.60       20.87          19.81      60.07   80.16   20.36      10.47     26.04        0.2884
+               TesserAct (Ours)         40.01       77.59       19.73          16.02      69.26   93.03   14.75      6.34      36.85        0.0811
+
+Table 2. Main results on the 4D scene generation. All metrics are averaged over 10 runs for each of the samples. The best results are in
+bold, and the second best are in underlined. TesserAct predicts the depth and normal maps most accurately without hurting RGB much and
+thus achieves the best accuracy of reconstructed 4D point clouds across real and synthetic image domains.
+
+
+Di→(i−1) such that: Di→(i−1) (u, v) = Di−1 (u − ∆u, v −                                  5. Experiments
+∆v). We then introduce the consistency loss over the dy-
+namic and background region of the image Lc :                                            We first evaluate the quality of 4D scene predictions from
+                                                                                         our model across real and synthetic datasets in Sec. 5.1, then
+                                                                      2
+  Lc (D̃, D̂i−1 , F i , F i−1 ) =λcd D̃i ◦ Mid − Di→(i−1) ◦ Mid           +              conduct experiments in RLBench to demonstrate how the 4D
+                                                                     2
+                                                                              (5)        information helps the embodied tasks in Sec. 5.2. We provide
+                               λcb D̃i ◦ Mib − Di→(i−1) ◦ Mib                            more qualitative results and videos in the Supplementary and
+                                                                                         the website.
+In addition to the consistency loss, we also incorporate the
+regularization loss Lr , enforcing that optimized depths are                             5.1. 4D Scene Prediction
+similar to the generated depth map Di :
+                                         2
+  Lr (D̃, Di ) = λrd D̃i ◦ Mid − Di ◦ Mid + λrb D̃i ◦ Mib − Di ◦ Mib
+                                                                     2
+                                                                       (6)               5.1.1. Setup
+                                                                                         Datasets. We conduct experiments on the real domain with
+   The overall loss objective we optimize is given by:                                   400 unseen samples in RT1 Fractal [6] and Bridage [61]
+                                                                                         dataset where depth and normal are estimated as in Sec. 4.1,
+   arg minD̃ Ls (D̃, N i ) + Lc (D̃, D̂i−1 , F i , F i−1 ) + Lr (D̃, Di )     (7)
+                                                                                         and the synthetic domain with 200 unseen samples in RL-
+   Starting from the first frame, we iteratively refine the                              Bench [26], where ground truth depth and normal maps are
+depth map by optimizing the loss above, and initialize the                               directly accessible.
+depth map at frame i with the generated depth map D̃0 = Di .                             Metrics. We evaluate the video quality with FVD, SSIM,
+With refined depth maps D̃ and RGB Images V, we can                                      and PSNR; depth quality with AbsRel, δ1 , and δ2 ; normal
+reconstruct 4D point clouds representing the world that are                              maps quality with Mean, Median, and 11.25◦ ; reconstructed
+consistent over both space and time.                                                     point cloud quality with the L1 Chamfer Distance. We gen-
+                                                                                         erate 10 times per sample and report the average.
+4.4. Embodied Action Planning with 4D Scenes                                             Baselines. We compare our method to two video diffusion
+After generating 4D scenes, which encapsulate both spatial                               models and a 4D point cloud diffusion model.
+and temporal information, we extract geometric details that                               • OpenSora [77], video diffusion model fine-tuned with
+can significantly enhance downstream tasks in robotics. The                                 LoRA on the same dataset without depth and normal anno-
+detailed geometry captured by these scenes plays a crucial                                  tations. To construct the full 4D scene, depth and normal
+role in tasks including robotic grasping.                                                   are additional estimated given the predicted video with
+    To achieve this, we employ an inverse dynamics model                                    Rolling Depth and Marigold.
+built on the 4D point clouds, predicting the appropriate robot                            • CogVideoX [69], video diffusion model fine-tuned with
+action ai based on the current state si , the predicted future                              LoRA on the same dataset without depth and normal anno-
+state si+1 and the instruction T . Mathematically, this re-                                 tations. The 4D scene is obtained similarly to the above.
+lationship is expressed as ai = ID(si , si+1 , T ), where si                              • 4D Point-E, since no prior work directly generates dy-
+represents the scene at the time step i. Specifically, we                                   namic scenes from the first frame and text inputs, we
+use PointNet [49] to encode the point cloud and extract 3D                                  implemented a 4D point cloud diffusion model as the
+features. These features are then combined with the instruc-                                baseline, where we modify the Point-E [45] model by con-
+tion text embeddings and further processed by an MLP to                                     ditioning it on the mean of CLIP [50] features extracted
+generate the final 7-DoF action.                                                            from both text and image inputs, outputting T point clouds
+                     close       open        open         open           put       sweep to        lid     weighing         water
+  Methods
+                      box       drawer        jar       microwave       knife       dustpan        off        off          plants
+  Image-BC             53            4         0             5             0             0          12          21             0
+  UniPi∗               81           67         38            72           66            49          70          68            35
+  4DWM (Ours)          88           80         44            70           70            56          73          62            41
+
+Table 3. TesserAct boosts the performance of action planning. We report the success rate averaged over 100 episodes for each task here.
+
+
+
+ Method     PSNR    SSIM    LPIPS
+                                    CLIP     CLIP        Time         icantly less time. A qualitative result on the Bridge dataset
+                                    Score   Aesthetic    Costs        is shown in Figure 4 (c).
+ SoM[62]    10.94   24.02   73.82   66.67     3.61      ∼2 hours      Consistency and Regularization Loss are effective. We
+ Ours       12.99   42.62   60.51   83.02     3.73      ∼ 1 mins
+                                                                      conduct ablation experiments on our newly designed loss
+                                                                      terms in Sec. 4.3. The results are shown in Figure 3. The
+      Table 4. Novel view synthesis results on RLBench.
+                                                                      first two rows demonstrate the effect of the consistency loss,
+                                                                      where we render frames from the same camera view at dif-
+   of size n, where T is set to 4 and n is set to 8192 due to         ferent time steps. The results show that the robot arm’s
+   computational constraints.                                         movements are more coherent with the consistency loss ap-
+Implementation Details. We train our model on the col-                plied. The last row highlights the role of the regularization
+lected 4D embodied video dataset using a multi-resolution             loss. We display images of the same frame from three dif-
+training approach, predicting 49 frames at a time. For more           ferent views, revealing that this loss term helps improve the
+details, please kindly refer to the Supplementary Materials.          geometric accuracy of the reconstruction.
+                                                                      TesserAct shows generalization across scenes and em-
+5.1.2. Results and Analysis                                           bodiments. Our model demonstrates strong generalization
+TesserAct predicts high quality 4D scenes. As shown in                capabilities. Benefiting from the knowledge of CogVideoX,
+Table 2, our model accurately predicts the depth and nor-             the model achieves good generation on unseen scenes and
+mal maps compared to video diffusion models with post-                unseen objects. Additionally, it performs well in cross-
+estimation, verifying the effectiveness of our learned model.         embodiment scenarios, such as using the Bridge dataset
+With better depth and normal maps, the 4D point clouds                robotic arm in the RT-1 environment. Figure 4 (b) shows a
+reconstructed with our method achieve the lowest Chamfer              generalization result on unseen scenes and objects. More
+distances across real and synthetic datasets. The 4D Point-E          results can be found in the Supplementary Materials.
+method performs better than video diffusion models, par-
+                                                                      5.2. Embodied Action Planning
+ticularly on RLBench, but still lags behind our approach.
+Additionally, training directly with point clouds is computa-         Dataset. We select 9 challenging tasks from RLBench [26]
+tionally expensive, restricting the number of frames used. In         including tasks requiring high-precision grasping.
+contrast, our model leverages an efficient representation with        Metric. The success rate averaged over 100 episodes.
+RGB-DN videos to generate more precise 4D scenes, par-                Baseline. We compare our method to a behavior cloning
+ticularly in capturing fine-grained details in dynamic scenes.        agent and a video-based world model.
+We also show qualitative results in Figure 4 (a).                      • Image-BC [27]: a behavior cloning agent that takes in an
+TesserAct synthesizes novel views efficiently. Our method                image and task instruction and outputs the 7-DoF actions.
+could also perform monocular video to 4D tasks by pre-                 • UniPi∗ [15]: a method that takes the task instruction and
+dicting depth and normal sequences and generating point                  current image, predicts the future video, and uses a 2D-
+clouds. We conduct experiments on the task of novel view                 based inverse dynamic policy to predict actions. For this
+synthesis on RLBench and compare with Shape of Motion                    baseline, we re-implement it by replacing the backbone
+[62], a state-of-the-art video reconstruction approach that              with fine-tuned CogVideoX [69] for fair comparison.
+utilizes Gaussian splatting [33]. The input is a monocu-              Implementation Details. We collected 500 samples for each
+lar front camera video, and we compare results from the               task to train the inverse dynamic model. Given an initial
+overhead and left shoulder cameras. We report PSNR (re-               state during inference, we first predict and record all future
+construction accuracy), SSIM (structural similarity), LPIPS           keyframes. In subsequent actions, we only query the inverse
+(perceptual difference), CLIP Score (semantic match) [78],            dynamic model to obtain the corresponding actions by the
+CLIP aesthetic (visual quality) [37], and Time costs in Ta-           current state and the predicted future state. We post-trained
+ble 4. The results show our method can synthesize novel               the model from Sec. 5.1, allowing the model to predict only
+views of higher visual quality and better alignment in signif-        the keyframes for each task in RLBench. Our maximum
+                                          (a) In-domain 4D Generation Results
+                  Input instruction: Place the red fork to the left of the left burner – Trossen WidowX 250
+
+
+
+
+    RGB
+
+
+
+
+    Depth
+
+
+
+
+   Normal
+
+
+
+
+    PCD
+
+                                       (b) Out-of-domain 4D Generation Results
+                                 Input instruction: Pick up brown cup – Franka Panda Robot
+
+
+
+
+    RGB
+
+
+
+
+    Depth
+
+
+
+
+   Normal
+
+
+
+
+    PCD
+
+                                                   (c) Novel View Synthesis
+
+
+
+
+     Input View                                                     Novel View
+
+Figure 4. Qualitative results of (a) In-domain 4D generation results. (b) Generalization over unseen scenes and objects. (c) Novel
+view synthesis.
+frame length is 13, with a fixed resolution of 512 × 512.        References
+5.2.1. Results and Analysis                                       [1] Alessandro Achille and Stefano Soatto. A separation princi-
+                                                                      ple for control in the age of deep learning. Annual Review
+The results are shown in Table 3, where our method outper-            of Control, Robotics, and Autonomous Systems, 1:287–307,
+forms video diffusion models and image behavior cloning               2018. 2
+agents in most of the tasks. This is because, in most tasks,      [2] Gwangbin Bae and Andrew J. Davison. Rethinking inductive
+4D point clouds can reveal the geometry of objects, provid-           biases for surface normal estimation. In IEEE/CVF Confer-
+ing better spatial guidance for robotics planning, as seen in         ence on Computer Vision and Pattern Recognition (CVPR),
+tasks like close box and open jar. At the same time,                  2024. 3, 4
+3D information can assist with tool use, such as in tasks like    [3] Sherwin Bahmani, Ivan Skorokhodov, Victor Rong, Gordon
+sweep to dustpan and water plants. However,                           Wetzstein, Leonidas Guibas, Peter Wonka, Sergey Tulyakov,
+in the open microwave and weighing off tasks, the                     Jeong Joon Park, Andrea Tagliasacchi, and David B Lindell.
+performance is not as good as the baseline, possibly because          4d-fy: Text-to-4d generation using hybrid score distillation
+these tasks already have sufficient information in the 2D             sampling. In Proceedings of the IEEE/CVF Conference on
+front image. Overall, these results highlight the potential of        Computer Vision and Pattern Recognition, pages 7996–8006,
+                                                                      2024. 3
+combining 4D scene prediction with inverse dynamic models
+to improve robotics task execution.                               [4] Dimitri P. Bertsekas. Dynamic Programming and Optimal
+                                                                      Control. Athena Scientific, 1995. 2
+                                                                  [5] Shariq Farooq Bhat, Reiner Birkl, Diana Wofk, Peter
+6. Conclusion                                                         Wonka, and Matthias Müller. Zoedepth: Zero-shot trans-
+                                                                      fer by combining relative and metric depth. arXiv preprint
+We learn a 4D generative world model, TesserAct, using
+                                                                      arXiv:2302.12288, 2023. 14
+a collected 4D embodied video dataset, which consists of
+                                                                  [6] Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen
+robotic manipulation videos annotated with depth and nor-
+                                                                      Chebotar, Joseph Dabis, Chelsea Finn, Keerthana Gopalakr-
+mal information. To ensure both temporal and spatial con-             ishnan, Karol Hausman, Alex Herzog, Jasmine Hsu, et al.
+sistency in scene reconstruction, we introduce two novel              Rt-1: Robotics transformer for real-world control at scale.
+loss terms. Our experiments across synthetic and real-world           arXiv preprint arXiv:2212.06817, 2022. 3, 4, 6, 13, 18
+datasets demonstrate that our model generates high-quality        [7] Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen
+4D scenes and significantly enhances the performance of               Chebotar, Xi Chen, Krzysztof Choromanski, Tianli Ding,
+downstream embodied tasks by leveraging 3D information.               Danny Driess, Avinava Dubey, Chelsea Finn, et al. Rt-2:
+We believe that such world models will become increasingly            Vision-language-action models transfer web knowledge to
+powerful and essential, serving as a foundation for simu-             robotic control. arXiv preprint arXiv:2307.15818, 2023. 2
+lating the physical world and advancing the development           [8] Jake Bruce, Michael D Dennis, Ashley Edwards, Jack Parker-
+of intelligent embodied agents. These models will enable              Holder, Yuge Shi, Edward Hughes, Matthew Lai, Aditi
+fully offline policy training in the real world and facilitate        Mavalankar, Richie Steigerwald, Chris Apps, et al. Genie:
+planning through imagined rollouts within the learned world           Generative interactive environments. In Forty-first Interna-
+representation.                                                       tional Conference on Machine Learning, 2024. 2
+                                                                  [9] Xu Cao, Hiroaki Santo, Boxin Shi, Fumio Okura, and Ya-
+                                                                      suyuki Matsushita. Bilateral normal integration. In European
+7. Limitations                                                        Conference on Computer Vision, pages 552–567. Springer,
+                                                                      2022. 3
+While our RGB-DN representation of a 4D world model is
+                                                                 [10] Boyuan Chen, Zhuo Xu, Sean Kirmani, Brain Ichter, Dorsa
+cheap and easy to predict, it only captures a single surface
+                                                                      Sadigh, Leonidas Guibas, and Fei Xia. Spatialvlm: Endowing
+of the world. To construct a more complete 4D world model,
+                                                                      vision-language models with spatial reasoning capabilities.
+it may be interesting in the future to have a generative model        In Proceedings of the IEEE/CVF Conference on Computer
+that generates multiple RGB-DN views of the world, which              Vision and Pattern Recognition (CVPR), pages 14455–14465,
+can then be integrated to form a more complete 4D world               2024. 5
+model.                                                           [11] Chang Chen, Yi-Fu Wu, Jaesik Yoon, and Sungjin Ahn. Trans-
+                                                                      dreamer: Reinforcement learning with transformer world
+Acknowledgements                                                      models. arXiv preprint arXiv:2202.09481, 2022. 2
+                                                                 [12] Silvia Chiappa, Sébastien Racaniere, Daan Wierstra, and
+We are extremely grateful to Pengxiao Han for assistance              Shakir Mohamed. Recurrent environment simulators. arXiv
+with the baseline code, and to Yuncong Yang, Sunli Chen,              preprint arXiv:1704.02254, 2017. 2
+Jiaben Chen, Zeyuan Yang, Zixin Wang, Lixing Fang, and           [13] Danny Driess, Fei Xia, Mehdi SM Sajjadi, Corey Lynch,
+many other friends for their helpful feedback and insightful          Aakanksha Chowdhery, Brian Ichter, Ayzaan Wahid, Jonathan
+discussions.                                                          Tompson, Quan Vuong, Tianhe Yu, et al. Palm-e: An
+     embodied multimodal language model. arXiv preprint               [27] Eric Jang, Alex Irpan, Mohi Khansari, Daniel Kappler, Fred-
+     arXiv:2303.03378, 2023. 2                                             erik Ebert, Corey Lynch, Sergey Levine, and Chelsea Finn.
+[14] Yilun Du, Mengjiao Yang, Pete Florence, Fei Xia, Ayzaan               Bc-z: Zero-shot task generalization with robotic imitation
+     Wahid, Brian Ichter, Pierre Sermanet, Tianhe Yu, Pieter               learning. In Conference on Robot Learning, pages 991–1002.
+     Abbeel, Joshua B Tenenbaum, et al. Video language planning.           PMLR, 2022. 7
+     arXiv preprint arXiv:2310.10625, 2023. 2                         [28] Michael Janner, Yilun Du, Joshua B Tenenbaum, and Sergey
+[15] Yilun Du, Sherry Yang, Bo Dai, Hanjun Dai, Ofir Nachum,               Levine. Planning with diffusion for flexible behavior synthe-
+     Josh Tenenbaum, Dale Schuurmans, and Pieter Abbeel. Learn-            sis. arXiv preprint arXiv:2205.09991, 2022. 2
+     ing universal policies via text-guided video generation. Ad-     [29] Yunfan Jiang, Agrim Gupta, Zichen Zhang, Guanzhi Wang,
+     vances in Neural Information Processing Systems, 36, 2024.            Yongqiang Dou, Yanjun Chen, Li Fei-Fei, Anima Anand-
+     2, 7                                                                  kumar, Yuke Zhu, and Linxi Fan. Vima: General robot
+[16] Jean-Denis Durou, Jean-François Aujol, and Frédéric                manipulation with multimodal prompts. arXiv preprint
+     Courteille. Integrating the normal field of a surface in the          arXiv:2210.03094, 2(3):6, 2022. 2
+     presence of discontinuities. In International Workshop on En-    [30] Yanqin Jiang, Li Zhang, Jin Gao, Weimin Hu, and Yao Yao.
+     ergy Minimization Methods in Computer Vision and Pattern              Consistent4d: Consistent 360 {\deg} dynamic object genera-
+     Recognition, pages 261–273. Springer, 2009. 3                         tion from monocular video. arXiv preprint arXiv:2311.02848,
+[17] Norm Ferns, Prakash Panangaden, and Doina Precup. Metrics             2023. 3
+     for finite markov decision processes. In UAI, pages 162–169,     [31] Bingxin Ke, Dominik Narnhofer, Shengyu Huang, Lei Ke,
+     2004. 2                                                               Torben Peters, Katerina Fragkiadaki, Anton Obukhov, and
+[18] Roya Firoozi, Johnathan Tucker, Stephen Tian, Anirudha                Konrad Schindler. Video depth without video models, 2024.
+     Majumdar, Jiankai Sun, Weiyu Liu, Yuke Zhu, Shuran                    3, 4
+     Song, Ashish Kapoor, Karol Hausman, et al. Foundation            [32] Bingxin Ke, Anton Obukhov, Shengyu Huang, Nando Met-
+     models in robotics: Applications, challenges, and the fu-             zger, Rodrigo Caye Daudt, and Konrad Schindler. Repurpos-
+     ture. The International Journal of Robotics Research, page            ing diffusion-based image generators for monocular depth
+     02783649241281508, 2023. 2                                            estimation. In Proceedings of the IEEE/CVF Conference on
+[19] Raghav Goyal, Samira Ebrahimi Kahou, Vincent Michal-                  Computer Vision and Pattern Recognition, pages 9492–9502,
+     ski, Joanna Materzynska, Susanne Westphal, Heuna Kim,                 2024. 3, 5
+     Valentin Haenel, Ingo Fruend, Peter Yianilos, Moritz Mueller-    [33] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and
+     Freitag, et al. The” something something” video database for          George Drettakis. 3d gaussian splatting for real-time radiance
+     learning and evaluating visual common sense. In Proceed-              field rendering. ACM Trans. Graph., 42(4):139–1, 2023. 3, 7
+     ings of the IEEE international conference on computer vision,    [34] Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted
+     pages 5842–5850, 2017. 3, 4                                           Xiao, Ashwin Balakrishna, Suraj Nair, Rafael Rafailov, Ethan
+[20] Maitrey Gramopadhye and Daniel Szafir. Generating exe-                Foster, Grace Lam, Pannag Sanketi, et al. Openvla: An
+     cutable action plans with environmentally-aware language              open-source vision-language-action model. arXiv preprint
+     models. arXiv preprint arXiv:2210.04964, 2022. 2                      arXiv:2406.09246, 2024. 2
+[21] David Ha and Jürgen Schmidhuber. Recurrent world models         [35] Diederik P Kingma. Auto-encoding variational bayes. arXiv
+     facilitate policy evolution. In Advances in Neural Information        preprint arXiv:1312.6114, 2013. 3, 4
+     Processing Systems. Curran Associates, Inc., 2018. 2             [36] Frank Klinker. Exponential moving average versus moving
+[22] Danijar Hafner, Timothy P Lillicrap, Mohammad Norouzi,                exponential average. Mathematische Semesterberichte, 58:
+     and Jimmy Ba. Mastering atari with discrete world models. In          97–107, 2011. 13
+     International Conference on Learning Representations, 2021.      [37] LAION-AI. Aesthetic predictor. https://github.com/
+     2                                                                     LAION-AI/aesthetic-predictor, 2022. 7
+[23] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffu-      [38] Timothée Lesort, Natalia Dı́az-Rodrı́guez, Jean-Franois
+     sion probabilistic models. Advances in neural information             Goudou, and David Filliat. State representation learning
+     processing systems, 33:6840–6851, 2020. 3                             for control: An overview. Neural Networks, 108:379–392,
+[24] Yining Hong, Haoyu Zhen, Peihao Chen, Shuhong Zheng,                  2018. 2
+     Yilun Du, Zhenfang Chen, and Chuang Gan. 3d-llm: Injecting       [39] Shuang Li, Xavier Puig, Chris Paxton, Yilun Du, Clinton
+     the 3d world into large language models. Advances in Neural           Wang, Linxi Fan, Tao Chen, De-An Huang, Ekin Akyürek,
+     Information Processing Systems, 36:20482–20494, 2023. 2               Anima Anandkumar, et al. Pre-trained language models for
+[25] Jiangyong Huang, Silong Yong, Xiaojian Ma, Xiongkun                   interactive decision-making. Advances in Neural Information
+     Linghu, Puhao Li, Yan Wang, Qing Li, Song-Chun Zhu, Baox-             Processing Systems, 35:31199–31212, 2022. 2
+     iong Jia, and Siyuan Huang. An embodied generalist agent in      [40] Junbang Liang, Ruoshi Liu, Ege Ozguroglu, Sruthi Sudhakar,
+     3d world. arXiv preprint arXiv:2311.12871, 2023. 2                    Achal Dave, Pavel Tokmakov, Shuran Song, and Carl Von-
+[26] Stephen James, Zicong Ma, David Rovick Arrojo, and An-                drick. Dreamitate: Real-world visuomotor policy learning via
+     drew J. Davison. Rlbench: The robot learning benchmark &              video generation. arXiv preprint arXiv:2406.16862, 2024. 2
+     learning environment. IEEE Robotics and Automation Letters,      [41] Huan Ling, Seung Wook Kim, Antonio Torralba, Sanja Fi-
+     2020. 3, 4, 6, 7, 13                                                  dler, and Karsten Kreis. Align your gaussians: Text-to-4d
+     with dynamic 3d gaussians and composed diffusion models.            Vedaldi, Devi Parikh, Justin Johnson, et al. Text-to-4d dy-
+     In Proceedings of the IEEE/CVF Conference on Computer               namic scene generation. arXiv preprint arXiv:2301.11280,
+     Vision and Pattern Recognition, pages 8576–8588, 2024. 3            2023. 3
+[42] Lennart Ljung and Torkel Glad. Modeling of dynamic systems.    [56] Richard S Sutton. Dyna, an integrated architecture for learn-
+     Prentice-Hall, Inc., 1994. 2                                        ing, planning, and reacting. ACM Sigart Bulletin, 2(4):160–
+[43] Vincent Micheli, Eloi Alonso, and François Fleuret. Trans-         163, 1991. 2
+     formers are sample efficient world models. arXiv preprint      [57] Aether Team, Haoyi Zhu, Yifan Wang, Jianjun Zhou, Wen-
+     arXiv:2209.00588, 2022. 2                                           zheng Chang, Yang Zhou, Zizun Li, Junyi Chen, Chunhua
+[44] Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik,                Shen, Jiangmiao Pang, et al. Aether: Geometric-aware unified
+     Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:              world modeling. arXiv preprint arXiv:2503.18945, 2025. 2
+     Representing scenes as neural radiance fields for view syn-    [58] Open X-Embodiment Team. Open X-Embodiment: Robotic
+     thesis. Communications of the ACM, 65(1):99–106, 2021.              learning datasets and RT-X models. https://arxiv.
+     3                                                                   org/abs/2310.08864, 2023. 4
+[45] Alex Nichol, Heewoo Jun, Prafulla Dhariwal, Pamela             [59] Zachary Teed and Jia Deng. Raft: Recurrent all-pairs field
+     Mishkin, and Mark Chen. Point-e: A system for generat-              transforms for optical flow. In Computer Vision–ECCV 2020:
+     ing 3d point clouds from complex prompts. arXiv preprint            16th European Conference, Glasgow, UK, August 23–28,
+     arXiv:2212.08751, 2022. 6                                           2020, Proceedings, Part II 16, pages 402–419. Springer, 2020.
+[46] OpenAI.        Video generation models as world simu-               5
+     lators.    https : / / openai . com / index / video -          [60] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete
+     generation - models - as - world - simulators/,                     representation learning. Advances in neural information pro-
+     2023. Accessed: 2024-10-01. 2                                       cessing systems, 30, 2017. 3, 4
+[47] William Peebles and Saining Xie. Scalable diffusion models     [61] Homer Walke, Kevin Black, Abraham Lee, Moo Jin Kim,
+     with transformers. In Proceedings of the IEEE/CVF Inter-            Max Du, Chongyi Zheng, Tony Zhao, Philippe Hansen-
+     national Conference on Computer Vision, pages 4195–4205,            Estruch, Quan Vuong, Andre He, Vivek Myers, Kuan Fang,
+     2023. 3                                                             Chelsea Finn, and Sergey Levine. Bridgedata v2: A dataset
+[48] Wilbert Pumacay, Ishika Singh, Jiafei Duan, Ranjay Krishna,         for robot learning at scale. In Conference on Robot Learning
+     Jesse Thomason, and Dieter Fox. The colosseum: A bench-             (CoRL), 2023. 3, 4, 6, 13, 18
+     mark for evaluating generalization for robotic manipulation.   [62] Qianqian Wang, Vickie Ye, Hang Gao, Jake Austin, Zhengqi
+     2024. 4                                                             Li, and Angjoo Kanazawa. Shape of motion: 4d reconstruc-
+[49] Charles Ruizhongtai Qi, Li Yi, Hao Su, and Leonidas J               tion from a single video. arXiv preprint arXiv:2407.13764,
+     Guibas. Pointnet++: Deep hierarchical feature learning on           2024. 7
+     point sets in a metric space. Advances in neural information   [63] Zihao Wang, Shaofei Cai, Guanzhou Chen, Anji Liu, Xiaojian
+     processing systems, 30, 2017. 6                                     Ma, and Yitao Liang. Describe, explain, plan and select:
+[50] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya                  interactive planning with llms enables open-world multi-task
+     Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,               agents. In Thirty-seventh Conference on Neural Information
+     Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning          Processing Systems, 2023. 2
+     transferable visual models from natural language supervi-      [64] Jiannan Xiang, Guangyi Liu, Yi Gu, Qiyue Gao, Yuting Ning,
+     sion. In International conference on machine learning, pages        Yuheng Zha, Zeyu Feng, Tianhua Tao, Shibo Hao, Yemin
+     8748–8763. PMLR, 2021. 6                                            Shi, et al. Pandora: Towards general world model with
+[51] Shreyas Sundara Raman, Vanya Cohen, Eric Rosen, Ifrah               natural language actions and video states. arXiv preprint
+     Idrees, David Paulius, and Stefanie Tellex. Planning with           arXiv:2406.09455, 2024. 2
+     large language models via corrective re-prompting. arXiv       [65] Yiming Xie, Chun-Han Yao, Vikram Voleti, Huaizu Jiang,
+     preprint arXiv:2211.09935, 2022. 2                                  and Varun Jampani. Sv4d: Dynamic 3d content generation
+[52] Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray,             with multi-frame and multi-view consistency. arXiv preprint
+     Chelsea Voss, Alec Radford, Mark Chen, and Ilya Sutskever.          arXiv:2407.17470, 2024. 3
+     Zero-shot text-to-image generation. In International confer-   [66] Yuliang Xiu, Jinlong Yang, Xu Cao, Dimitrios Tzionas, and
+     ence on machine learning, pages 8821–8831. Pmlr, 2021.              Michael J. Black. ECON: Explicit Clothed humans Optimized
+     14                                                                  via Normal integration. In Proceedings of the IEEE/CVF Con-
+[53] Jiawei Ren, Liang Pan, Jiaxiang Tang, Chi Zhang, Ang Cao,           ference on Computer Vision and Pattern Recognition (CVPR),
+     Gang Zeng, and Ziwei Liu. Dreamgaussian4d: Generative 4d            2023. 3
+     gaussian splatting. arXiv preprint arXiv:2312.17142, 2023. 3   [67] Mengjiao Yang, Yilun Du, Kamyar Ghasemipour, Jonathan
+[54] Robin Rombach, Andreas Blattmann, Dominik Lorenz,                   Tompson, Dale Schuurmans, and Pieter Abbeel. Learn-
+     Patrick Esser, and Björn Ommer. High-resolution image              ing interactive real-world simulators.        arXiv preprint
+     synthesis with latent diffusion models. In Proceedings of           arXiv:2310.06114, 2023. 2
+     the IEEE/CVF conference on computer vision and pattern         [68] Sherry Yang, Ofir Nachum, Yilun Du, Jason Wei, Pieter
+     recognition, pages 10684–10695, 2022. 3                             Abbeel, and Dale Schuurmans. Foundation models for deci-
+[55] Uriel Singer, Shelly Sheynin, Adam Polyak, Oron Ashual,             sion making: Problems, methods, and opportunities. arXiv
+     Iurii Makarov, Filippos Kokkinos, Naman Goyal, Andrea               preprint arXiv:2303.04129, 2023. 2
+[69] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu
+     Huang, Jiazheng Xu, Yuanming Yang, Wenyi Hong, Xiao-
+     han Zhang, Guanyu Feng, et al. Cogvideox: Text-to-video
+     diffusion models with an expert transformer. arXiv preprint
+     arXiv:2408.06072, 2024. 4, 6, 7, 13
+[70] Chongjie Ye, Lingteng Qiu, Xiaodong Gu, Qi Zuo, Yushuang
+     Wu, Zilong Dong, Liefeng Bo, Yuliang Xiu, and Xiaoguang
+     Han. Stablenormal: Reducing diffusion variance for stable
+     and sharp normal. arXiv preprint arXiv:2406.16864, 2024. 5
+[71] Yuyang Yin, Dejia Xu, Zhangyang Wang, Yao Zhao,
+     and Yunchao Wei. 4dgen: Grounded 4d content gener-
+     ation with spatial-temporal consistency. arXiv preprint
+     arXiv:2312.17225, 2023. 3
+[72] Hong-Xing Yu, Haoyi Duan, Charles Herrmann, William T.
+     Freeman, and Jiajun Wu. Wonderworld: Interactive 3d scene
+     generation from a single image. arXiv:2406.09394, 2024. 5
+[73] Hongxin Zhang, Weihua Du, Jiaming Shan, Qinhong Zhou,
+     Yilun Du, Joshua B Tenenbaum, Tianmin Shu, and Chuang
+     Gan. Building cooperative embodied agents modularly with
+     large language models. arXiv preprint arXiv:2307.02485,
+     2023. 2
+[74] Hongxin Zhang, Zeyuan Wang, Qiushi Lyu, Zheyuan Zhang,
+     Sunli Chen, Tianmin Shu, Yilun Du, and Chuang Gan.
+     Combo: Compositional world models for embodied multi-
+     agent cooperation. arXiv preprint arXiv:2404.10775, 2024.
+     2
+[75] Yuyang Zhao, Zhiwen Yan, Enze Xie, Lanqing Hong, Zhen-
+     guo Li, and Gim Hee Lee. Animate124: Animating one image
+     to 4d dynamic scene. arXiv preprint arXiv:2311.14603, 2023.
+     3
+[76] Haoyu Zhen, Xiaowen Qiu, Peihao Chen, Jincheng Yang, Xin
+     Yan, Yilun Du, Yining Hong, and Chuang Gan. 3d-vla: A
+     3d vision-language-action generative world model. arXiv
+     preprint arXiv:2403.09631, 2024. 2, 5, 14
+[77] Zangwei Zheng, Xiangyu Peng, Tianji Yang, Chenhui Shen,
+     Shenggui Li, Hongxin Liu, Yukun Zhou, Tianyi Li, and Yang
+     You. Open-sora: Democratizing efficient video production
+     for all, 2024. 2, 3, 4, 6
+[78] SUN Zhengwentai.          clip-score: CLIP Score for Py-
+     Torch.      https : / / github . com / taited / clip -
+     score, 2023. Version 0.1.1. 7
+[79] Siyuan Zhou, Yilun Du, Jiaben Chen, Yandong Li, Dit-Yan
+     Yeung, and Chuang Gan. Robodreamer: Learning composi-
+     tional world models for robot imagination. arXiv preprint
+     arXiv:2404.12377, 2024. 2
+[80] Fangqi Zhu, Hongtao Wu, Song Guo, Yuxiao Liu, Chilam
+     Cheang, and Tao Kong. Irasim: Learning interactive real-
+     robot action simulators. arXiv preprint arXiv:2406.14540,
+     2024. 2
+[81] Karl J. Åström and Björn Wittenmark. Adaptive control of
+     linear time-invariant systems. Automatica, 9(6):551–564,
+     1973. 2
+                          TesserAct: Learning 4D Embodied World Models
+                                               Supplementary Material
+                                                                    Reference RGB & Normal Image   Untextured Rendering          Detailed Front View        Side Perspective View
+1. Implementation Details
+1.1. Video Diffusion Model Details
+We trained an RGB-DN video diffusion model using the
+CogVideoX [69] architecture. On the input side, our depth
+normal projector and RGB projector shared the same archi-
+tecture. On the output side, our Conv3DNet consisted of
+three layers, while the MLP had two layers, both with a di-
+mension of 1024. The model outputs videos with 49 frames,
+utilizing gradient checkpointing to optimize memory usage.
+                                                                   Figure 5. Visualization of the optimized 3D robotic scene recon-
+We set a global batch size of 16 and used bf16 precision to        struction using our method. The untextured renderings show en-
+accelerate. For sampling, we employed the DDPM scheduler           hanced detail (green box) and improved surface smoothness (red
+across 50 steps and set a classifier-free guidance scale of 7.5.   box). The side perspective view highlights accurate shape and
+   The training spanned 40,000 iterations with an initial          geometry optimization, including the perpendicular alignment of
+learning rate of 1 × 10−4 , a gradient clipping of 1.0, and a      the wall and table (red boxes).
+1,000-step warmup. The optimizer used was Adam with ϵ set
+to 1×10−15 , and an exponential moving average (EMA [36])          1.3. Implementation Details for Robotics Planning
+decay of 0.99 was applied to stabilize training.                   For the RLBench training, we adopted the same architecture
+                                                                   and methods as our video diffusion model, with the primary
+                                                                   difference being that we used 13 frames and fine-tuned the
+1.2. 4D Scene Generation                                           model.
+                                                                      For the action prediction stage, we first filter out the back-
+The parameters for the loss term in Eq.12 are set differently      ground and floor from the data, focusing only on the points
+for the RT-1 [6], Bridge [61] and RLBench [26] datasets, as        of the table and the objects manipulated by the robotic arm,
+shown in the table below. It is worth noting that the selection    and then sample 8192 points from the filtered point cloud.
+of λ varies for different scenarios. In practice, achieving the    In our inverse dynamic model, the PointNet extracts features
+best performance requires tuning these parameters.                 from this point cloud, concatenated with the instruction’s
+                                                                   language embedding, and passed into a 4-layer MLP, finally
+                                                                   outputting the 7DoF actions. To augment the data and better
+              Dataset       λd    λb     λg1    λg2                adapt to the output of video diffusion models, we add signif-
+           RT-1, Bridge     20    200     20     20                icant Gaussian noise (with a relative magnitude of 20%) to
+            RLBench         20    200      2      2                both the image and point cloud coordinates.
+
+ Table 5. Loss Term Parameters for RT-1 and RLBench Datasets
+                                                                     Reference RGB & Depth Image                          Ours                         3D-VLA Generated Data
+
+
+
+
+    In Figure 5, we present a visualization of the 3D robotic
+scene reconstruction optimized using our proposed method
+in the BridgeV2 [61] dataset. After estimating the depth and
+normal with the estimator, we refine the outputs to recon-
+struct the scene accurately. The figure includes untextured
+rendering and texture-rendered views, where the wall tex-
+tures are significantly enhanced due to normal optimization.
+The side perspective view shows the improved shape and ge-
+ometry reconstruction. Notably, the wall and table surfaces
+are well-aligned, appearing perpendicular to each other, fur-
+ther validating the effectiveness of our optimization process      Figure 6. Comparison of point cloud generation quality between
+in capturing accurate spatial relationships.                       our method and 3D-VLA
+                                        Out-of-domain 4D Generation Results
+                                  Input instruction: Pick coke can– Franka Panda Robot
+
+
+
+
+    RGB
+
+
+
+
+   Depth
+
+
+
+
+   Normal
+
+
+
+
+    PCD
+
+                                      (b) Figure
+                                          Out-of-domain      4D Generation
+                                                 7. Out-of-domain               Results
+                                                                  4D generation results
+                               Input instruction: Pick up brown cup – Franka Panda Robot
+2. More Qualitative Results                                      2.4. Explicit Action Planning
+2.1. Data Annotation                                             One potential application of our generated mesh is to extract
+                                                                 action trajectories directly. As illustrated in Figure 8, we
+In this
+     RGBsection, we first compare our data generation method     track the robotic arm in the video to capture its motion path.
+with 3D-VLA [76]. They use ZoeDepth [5] for depth map            This trajectory is subsequently lifted into 3D space, enabling
+estimation and directly map them into 3D space. The com-         the reconstruction of the robot arm’s action trajectory. The
+parison results, shown in Figure 6, evaluate the quality of      red line in the visualization represents the captured action
+point cloud generation for both methods, with cubes replac-
+    Depth                                                        trajectory.
+ing vertices for rendering. Our generated data demonstrates
+higher realism, while 3D-VLA exhibits noticeable shape                           Beginning            Mid               End
+distortion. Figure 12 showcases some of the RGB, depth,
+and normal images from the datasets we used, along with
+theNormal
+    corresponding natural language instructions.                    View 1
+
+
+2.2. 4D Generation
+As shown in Figure 7, we present our out-of-domain results.
+     PCD DALL-E [52] to generate an image and prompted
+We used
+                                                                    View 2
+the 4D world model for generation. Our video diffusion
+model directly produces the RGB, depth, and normal maps,
+while the point clouds are rendered from the reconstructed
+outputs. These results highlight the robustness of our method    Figure 8. Tracking and visualization of robotic arm action trajecto-
+across different visual modalities. Additional video results     ries on the Bridge dataset
+can be found in the supplementary materials folder for fur-
+ther analysis and evaluation.
+
+2.3. Video Generation
+We present the video generation results on the RT1, Bridge
+and RLBench datasets in Figure 11, Figure 9 and Figure 10.
+More videos can be found in our supplementary folder.
+                     In-domain Video Generation Results
+         Move the bowl to the left of the blue towel - Trossen WidowX 250
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+                 Put broccoli in pot or pan - Trossen WidowX 250
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+                     Put carrot on plate - Trossen WidowX 250
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+          Figure 9. In-domain RGB-DN Video generation results on Bridge dataset
+                   In-domain Video Generation Results
+                      Close middle drawer – Google Robot
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+                   Place Red Bull can upright – Google Robot
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+         Place green Jalapeno chip bag into top drawer – Google Robot
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+         Figure 10. In-domain RGB-DN Video generation results on RT1 dataset
+                      In-domain Video Generation Results
+                               Open wine bottle - Franka
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+                                 Set up chess - Franka
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+                            Take off weighing scales - Franka
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+         Figure 11. In-domain RGB-DN Video generation results on RLBench dataset
+                                 Sample Frames from the Datasets.
+                                     Bridge: Put stuffed duck in pan.
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+                           Bridge: Put pan on stove and put stuffed pig in pan.
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+                               RT-1: Place redbull can into middle drawer.
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+                                      RT-1: Place green can upright.
+
+
+
+
+ RGB
+
+
+
+
+Depth
+
+
+
+
+Normal
+
+
+         Figure 12. Some sample frames extracted from the datasets Bridge [61] and RT-1 [6].
+

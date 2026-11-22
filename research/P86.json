@@ -1,0 +1,29 @@
+{
+  "id": "P86",
+  "slug": "Kinema4D",
+  "arxiv_id": "2603.16669",
+  "family": "spatial",
+  "source_url": "https://arxiv.org/abs/2603.16669",
+  "accessed": "2026-11-11",
+  "title": "Kinema4D: Kinematic 4D World Modeling for Spatiotemporal Embodied Simulation",
+  "authors": [
+    "Xu, Mutian",
+    "Zhang, Tianbao",
+    "Liu, Tianqi",
+    "Chen, Zhaoxi",
+    "Han, Xiaoguang",
+    "Liu, Ziwei"
+  ],
+  "publication_date": "2026/03/17",
+  "submitted_date": "2026/03/17",
+  "abstract": " Simulating robot-world interactions is a cornerstone of Embodied AI. Recently, a few works have shown promise in leveraging video generations to transcend the rigid visual/physical constraints of traditional simulators. However, they primarily operate in 2D space or are guided by static environmental cues, ignoring the fundamental reality that robot-world interactions are inherently 4D spatiotemporal events that require precise interactive modeling. To restore this 4D essence while ensuring the precise robot control, we introduce Kinema4D, a new action-conditioned 4D generative robotic simulator that disentangles the robot-world interaction into: i) Precise 4D representation of robot controls: we drive a URDF-based 3D robot via kinematics, producing a precise 4D robot control trajectory. ii) Generative 4D modeling of environmental reactions: we project the 4D robot trajectory into a pointmap as a spatiotemporal visual signal, controlling the generative model to synthesize complex environments' reactive dynamics into synchronized RGB/pointmap sequences. To facilitate training, we curated a large-scale dataset called Robo4D-200k, comprising 201,426 robot interaction episodes with high-quality 4D annotations. Extensive experiments demonstrate that our method effectively simulates physically-plausible, geometry-consistent, and embodiment-agnostic interactions that faithfully mirror diverse real-world dynamics. For the first time, it shows potential zero-shot transfer capability, providing a high-fidelity foundation for advancing next-generation embodied simulation.",
+  "submission_history": "Submission history From: Mutian Xu [ view email ] [v1] Tue, 17 Mar 2026 15:36:38 UTC (14,213 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2603.16669v1",
+  "local_pdf": "papers/P86_Kinema4D_2603.16669v1.pdf",
+  "sha256": "1f8c789bf3d19596de25ae9e6d20a229e6bcb4ac6e42a8abef584603b0ab17cb",
+  "bytes": 15606604,
+  "pages": 30,
+  "text_file": "research/P86_Kinema4D.txt",
+  "status": "downloaded_and_text_extracted"
+}

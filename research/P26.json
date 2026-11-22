@@ -1,0 +1,29 @@
+{
+  "id": "P26",
+  "slug": "ArticulatedGS",
+  "arxiv_id": "2503.08135",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2503.08135",
+  "accessed": "2026-11-09",
+  "title": "ArticulatedGS: Self-supervised Digital Twin Modeling of Articulated Objects using 3D Gaussian Splatting",
+  "authors": [
+    "Guo, Junfu",
+    "Xin, Yu",
+    "Liu, Gaoyi",
+    "Xu, Kai",
+    "Liu, Ligang",
+    "Hu, Ruizhen"
+  ],
+  "publication_date": "2025/03/11",
+  "submitted_date": "2025/07/04",
+  "abstract": " We tackle the challenge of concurrent reconstruction at the part level with the RGB appearance and estimation of motion parameters for building digital twins of articulated objects using the 3D Gaussian Splatting (3D-GS) method. With two distinct sets of multi-view imagery, each depicting an object in separate static articulation configurations, we reconstruct the articulated object in 3D Gaussian representations with both appearance and geometry information at the same time. Our approach decoupled multiple highly interdependent parameters through a multi-step optimization process, thereby achieving a stable optimization procedure and high-quality outcomes. We introduce ArticulatedGS, a self-supervised, comprehensive framework that autonomously learns to model shapes and appearances at the part level and synchronizes the optimization of motion parameters, all without reliance on 3D supervision, motion cues, or semantic labels. Our experimental results demonstrate that, among comparable methodologies, our approach has achieved optimal outcomes in terms of part segmentation accuracy, motion estimation accuracy, and visual quality.",
+  "submission_history": "Submission history From: Junfu Guo [ view email ] [v1] Tue, 11 Mar 2025 07:56:12 UTC (1,740 KB) [v2] Fri, 4 Jul 2025 08:28:11 UTC (37,743 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2503.08135v2",
+  "local_pdf": "papers/P26_ArticulatedGS_2503.08135v2.pdf",
+  "sha256": "f47ea347e72e8f4ea5c25fe6ee259f399470df487a20e46f6c447d8cc5212e1d",
+  "bytes": 39768406,
+  "pages": 11,
+  "text_file": "research/P26_ArticulatedGS.txt",
+  "status": "downloaded_and_text_extracted"
+}

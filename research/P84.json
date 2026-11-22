@@ -1,0 +1,30 @@
+{
+  "id": "P84",
+  "slug": "TesserAct",
+  "arxiv_id": "2504.20995",
+  "family": "spatial",
+  "source_url": "https://arxiv.org/abs/2504.20995",
+  "accessed": "2026-11-11",
+  "title": "TesserAct: Learning 4D Embodied World Models",
+  "authors": [
+    "Zhen, Haoyu",
+    "Sun, Qiao",
+    "Zhang, Hongxin",
+    "Li, Junyan",
+    "Zhou, Siyuan",
+    "Du, Yilun",
+    "Gan, Chuang"
+  ],
+  "publication_date": "2025/04/29",
+  "submitted_date": "2025/04/29",
+  "abstract": " This paper presents an effective approach for learning novel 4D embodied world models, which predict the dynamic evolution of 3D scenes over time in response to an embodied agent's actions, providing both spatial and temporal consistency. We propose to learn a 4D world model by training on RGB-DN (RGB, Depth, and Normal) videos. This not only surpasses traditional 2D models by incorporating detailed shape, configuration, and temporal changes into their predictions, but also allows us to effectively learn accurate inverse dynamic models for an embodied agent. Specifically, we first extend existing robotic manipulation video datasets with depth and normal information leveraging off-the-shelf models. Next, we fine-tune a video generation model on this annotated dataset, which jointly predicts RGB-DN (RGB, Depth, and Normal) for each frame. We then present an algorithm to directly convert generated RGB, Depth, and Normal videos into a high-quality 4D scene of the world. Our method ensures temporal and spatial coherence in 4D scene predictions from embodied scenarios, enables novel view synthesis for embodied environments, and facilitates policy learning that significantly outperforms those derived from prior video-based world models.",
+  "submission_history": "Submission history From: Haoyu Zhen [ view email ] [v1] Tue, 29 Apr 2025 17:59:30 UTC (26,393 KB)",
+  "version": "v1",
+  "pdf_url": "https://arxiv.org/pdf/2504.20995v1",
+  "local_pdf": "papers/P84_TesserAct_2504.20995v1.pdf",
+  "sha256": "5e38b7bd1c2a0e17574f0d17dde27a674435c9f69cdef1035550aaa65f0f34cb",
+  "bytes": 31577322,
+  "pages": 18,
+  "text_file": "research/P84_TesserAct.txt",
+  "status": "downloaded_and_text_extracted"
+}

@@ -1,0 +1,922 @@
+                                            GWM: Towards Scalable Gaussian World Models for Robotic Manipulation
+
+                                                                      Guanxing Lu1,2,⋆ , Baoxiong Jia2,⋆,† , Puhao Li2,⋆ , Yixin Chen2
+                                                                             Ziwei Wang3 , Yansong Tang1,† , Siyuan Huang2,†
+                                                                              ⋆
+                                                                                Equal contribution † Corresponding author
+                                                        1
+                                                           Tsinghua University, 2 State Key Laboratory of General Artificial Intelligence, BIGAI
+                                                          3
+                                                            School of Electrical and Electronic Engineering, Nanyang Technological University
+                                                                              gaussian-world-model.github.io
+arXiv:2508.17600v2 [cs.RO] 17 Sep 2025
+
+
+
+
+                                            Current RGB Image(s)
+
+                                                                                                        Future Rollouts
+                                                                                                          with 3D GS
+
+                                                                       Lifting
+
+                                                                                                            Gaussian
+                                                                                                             World
+                                             Human Policy
+                                                                                                             Model
+                                            Policy Network
+                                                                     Conditioning
+                                            Random Policy
+
+
+                                           Offline Imitation Learning                           Online Model-based RL                                 Policy
+                                                                                                                                                                     Action-conditioned
+                                                                                                                                                      Network        (3D) Video Prediction
+                                                                                                            Imagination                 (𝒔𝒕 , 𝒂𝒕 ,
+                                                                                                 GWM                                    𝒔𝒕+𝟏 , 𝒓𝒕 )
+                                                                                                                                                                𝝅𝜽
+                                                                                                                          Rollout
+                                           Demo.        (𝒔𝒕 , 𝒂𝒕 )               Policy
+                                                                     GWM                                                  Buffer                                                    GWM
+                                           Buffer                                Network
+                                                                     Enc.                  𝝅𝜽                                       𝓑                 Value           RGB
+                                                    𝓑                                                       Interaction                                                                                Future GS
+                                                                                                                                                      Network        Image
+                                                                                                 Environ.                      Model-free RL                    𝒗𝜽           Action Trajectory {𝑎𝑡 }
+
+
+
+
+                                         Figure 1. Gaussian World Model (GWM) is a novel branch of world model that predicts dynamic future states and enables robotic
+                                         manipulation based on the 3D Gaussian Splatting representation. It facilitates action-conditioned 3D video prediction, enhances visual
+                                         representation learning for imitation learning, and serves as a robust neural simulator for model-based reinforcement learning.
+
+                                                                         Abstract                                             Gaussian primitives under the effect of robot actions. At its
+                                                                                                                              core is a latent Diffusion Transformer (DiT) combined with
+                                            Training robot policies within a learned world model                              a 3D variational autoencoder, enabling fine-grained scene-
+                                         is trending due to the inefficiency of real-world interac-                           level future state reconstruction with Gaussian Splatting.
+                                         tions. The established image-based world models and poli-                            GWM can not only enhance the visual representation for
+                                         cies have shown prior success, but lack robust geometric                             imitation learning agent by self-supervised future predic-
+                                         information that requires consistent spatial and physical                            tion training, but can serve as a neural simulator that sup-
+                                         understanding of the three-dimensional world, even pre-                              ports model-based reinforcement learning. Both simulated
+                                         trained on internet-scale video sources. To this end, we                             and real-world experiments depict that GWM can precisely
+                                         propose a novel branch of world model named Gaussian                                 predict future scenes conditioned on diverse robot actions,
+                                         World Model (GWM) for robotic manipulation, which re-                                and can be further utilized to train policies that outperform
+                                         constructs the future state by inferring the propagation of                          the state-of-the-art by impressive margins, showcasing the
+initial data scaling potential of 3D world model.                ments in feed-forward 3D-GS reconstruction with Diffusion
+                                                                 Transformers (DiTs), enabling fine-grained future scene re-
+                                                                 construction through Gaussian rendering conditioned on
+1. Introduction                                                  current observations and robot actions. To achieve real-time
+                                                                 training and inference, we design a 3D Gaussian Variational
+Humans construct predictive world models from limited
+                                                                 Autoencoder (VAE) to extract latent representations from
+sensory input, allowing them to anticipate future outcomes
+                                                                 3D Gaussians, allowing the diffusion-based world model to
+and adapt to new situations [12, 18]. Inspired by this ca-
+                                                                 operate efficiently in a compact latent space. With this novel
+pability, world model learning has driven major advances
+                                                                 design, we demonstrate that GWM enhances visual repre-
+in intelligent agents, enabling strong performance in au-
+                                                                 sentation learning, improving its role as a visual encoder
+tonomous driving [14, 26, 27, 81, 99] and gaming [1, 18–
+                                                                 for imitation learning while also serving as a robust neural
+22, 67, 90]. As intelligent agents increasingly engage with
+                                                                 simulator for model-based Reinforcement Learning (RL).
+the physical world, advancing world model learning for
+                                                                     To comprehensively evaluate GWM, we conduct exten-
+robotic manipulation becomes an essential research direc-
+                                                                 sive experiments in action-conditioned video prediction,
+tion, as it could ideally empower robots to reason about in-
+                                                                 imitation learning, and model-based RL settings, cover-
+teractions, predict physical dynamics, and adapt to diverse
+                                                                 ing 31 diverse robotic tasks across 3 domains. For real-
+unseen environments.
+                                                                 world evaluation, we introduce a Franka PnP task suite with
+    This naturally raises the following question: How to ef-
+                                                                 20 variations, encompassing both in-domain and out-of-
+fectively represent, construct, and leverage the world model
+                                                                 domain settings. For the ablation study, we evaluate both
+to enhance robotic manipulation? Such demand poses sig-
+                                                                 perceptual metrics and success rates to verify the effective-
+nificant challenges to existing representations and models.
+                                                                 ness of each building blocks. GWM consistently outper-
+• Necessity of 3D Representation High-capacity architec-
+                                                                 forms previous baselines, including state-of-the-art image-
+   tures [25, 78] and internet-scale pre-training have estab-
+                                                                 based world models, offering notable advantages and high-
+   lished video-based generative models as powerful tools
+                                                                 lighting its data-scaling potential.
+   for capturing world dynamics information, which signifi-
+                                                                     In summary, our main contributions are threefold.
+   cantly enhances policy learning [83, 88]. However, their
+                                                                 • We introduce GWM, a novel 3D world model that is in-
+   reliance on image inputs makes them susceptible to un-
+                                                                    stantiated with a Gaussian diffusion transformer and a
+   seen visual variations (e.g., lighting, camera pose, tex-
+                                                                    Gaussian VAE for efficient dynamic modeling. GWM
+   tures, etc.) [40], as they lack 3D geometric and spatial
+                                                                    learns to predict accurate future states and dynamics in a
+   understanding. While RGB-D and multi-view [16, 17] se-
+                                                                    scalable end-to-end manner without human intervention.
+   tups attempt to mitigate this gap, implicitly aligning im-
+                                                                 • GWM can be easily integrated into offline imitation learn-
+   age patch features within a coherent 3D space remains
+                                                                    ing and online reinforcement learning with superior effi-
+   challenging [62, 101], leaving the robustness concern un-
+                                                                    ciency, depicting impressive scaling potential in learning-
+   resolved. This underscores the need for representations
+                                                                    based robotic manipulation.
+   that integrate fine visual details with 3D spatial informa-
+                                                                 • We demonstrate the efficacy of GWM through extensive
+   tion to enhance world modeling for robotic manipulation.
+                                                                    experiments in two challenging simulation environments,
+• Efficiency and Scalability To identify a 3D representa-
+                                                                    which improves the previous state-of-the-art baselines by
+   tion that preserves both 3D geometric structure and fine
+                                                                    a large margin of 16.25%. Furthermore, we validate
+   visual details from 2D images, multi-view 3D reconstruc-
+                                                                    its practicality in real-world scenarios, where GWM im-
+   tion methods such as Neural Radiance Field (NeRF) [57]
+                                                                    proves a typical diffusion policy by 30% with 20 trials.
+   and 3D Gaussian Splatting (3D-GS) [35] offer natu-
+   ral solutions. Among them, 3D-GS is particularly ap-
+   pealing due to its explicit per-Gaussian modeling of 3D
+                                                                 2. Related Work
+   scenes, marrying efficient 3D representations like point      World Models World models capture scene dynamics
+   clouds with high-fidelity rendering. However, since these     and enable efficient learning by predicting future states
+   methods primarily rely on offline per-scene reconstruc-       based on current observations and actions. They have been
+   tion, their computational demands pose significant chal-      widely explored in autonomous driving [14, 26, 27, 81, 99,
+   lenges [49, 92] on applying them in robotic manipula-         103], game agents [1, 18–22, 67, 90], and robotic manipu-
+   tion, especially for Model-based Reinforcement Learn-         lation [23, 68, 84]. Early works [18–23, 56, 66–68, 90, 97]
+   ing (MBRL), limiting their scalability.                       learn a latent space for future prediction, achieving strong
+    To this end, we propose Gaussian World Model                 results in both simulated and real-world settings [84]. How-
+(GWM), a novel 3D world model that integrates 3D-GS              ever, while simplifying modeling, latent representations
+with high-capacity generative models for robotic manipula-       struggle to capture the world’s fine details. Recent advances
+tion. Specifically, our approach combines recent advance-        in diffusion models [24, 72, 73] and transformers[64, 78]
+have shifted world modeling toward direct pixel-space mod-          (Sec. 3.1) and leverage a diffusion-based conditional gen-
+eling [1, 50, 51, 88], enabling fine-grained detail capture         erative model to learn the dynamics over representations
+and large scale learning from internet videos. Yet, image-          given robot states and actions (Sec. 3.2). We demonstrate
+based models often lack physical commonsense [4], thus              that GWM can be flexibly integrated into both offline imita-
+limiting their applicability in robotic manipulation.               tion learning and online model-based reinforcement learn-
+                                                                    ing for diverse robotic manipulation tasks (Sec. 3.3).
+Gaussian Splatting 3D-GS [35] represents scenes us-
+ing 3D Gaussians, which are efficiently projected onto              3.1. World State Encoding
+2D planes via differentiable splitting. Compared to im-
+                                                                    Feed-forward 3D Gaussian Splatting Given single or
+plicit representations like NeRF [57], it offers greater ef-
+                                                                    two-view image inputs I = {I}i={1,2} of a world state,
+ficiency, benefiting applications such as invasive surgery
+                                                                    our goal is to first encode the scene into 3D Gaussian rep-
+[46], SLAM [34], and autonomous driving [100]. This ad-
+                                                                    resentations for dynamics learning and prediction. 3D-GS
+vantage extends to 4D dynamic modeling [28, 52, 85] as the
+                                                                    represents a 3D scene with multiple unstructured 3D Gaus-
+3D Gaussians, similar to point clouds, are spatially mean-
+                                                                    sian kernels G = {xp , σp , Σp , Cp }p∈P , where xp , σp , Σp ,
+ingful. However, the offline per-scene reconstruction re-
+                                                                    and Cp represent the centers, opacities, covariance matri-
+quired by these methods imposes computational challenges
+                                                                    ces, and spherical harmonic coefficients of the Gaussians,
+for real-time applications like robotic manipulation. Recent
+                                                                    respectively. To obtain the color of each pixel from a given
+works [6, 13, 75, 86, 87, 95, 98, 102] address this issue
+                                                                    viewpoint, 3D-GS projects the 3D Gaussians onto the im-
+by learning generative mappings from pixels to Gaussians
+                                                                    age plane and computes the pixel color as:
+using large-scale datasets, but still rely on known camera
+poses, restricting scalability. A parallel effort [8, 37, 71, 80]
+explores feed-forward novel-view synthesis from unposed                           \bm C(\mG ) = \sum _{p\in \mathcal {P}} \alpha _p \text {SH}(\vd _p; \mathcal {C}_p) \prod _{j=1}^{p-1} (1-\alpha _j),                                                                                                    (1)
+images, leveraging the predicted point map as a proxy for
+explicit multi-view alignment. Building on these advances,
+                                                                    where αp represents the z-depth ordered effective opacities,
+this work develops a scalable Gaussian world model from
+                                                                    i.e., products of the 2D Gaussian weights derived from Σp
+unposed images, ensuring spatial awareness and scalability
+                                                                    and their overall opacities σp ; dp stands for the view direc-
+for policy training.
+                                                                    tion from the camera to xp ; SH(·) is the spherical harmon-
+Visual Manipulation Building vision-driven robots with              ics function. Since vanilla 3D-GS relies on time-consuming
+human-like capabilities is a long-standing challenge. Vi-           per-scene offline optimization, we employ generalizable
+sual imitation learning methods [5, 36, 39, 45, 76] mim-            3D-GS to learn feed-forward mappings from images to 3D
+ics expert demonstrations using various visual represen-            Gaussians to accelerate the process. Specifically, we obtain
+tations, such as point clouds [7, 15], voxels [44, 70],             the 3D Gaussian world state G using Splatt3R [71], which
+NeRFs [11, 32, 41, 43, 69, 92], and 3D-GS [49]. While               first employs the stereo reconstruction model Mast3R [37]
+effective for learned tasks, these models struggle in unseen        to generate 3D point maps from input images and then pre-
+real-world scenarios [53, 54]. RL fills in this gap by refin-       dicts the parameters of each 3D Gaussian given these point
+ing policies through trial and error but requires costly real-      maps using an additional prediction head.
+world rollouts. Therefore, many methods adopt sim-to-real
+                                                                    3D Gaussian VAE Since the number of learned 3D Gaus-
+transfer, i.e., deploying RL policies learned in digital twins
+                                                                    sians for each world state can vary significantly across dif-
+of the world for task execution. Nonetheless, scalability re-
+                                                                    ferent scenes and tasks, we adopt a 3D Gaussian VAE
+mains a challenge due to their reliance on predefined as-
+                                                                    (Eθ , Dθ ) to encode the reconstructed 3D Gaussians G into
+sets [3, 58, 79] or labor-intensive conversion of real-world
+                                                                    a fixed length of N latent embeddings x ∈ RN ×D . Specifi-
+objects into simulation [10, 38, 42, 47, 48, 63]. To address
+                                                                    cally, we first downsample the reconstructed 3D Gaussians
+limitations, GWM focuses on providing both a stronger vi-
+                                                                    G to a fixed number of N Gaussians GN using Farthest
+sual representation for imitation learning and an efficient
+                                                                    Point Sampling (FPS): GN = FPS(G). Next, we use these
+neural simulator for visual RL to enable more effective and
+                                                                    sampled Gaussians GN as queries to attend and aggregate
+scalable robotic manipulation.
+                                                                    information from all Gaussians G to latent embedding x
+                                                                    using a L layer cross-attention-based encoder Eθ like [94]:
+3. Gaussian World Model
+                                                                             \begin {aligned} & \mX = E_\theta (\mG _N, \mG ) = E_{\theta }^{(L)} \circ \dots \circ E_{\theta }^{(1)} (\mG _N, \mG ),\\ E_{\theta }^{(l)}(\mQ &,\mG ) = \text {LayerNorm}(\text {CrossAttn}(\mQ , \text {PosEmbed}(\mG ))). \end {aligned} 
+The overall pipeline of our GWM method is shown in Fig-
+ure 2, in which we construct a Gaussian world model to
+infer the future scene reconstruction represented by 3D                                                                   (2)
+Gaussian primitives. Specifically, we encode the real-              With latent encoding x, we employ a mirrored transformer-
+world vision inputs into latent 3D Gaussian representations         based decoder Dθ to propagate and aggregate information
+                                                                                                                                                                                                                                                                                 Action 𝑎𝑡
+
+
+                                                                                                                                                                               Scale,
+ Gaussian World Model                                                                                                                                     Time 𝜏               shift                            Action 𝑎𝑡
+
+
+
+
+                                                                                                                                                                                                                                         Q
+                                                                                                                                                                                                                                                           Cross Attention
+
+
+                                                                                                                                                                                                                                                                                Feed-Forward
+                                                                                                                                                                                  AdaLN
+
+
+
+
+                                                                                                                                                                                                                                                                                   AdaLN
+                                                                                                          3D VAE
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                       3D VAE
+                              Splatt3R
+
+
+                                                                                                                                                   Pos.
+                                                                                                                                                   Emb.
+
+
+
+
+                                                                                                                               …
+                                                                                                                                       …
+
+
+
+
+                                                                                                                                                                                                                                        KV
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                  …
+                                                                                                                                                                                                                                                                                                                 xN
+                                                                                                                                                            …
+
+
+
+
+                                                                                                                                                                                                                        …
+   (Optional)
+                                                                                                                       Compact Repr.
+ Unposed Img.                                 Gaussaian Splats 𝒢𝑡                                                      Random Noise                                                   Latent Diffusion Transformer                                                                                                                                                                                Gaussaian Splats 𝒢𝑡+1
+
+
+Figure 2. The overall pipeline of GWM, which primarily consists of a 3D variational encoder and a latent diffusion transformer. The
+3D variational encoder embeds the Gaussian Splats estimated by a foundational reconstruction model to a compact latent space, and the
+diffusion transformer operates on the latent patches to interactively imagine the future Gaussian Splats conditioned on the robot action and
+denoising time step.
+
+                                                                                                                                                               p
+within the latent code set and leverage to obtain the recon-                                                                                                     2σ̇(τ )σ(τ ). To generate samples from noises, we can re-
+structed Gaussians Ĝ:                                                                                                                                         verse Eq. (6) using the reverse-time SDE [2] for sampling:
+              \hat {\mG } = D_\theta (\rvx ) = \text {LayerNorm}(\text {SelfAttn}(\rvx , \rvx ))                                                   (3)
+   For learning the 3D Gaussian VAE (Eθ , Dθ ), we use                                                                                                                        \label {eq:reverse_process} d\rvx = [\mathbf {f} (\rvx , \tau ) - g(\tau )^2 \nabla _\rvx \log p^\tau (\rvx )] d\tau + g(\tau ) d\Bar {\rvw },                                                                                                                                                   (7)
+the Chamfer loss between the centers of our reconstructed                                                                                                      where w̄ denotes the reverse-time Wiener process and
+Gaussians Ĝ and the original ones G for supervision. We                                                                                                       ∇x log pτ (x) is the score function, i.e., the gradient of log-
+also add a rendering loss of our reconstructed Gaussians Ĝ                                                                                                    marginal probability with respect to x [30]. As the score
+to achieve high-fidelity rendering for image-based policy:                                                                                                     function could be estimated by a network, we learn the con-
+        \mathcal {L}_{\text {VAE}} = \text {Chamfer}(\hat {\mG }, \mG ) + \|\mC (\hat {\mG })-\mC (\mG )\|_1                                       (4)         ditional denoising model Dθ by minimizing the difference
+                                                                                                                                                               between the sampled future state x̂0t+1 = Dθ (xτt+1 , yt ) and
+3.2. Diffusion-based Dynamics Modeling                                                                                                                         the ground truth future state x0t+1 :
+With the encoded world state embeddings xt at time t and
+its future state xt+1 , we aim to learn the world dynam-                                                                                                                                                               \label {eq:diffusion_ori} \mathcal {L}(\theta ) = \mathbb {E} \left [ \left \| \gD _\theta (\rvx _{t+1}^\tau , y_t^\tau ) - \rvx ^{0}_{t+1} \right \|_2^2 \right ].                                                                                     (8)
+ics p(xt+1 |x≤t , a≤t ), where x≤t and a≤t denote history
+states and actions, respectively. Specifically, we leverage a                                                                                                  Learning with EDM As pointed out in [33], directly
+diffusion-based dynamics model where we convert dynam-                                                                                                         learning the denoiser Dθ (xτt+1 , yt ) can be affected by prob-
+ics learning into a conditional generation problem, gener-                                                                                                     lems like varying noise magnituides. Therefore, we follow
+ating future state xt+1 from noise with history states and                                                                                                     [1] and adopt the practice in EDM [33] to learn a network
+actions yt = (x≤t , a≤t ) as conditions.                                                                                                                       Fθ with preconditioning instead. Specifically, we parame-
+                                                                                                                                                               terize the denoiser Dθ (xτt+1 , yt+1
+                                                                                                                                                                                                τ
+                                                                                                                                                                                                    ) with:
+Diffusion Formulation To generate the future state, we
+begin with the formulation of the diffusion process. Specif-                                                                                                      \gD _\theta (\rvx _{t+1}^\tau , \rvy _t^{\tau }) = c_\text {skip}^\tau \; \rvx _{t+1}^\tau + c_\text {out}^\tau \; \gF _\theta \big ( c_\text {in}^\tau \; \rvx _{t+1}^\tau , \rvy _t^\tau ; c_{\text {noise}}^\tau \big ), 
+ically, we first add noise to the ground truth future state                                                                                                                                                                                                                                                                                                                          (9)
+x0t+1 = xt+1 to obtain noised future state samples xτt+1                                                                                                       where the preconditioner cτin and cτout scale the input and out-
+via a Gaussian perturbation kernel:                                                                                                                            put magnitudes, cτskip modulates the skip connection, and
+                                                                                                                                                               cτnoise maps noise levels as an additional conditioning in-
+         \label {eq:add_noise} p^{0\to \tau }(\rvx _{t+1}^\tau | \rvx _{t+1}^0) = \gN (\rvx _{t+1}^\tau ; \rvx _{t+1}^0, \sigma ^2(\tau )\mI ),    (5)
+                                                                                                                                                               put into Fθ . We provide details for these preconditioners
+where τ is the noise step index and σ(τ ) is the noise sched-                                                                                                  in Sec. B.1. With this conversion, we can rewrite the objec-
+ule. This diffusion process can be described as the solution                                                                                                   tive in Eq. (8) with:
+to a stochastic differential equation (SDE) [73]:
+                                    \label {eq:forward_process} d\rvx = \mathbf {f} (\rvx , \tau ) d\tau + g(\tau ) d\rvw ,                        (6)           \label {eq:diffusion_new} \mathcal {L}(\theta ) = \mathbb {E} \left [ \left \| \mathbf {F}_{\theta } \left ( c_{\text {in}}^{\tau } \mathbf {x}_{t+1}^{\tau }, y_t^{\tau } \right ) - \frac {1}{c_{\text {out}}^{\tau }} \left ( \mathbf {x}_{t+1}^{0} - c_{\text {skip}}^{\tau } \mathbf {x}_{t+1}^{\tau } \right ) \right \|_2^2 \right ]. 
+
+where w represents the standard Wiener process, f is the                                                                                                                                                                (10)
+drift coefficient, and g is the diffusion coefficient. Un-                                                                                                     A crucial insight of this conversion is creating a new train-
+der this formulation, the effect of the Gaussian perturba-                                                                                                     ing target for better learning the network Fθ by adaptively
+tion kernel is equivalent to setting f (x, τ ) = 0 and g(τ ) =                                                                                                 mixing signal and noise depending on the noise schedule
+ Algorithm 1: Monotonic Model-Based Policy Op-                      performance in visual manipulation tasks, we build our base
+ timization (MBPO) with Gaussian World Model                        RL policy following design choices discussed in [83].
+   Initialize policy π(at |st ), Gaussian world model               GWM for Imitation Learning In imitation learning, we
+    pθ (st+1 , rt |st , at ), empty replay buffer B;                use GWM as a more effective encoder to provide better fea-
+   for N epochs do                                                  tures for policy learning. Specifically, we use the feature
+        Collect data with π in real environment:                    vector after the first denoising step in the diffusion pro-
+         B = B ∪ {(st , at , st+1 , rt )}t ;                        cess as the input for downstream policy models like BC-
+        Train Gaussian world model pθ on dataset B via              transformer [59] and diffusion policy [9]. The first denois-
+         maximum likelihood:                                        ing step carries out the representative spatial information to
+         θ ← arg maxθ EB [log pθ (st+1 , rt |st , at )];            deal with the severe noise level. In our implementations, we
+        Optimize policy under    Ppredictive model:                 predict actions in sequential chunks to promote consistency
+         π ← arg maxπ Eπ [ t≥0 γ t rt ];                            in robotic control.
+   end
+                                                                    4. Experiments
+                                                                    In our experiments, we focus on the following questions:
+σ(τ ). Intuitively, at high noise levels (σ(τ ) ≫ σdata ),          1. How is the quality of the action-conditioned video pre-
+cτskip → 0 and the network primarily learns to predict the             diction results across different domains?
+clean signal. Conversely, at low noise levels (σ(τ ) → 0),          2. Does Gaussian world model benefits downstream imita-
+cτskip → 1, the target becomes the noise component, prevent-           tion and reinforcement learning? Does it show greater
+ing the objective from becoming trivial.                               robustness compared with image-based world model?
+                                                                    3. How does the Gaussian world model help typical poli-
+Implementation Technically, we implement the network
+                                                                       cies (e.g., diffusion policy [9]) in real-world robotic ma-
+Fθ with a DiT [60]. Given a sequence of actual world
+                                                                       nipulation tasks?
+state latent embeddings {x0t = xt }Tt=1 , we first create la-
+                                                                    In the following sections, we describe in detail the model
+tents with noise {xτt }Tt=1 following the Gaussian perturba-
+                                                                    performance regarding these key topics. Specifically, we
+tion described in Eq. (5). Next, we concat the noise latent
+                                                                    leverage the following three testing environments and four
+embeddings with rotary position embedding (RoPE [74])
+                                                                    tasks in our experiments:
+and pass it to the DiT as inputs. In terms of conditions
+yt = (x0≤t , a≤t , cτnoise ), the time embeddings are modulated     Environments To provide a comprehensive analysis of
+by adaptive layer normalization (AdaLN [61]), and the cur-          GWM’s capability, we evaluate our method on two
+rent robot actions are used as the keys and values for the          synthetic and one real-world environment: (1) M ETA -
+cross-attention layers within the DiT for conditional gener-        W ORLD [91], a synthetic environment for learning RL poli-
+ation. For stability and efficiency across all attention mech-      cies for robotic manipulation; (2) ROBO C ASA [59], a large-
+anisms, we employ Root Mean Square Normalization (RM-               scale multi-scale synthetic imitation learning benchmark
+SNorm [93]) with learnable scales to stabilize training that        featuring diverse robotic manipulation tasks in the kitchen
+processes spatial representations while incorporating tem-          environment; and (3) F RANKA -P N P, a real-world pick-and-
+poral action sequences as conditions.                               place environment using a Franka Emika FR3 robot arm.
+                                                                    Tasks We meticulously design four tasks to evaluate
+3.3. GWM for Policy Learning                                        GWM across various testing environments systematically:
+GWM for Reinforcement Learning We demonstrate                       (1) Action-conditioned scene prediction assesses GWM’s
+that GWM can be seamlessly integrated into existing                 effectiveness in world modeling and future prediction; (2)
+model-based RL methods. Formally, a Markov Decision                 GWM-based imitation learning examines the representation
+Process (MDP) is defined by the tuple (S, A, p, r, γ, ρ0 ).         quality and its benefits for imitation-learning-based robotic
+S and A are the state and action spaces, γ is the dis-              manipulation; (3) GWM-based RL explores its potential
+count factor, and r(s, a) is the reward function. The goal          for model-based reinforcement learning; and (4) real-world
+of model-based RL [31] is to learn a policy π that max-             task deployment evaluates GWM’s robustness in real-world
+                                                            ∗       robot manipulation.
+               P∞ tsum of discounted rewards π =
+imizes the expected
+arg maxπ Eπ [ t=0 γ rt ] while constructing a model of
+the dynamics pθ (st+1 , rt |st , at ) using the policy roll-outs.   4.1. Action-conditioned Scene Prediction
+We provide the pseudo-code for the model-based RL policy            Experiment Setup The capability of a world model to
+learning in Algorithm 1. Under this formulation, we add             generate high-fidelity and action-aligned rollouts is critical
+an additional reward prediction head over GWM to param-             for effective policy optimization. To evaluate this capabil-
+eterize the dynamics model pθ (st+1 , rt |st , at ). To improve     ity, we train GWM on human demonstrations available on
+                                                                                                                                                       t=8
+
+      Table 1. Quantitative results for future state prediction on                             t=0     t=1   t=2   t=3   t=4   t=5     t=6    t=7
+      Meta-World and F RANKA P N P. LPIPS and SSIM scores are                     Ground
+      scaled by 100. Best results are highlighted in bold.                        truth
+
+                                                                                           (context)
+        Dataset              Method      FVD↓    PSNR↑          SSIM↑    LPIPS↓   Action-cond.
+                                                                                  Prediction
+                             iVideoGPT    75.0     20.4         82.3      9.5
+        M ETA -W ORLD
+                             GWM          73.0     20.6         82.8      9.0     Difference
+                             iVideoGPT    63.2     27.8         90.6      4.9
+        F RANKA -P N P
+                             GWM          61.5     28.0         91.0      4.5
+                                                                                  Ground
+                                                                                  truth
+t=7               t=0      t=1   t=2     t=3     t=4      t=5      t=6     t=7
+                                                                                           (context)
+      Ground                                                                      Action-cond.
+      truth                                                                       Prediction
+
+               (context)
+                                                                                  Difference
+      GMW
+      (Ours)
+
+      iVideoGPT
+                                                                                  Figure 4. Qualitative visualization on future state prediction of
+                                                                                  GWM on F RANKA -P N P and ROBO C ASA. All predictions are
+                                                                                  rolled out by applying the unseen action trajectory from the valid
+      Figure 3. Qualitative comparison between models on M ETA -
+                                                                                  dataset. Zoom in for details.
+      W ORLD. GWM successfully predicts better details on the gripper
+      movement (highlighted in blue).
+                                                                                  as pick-and-place, open, and close. Each task is provided
+      all considered real and synthetic environments, and evaluate                with a limited set of 50 human demonstrations and a set of
+      the future prediction quality by conditioning the model on                  3000 generated demonstrations from MimicGen [55]. We
+      unseen action trajectories sampled from the validation set.                 train our GWM on these demonstrations and pass it as the
+      For quantitative evaluation, we employ common metrics for                   state encoding for the state-of-the-art BC-transformer [59]
+      generation quality, including FVD [77] to measure temporal                  for quantitative comparison on the success rate metrics.
+      consistency, image-based metrics including PSNR [29] for                    Results and Analyses Our experimental results on the
+      pixel-level accuracy, alongside SSIM [82] and LPIPS [96]                    ROBOCASA benchmark are presented in Table 2, which
+      for perceptual quality.                                                     demonstrate the effectiveness of our method in multi-task
+      Results and Analyses We provide quantitative compar-                        imitation learning scenarios. Across 24 kitchen manip-
+      ison between our method and iVideoGPT in Tab. 1. As                         ulation tasks, our approach consistently outperforms the
+      shown in Tab. 1, our method consistently outperforms                        BC-Transformer baseline. With limited human demonstra-
+      the current state-of-the-art image-based world modeling                     tions (H-50), our method shows an average improvement of
+      method iVideoGPT on both synthetic and real-world envi-                     10.5% in success rates. When trained on generated demon-
+      ronments, demonstrating the effectiveness of our diffusion-                 strations (G-3000), our method maintains scalable perfor-
+      based Gaussian world model learning pipeline. Notably, as                   mance with an average gain of 7.6%. Notably, our ap-
+      shown in Fig. 3, image-based models like iVideoGPT are                      proach exhibits particular strengths in complex manipula-
+      prone to failures in capturing dynamics details (e.g., the                  tion tasks such as pick-and-place operations and interactive
+      gripper). Though these details might not cause large dif-                   tasks like turning on/off appliances, where the performance
+      ferences in visual metrics, they will significantly affect pol-             gains are most significant. These results confirm that our
+      icy learning as we later discuss in Sec. 4.3. We provide                    method’s ability to extract informative representations from
+      more qualitative visualizations of GWM’s prediction result                  visual observations effectively enhances imitation learning
+      on ROBO C ASA and F RANKA -P N P in Fig. 4.                                 capabilities in practical robotic manipulation scenarios.
+
+      4.2. GWM-based Imitation Learning                                           4.3. GWM-based Reinforcement Learning
+      Experiment Setup As discussed in Sec. 3.3, GWM can                          Experiment Setup We evaluate GWM’s capabilities for
+      be used to extract informative representation from image                    RL policies on six Meta-World [91] robotic manipulation
+      observation, which is expected to benefit imitation learning.               tasks with increasing complexity. We implement a model-
+      We verify this property by testing GWM’s effectiveness for                  based RL approach inspired by MBPO [31], using GWM to
+      imitation learning on ROBO C ASA. The task suite in ROBO -                  generate synthetic rollouts that augment the replay buffer of
+      C ASA comprises 24 atomic tasks with related language in-                   a DrQ-v2 [89] actor-critic algorithm. We include the state-
+      structions for kitchen environments, including actions such                 of-the-art image-based world model iVideoGPT [83] as a
+    Table 2. Multi-Task Imitation Learning Results in Robocasa. Average success rates (%) of multi-task agents trained with 50 human
+    demonstrations or 3000 generated demonstrations per task. Results are evaluated over 50 episodes with different floor plans and styles.
+
+                                            PnP                       PnP                     PnP                     PnP                     PnP                     PnP
+                                        CabToCounter              CounterToCab         CounterToMicrowave        CounterToSink           CounterToStove        MicrowaveToCounter
+
+                   Method               H-50      G-3000         H-50       G-3000     H-50         G-3000       H-50          G-3000    H-50      G-3000      H-50        G-3000
+
+                   BC-transformer        2         18              6          28        2            18             2            44       2          6          2               8
+                   GWM                  18          32             4          22       14             44           20            38       2          18         20              26
+                   ∆                    +16        +14            -2          -6       +12           +26           +18           -6       0         +12        +18             +18
+                                             PnP                      PnP                        Open                  Open                      Close                   Close
+                                        SinkToCounter            StoveToCounter               SingleDoor            DoubleDoor                DoubleDoor              SingleDoor
+
+                                        H-50      G-3000         H-50       G-3000     H-50         G-3000       H-50          G-3000    H-50      G-3000      H-50        G-3000
+
+                   BC-transformer        8             42         6          28        46            50            28            48      28         46          56             94
+                   GWM                  22             38        18           44       58             62           28            42      50          58         54             90
+                   ∆                    +14            -4        +12         +16       +12           +12            0            -6      +22        +12         -2             -4
+                                                Open                    Close                   TurnOn                  TurnOff                 TurnOn                  TurnOff
+                                               Drawer                   Drawer                  Stove                    Stove                SinkFaucet              SinkFaucet
+
+                                        H-50      G-3000         H-50       G-3000     H-50         G-3000       H-50          G-3000    H-50      G-3000      H-50        G-3000
+
+                   BC-transformer       42         74             80          96       32            46             4           24       38         34          50             72
+                   GWM                  56          90            80          90       46             80           22            40      52          48         44             66
+                   ∆                    +14        +16             0          -6       +14           +24           +18          +16      +14        +14         -6             -6
+                                             Turn                 CoffeePress                   TurnOn               TurnOff                  CoffeeServe             CoffeeSetup
+                                          SinkSpout                  Button                   Microwave             Microwave                     Mug                     Mug
+
+                                        H-50      G-3000         H-50       G-3000     H-50         G-3000       H-50          G-3000    H-50      G-3000      H-50        G-3000
+
+                   BC-transformer       54             96        48          74         62            90           70            60      22         34           0             12
+                   GWM                  72             90        76           90        64            84           70            54      36          50         16              28
+                   ∆                    +18            -6        +28         +16        +2            -6            0            -6      +14        +16        +16             +16
+
+
+                                                                  100          Button Press              100              Plate Slide                100              Hammer
+                                                                               iVideoGPT
+                                                                   80          iVideoGPT (w/ PT)          80                                          80
+                                                                   60          DrQ-v2                     60                                          60
+               100      MetaWorld Aggregated                                   GWM
+                            iVideoGPT                              40          GWM (w/ PT)                40                                          40
+                            iVideoGPT (w/ PT)                                  DreamerV3
+                   80                                              20                                     20                                          20
+Success Rate (%)
+
+
+
+
+                            DrQ-v2
+                            GWM                                     0 0.0                                  0 0.0                                       0 0.0
+                   60       GWM (w/ PT)                                       2.5     5.0     7.5   10.0                 2.5     5.0    7.5     10.0             2.5     5.0        7.5   10.0
+                            DreamerV3                                            Steps (x10 )                            Steps (x10 )                                Steps (x10 )
+                   40
+                                                                  100              Door Lock             100    Handle Pull Side  100                            Coffee Push
+                   20                                              80                                     80                       80
+                    0                                              60                                     60                       60
+                        0   2       4         6    8        10
+                                Steps (x10 )                       40                                     40                       40
+                                                                   20                                     20                       20
+                                                                    0 0.0     2.5     5.0     7.5   10.0   0 0.0 2.5 5.0 7.5 10.0   0 0.0                        2.5     5.0        7.5   10.0
+                                                                                 Steps (x10 )                            Steps (x10 )                                Steps (x10 )
+    Figure 5. Model-based RL Results of GWM and ivideogpt [83] on M ETAWORLD. The shadow area represents 95% confidence interval
+    (CI) across three random seeds. Each data point is evaluated over 20 episodes.
+
+
+    strong baseline. For fair comparisons, we do not utilize pre-                                            World tasks. On average, GWM converges approximately
+    trained initialization of both methods. For fair comparisons,                                            2× faster than iVideoGPT and reaches higher asymptotic
+    all compared methods use the same context length, horizon,                                               performance on complex manipulation tasks. The supe-
+    and are trained to a maximum of 1 × 105 steps.                                                           rior performance stems from GWM’s 3D Gaussian repre-
+    Results and Analyses Figure 5 demonstrates that GWM                                                      sentation, which allows more accurate prediction of contact
+    consistently outperforms iVideoGPT across all six Meta-                                                  dynamics and object movement under manipulation, com-
+                Franka Emika FR3 arm                              Table 4. Ablation Study on PnP CabToCounter in ROBO -
+                                                                  CASA task suite. We report the reconstruction metrics and the suc-
+                                                                  cess rates (SR) of imitation learning on the Human-50 dataset.
+                                                   1
+                                                                    GS    3D VAE     FVD↓     PSNR↑     SSIM↑     LPIPS↓     SR ↑
+      Panda
+      gripper                                                       ✗        ✗        67.8      27.2      88.2      5.1        4
+                                                                    ✓        ✗        65.3      26.9      89.5      4.9       18
+                                                                    ✓        ✓        62.4      28.1      90.8      4.6       24
+
+
+                                                       2
+                                                                  model that captures task-relevant dynamics while being ro-
+     Realsense D435i camera                                       bust to visual differences. The real-world rollouts are shown
+                                                                  in the supplementary file, where the advantage stems pri-
+                                                                  marily from more precise object localization and accurate
+Figure 6. Real-World Experiment Setup. Left: using a Franka       placement operations. The results demonstrate GWM’s ro-
+Emika Panda robotic arm equipped with an RGB camera, we eval-     bust spatial-temporal understanding in real-world robotic
+uate the performance of the diffusion policy [9] both with and
+                                                                  manipulation tasks.
+without our proposed method. Right: the robot’s visual inputs
+in the task completion.                                           4.5. Ablation Analysis
+                                                                  We conduct additional experiments on ROBOCASA to fur-
+Table 3. Real-world Experiment Results. We report the number
+of successful trials out of all 20 trials in F RANKA P N P.       ther verify our design choices.
+                                                                  Choice of Gaussian Splatting As shown in Table 4, com-
+        F RANKA -P N P        Diffusion Policy   GWM (Ours)       pared to directly building image-based world model with
+                                                                  diffusion transformer on par with [1], introducing Gaussian
+        Cup distractor             6/10            7/10
+        Plate distractor           1/5              3/5           Splatting significantly improves the success rate (SR) from
+        Table distractor           0/5              3/5           4% to 18%. While PSNR shows a slight decrease, both
+        Total                      7/20            13/20          SSIM and LPIPS metrics improve, suggesting that Gaus-
+                                                                  sian Splatting provides better 3D consistency across differ-
+                                                                  ent time steps. This validates our hypothesis that explicit
+pared to purely image-based approaches. The results con-          3D representation enhances spatial understanding for robot
+firm that explicit 3D representation offers substantial advan-    learning compared to pure 2D approaches.
+tages for robotic control tasks requiring precise spatial rea-    Choice of 3D Gaussian VAE Further incorporating the 3D
+soning.                                                           VAE component yields consistent improvements across all
+                                                                  metrics, including PSNR. The success rate further improves
+4.4. Real-world Deployment                                        from 18% to 24%. The results confirm that our 3D Gaussian
+                                                                  VAE efficiently captures the latent structure of the scene,
+Experiment Setup We deploy a Franka Emika FR3 robotic
+                                                                  enabling more compact scene representation while main-
+arm and a Panda gripper for our real-robot experiments. We
+                                                                  taining spatial understanding.
+focus on the real-world task of picking a colored cup, and
+placing it onto a plate on the table. We collect a small set of
+                                                                  5. Conclusion
+30 demonstrations using the Mujoco AR teleoperation inter-
+faces [65]. We also setup one third-view Realsense D435i          In this paper, we introduce a novel Gaussian World Model
+camera to provide unposed RGB-only images for observa-            (GWM) for robotic manipulation that addresses limitations
+tion. We provide an overview of the real-world task setting       of image-based world models by incorporating robust geo-
+in Fig. 6. Similar to the experiment setting in Sec. 4.2, we      metric information. Our approach reconstructs future states
+compare the performance of the state-of-the-art RGB-based         by modeling the propagation of Gaussian primitives under
+policy Diffusion Policy [9] with or without our GWM rep-          robot actions. The method combines a DiT with a 3D-
+resentation on task success rate for quantitative analysis.       aware variational autoencoder for precise scene-level future
+Results and Analysis As shown in Table 3, GWM out-                state reconstruction via Gaussian Splatting. We develop a
+performs Diffusion Policy (65% vs. 35% success rate) on           scalable data processing pipeline to facilitate test-time up-
+20 trials with different initial start positions and object lo-   dates within a model-based reinforcement learning frame-
+cations (i.e. distractors). The performance gap widens for        work, extracting aligned Gaussian splats from unposed im-
+novel distractors, demonstrating GWM’s superior general-          ages. Experiments in both simulated and real-world settings
+ization capabilities. Our approach maintains consistent per-      demonstrate the effectiveness of GWM in predicting future
+formance across task variations due to its effective world        scenes and training superior policies.
+Acknowledgement                                                      [12] Jay W Forrester. Counterintuitive behavior of social sys-
+                                                                          tems. Theory and decision, 2(2):109–140, 1971. 2
+This work was supported by Shenzhen Science and                      [13] Yang Fu, Sifei Liu, Amey Kulkarni, Jan Kautz, Alexei A
+Technology Program (JCYJ20240813111903006) and                            Efros, and Xiaolong Wang. Colmap-free 3d gaussian splat-
+Guangdong Natural Science Funds for Distinguished                         ting. arXiv preprint arXiv:2312.07504, 2023. 3
+Young Scholar (No. 2025B1515020012). We would
+                                                                     [14] Zeyu Gao, Yao Mu, Ruoyan Shen, Chen Chen, Yangang
+like to thank Ruijie Lu, Junfeng Ni, and Yu Liu from
+                                                                          Ren, Jianyu Chen, Shengbo Eben Li, Ping Luo, and Yan-
+BIGAI General Vision Lab for fruitful discussions.
+                                                                          feng Lu. Enhance sample efficiency and robustness of
+                                                                          end-to-end urban autonomous driving via semantic masked
+                                                                          world model. arXiv preprint arXiv:2210.04017, 2022. 2
+References                                                           [15] Theophile Gervet, Zhou Xian, Nikolaos Gkanatsios, and
+                                                                          Katerina Fragkiadaki. Act3d: 3d feature field transform-
+ [1] Eloi Alonso, Adam Jelley, Vincent Micheli, Anssi Kan-
+                                                                          ers for multi-task robotic manipulation. In Conference on
+     ervisto, Amos Storkey, Tim Pearce, and François Fleuret.
+                                                                          Robot Learning (CoRL), pages 3949–3965, 2023. 3
+     Diffusion for world modeling: Visual details matter in atari.
+     arXiv preprint arXiv:2405.12399, 2024. 2, 3, 4, 8               [16] Ankit Goyal, Jie Xu, Yijie Guo, Valts Blukis, Yu-Wei Chao,
+                                                                          and Dieter Fox. Rvt: Robotic view transformer for 3d ob-
+ [2] Brian DO Anderson. Reverse-time diffusion equation mod-
+                                                                          ject manipulation. arXiv preprint arXiv:2306.14896, 2023.
+     els. Stochastic Processes and their Applications, 12(3):
+                                                                          2
+     313–326, 1982. 4
+                                                                     [17] Ankit Goyal, Valts Blukis, Jie Xu, Yijie Guo, Yu-Wei Chao,
+ [3] Genesis Authors. Genesis: A universal and generative                 and Dieter Fox. Rvt-2: Learning precise manipulation from
+     physics engine for robotics and beyond, 2024. 3                      few demonstrations. arXiv preprint arXiv:2406.08545,
+ [4] Hritik Bansal, Zongyu Lin, Tianyi Xie, Zeshun Zong,                  2024. 2
+     Michal Yarom, Yonatan Bitton, Chenfanfu Jiang, Yizhou           [18] David Ha and Jürgen Schmidhuber. Recurrent world mod-
+     Sun, Kai-Wei Chang, and Aditya Grover. Videophy: Eval-               els facilitate policy evolution. Proceedings of Advances
+     uating physical commonsense for video generation. arXiv              in Neural Information Processing Systems (NeurIPS), 31,
+     preprint arXiv:2406.03520, 2024. 3                                   2018. 2
+ [5] Kevin Black, Noah Brown, Danny Driess, Adnan Esmail,            [19] Danijar Hafner, Timothy Lillicrap, Jimmy Ba, and Moham-
+     Michael Equi, Chelsea Finn, Niccolo Fusai, Lachy Groom,              mad Norouzi. Dream to control: Learning behaviors by la-
+     Karol Hausman, Brian Ichter, et al. A vision-language-               tent imagination. arXiv preprint arXiv:1912.01603, 2019.
+     action flow model for general robot control. arXiv preprint     [20] Danijar Hafner, Timothy Lillicrap, Mohammad Norouzi,
+     arXiv:2410.24164, 2024. 3                                            and Jimmy Ba. Mastering atari with discrete world mod-
+ [6] David Charatan, Sizhe Li, Andrea Tagliasacchi, and Vin-              els. arXiv preprint arXiv:2010.02193, 2020.
+     cent Sitzmann. pixelsplat: 3d gaussian splats from image        [21] Danijar Hafner, Kuang-Huei Lee, Ian Fischer, and Pieter
+     pairs for scalable generalizable 3d reconstruction. arXiv            Abbeel. Deep hierarchical planning from pixels. Proceed-
+     preprint arXiv:2312.12337, 2023. 3                                   ings of Advances in Neural Information Processing Systems
+ [7] Shizhe Chen, Ricardo Garcia, Cordelia Schmid, and Ivan               (NeurIPS), 35:26091–26104, 2022.
+     Laptev. Polarnet: 3d point clouds for language-guided           [22] Danijar Hafner, Jurgis Pasukonis, Jimmy Ba, and Timothy
+     robotic manipulation. arXiv preprint arXiv:2309.15596,               Lillicrap. Mastering diverse domains through world mod-
+     2023. 3                                                              els. arXiv preprint arXiv:2301.04104, 2023. 2
+ [8] Yixin Chen, Junfeng Ni, Nan Jiang, Yaowei Zhang, Yixin          [23] Nicklas Hansen, Hao Su, and Xiaolong Wang. Td-mpc2:
+     Zhu, and Siyuan Huang. Single-view 3d scene reconstruc-              Scalable, robust world models for continuous control. arXiv
+     tion with high-fidelity shape and texture. In Proceedings of         preprint arXiv:2310.16828, 2023. 2
+     International Conference on 3D Vision (3DV), 2024. 3            [24] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising dif-
+ [9] Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau,                  fusion probabilistic models. Advances in Neural Informa-
+     Yilun Du, Benjamin Burchfiel, Russ Tedrake, and Shuran               tion Processing Systems, 33:6840–6851, 2020. 2
+     Song. Diffusion policy: Visuomotor policy learning via ac-      [25] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising dif-
+     tion diffusion. International Journal of Robotics Research           fusion probabilistic models. Proceedings of Advances in
+     (IJRR), page 02783649241273668, 2023. 5, 8                           Neural Information Processing Systems (NeurIPS), 2020. 2
+[10] Tianyuan Dai, Josiah Wong, Yunfan Jiang, Chen Wang,             [26] Anthony Hu, Gianluca Corrado, Nicolas Griffiths, Zachary
+     Cem Gokmen, Ruohan Zhang, Jiajun Wu, and Li Fei-Fei.                 Murez, Corina Gurau, Hudson Yeo, Alex Kendall, Roberto
+     Acdc: Automated creation of digital cousins for robust pol-          Cipolla, and Jamie Shotton. Model-based imitation learn-
+     icy learning. In 8th Annual Conference on Robot Learning,            ing for urban driving. Proceedings of Advances in Neu-
+     2024. 3                                                              ral Information Processing Systems (NeurIPS), 35:20703–
+[11] Danny Driess, Ingmar Schubert, Pete Florence, Yunzhu Li,             20716, 2022. 2
+     and Marc Toussaint. Reinforcement learning with neural          [27] Anthony Hu, Lloyd Russell, Hudson Yeo, Zak Murez,
+     radiance fields. Proceedings of Advances in Neural Infor-            George Fedoseev, Alex Kendall, Jamie Shotton, and Gian-
+     mation Processing Systems (NeurIPS), 2022. 3                         luca Corrado. Gaia-1: A generative world model for au-
+     tonomous driving. arXiv preprint arXiv:2309.17080, 2023.        [41] Yunzhu Li, Shuang Li, Vincent Sitzmann, Pulkit Agrawal,
+     2                                                                    and Antonio Torralba. 3d neural scene representations
+[28] Yi-Hua Huang, Yang-Tian Sun, Ziyi Yang, Xiaoyang Lyu,                for visuomotor control. In Conference on Robot Learning
+     Yan-Pei Cao, and Xiaojuan Qi. Sc-gs: Sparse-controlled               (CoRL), pages 112–123, 2022. 3
+     gaussian splatting for editable dynamic scenes. In Proceed-     [42] Vincent Lim, Huang Huang, Lawrence Yunliang Chen,
+     ings of Conference on Computer Vision and Pattern Recog-             Jonathan Wang, Jeffrey Ichnowski, Daniel Seita, Michael
+     nition (CVPR), 2024. 3                                               Laskey, and Ken Goldberg. Real2sim2real: Self-supervised
+[29] Quan Huynh-Thu and Mohammed Ghanbari. Scope of va-                   learning of physical single-step dynamic actions for pla-
+     lidity of psnr in image/video quality assessment. Electron-          nar robot casting. In 2022 International Conference on
+     ics letters, 44(13):800–801, 2008. 6                                 Robotics and Automation (ICRA), pages 8282–8289. IEEE,
+[30] Aapo Hyvärinen and Peter Dayan. Estimation of non-                  2022. 3
+     normalized statistical models by score matching. Journal        [43] Yen-Chen Lin, Pete Florence, Andy Zeng, Jonathan T Bar-
+     of Machine Learning Research (JMLR), 6(4), 2005. 4                   ron, Yilun Du, Wei-Chiu Ma, Anthony Simeonov, Al-
+[31] Michael Janner, Justin Fu, Marvin Zhang, and Sergey                  berto Rodriguez Garcia, and Phillip Isola. Mira: Mental
+     Levine. When to trust your model: Model-based policy                 imagery for robotic affordances. In Conference on Robot
+     optimization. In Proceedings of Advances in Neural Infor-            Learning (CoRL), pages 1916–1927, 2023. 3
+     mation Processing Systems (NeurIPS), 2019. 5, 6                 [44] I Liu, Chun Arthur, Sicheng He, Daniel Seita, and Gau-
+[32] Zhenyu Jiang, Yifeng Zhu, Maxwell Svetlik, Kuan Fang,                rav Sukhatme. Voxact-b: Voxel-based acting and stabi-
+     and Yuke Zhu. Synergies between affordance and geom-                 lizing policy for bimanual manipulation. arXiv preprint
+     etry: 6-dof grasp detection via implicit representations.            arXiv:2407.04152, 2024. 3
+     arXiv preprint arXiv:2104.01542, 2021. 3                        [45] Songming Liu, Lingxuan Wu, Bangguo Li, Hengkai Tan,
+[33] Tero Karras, Miika Aittala, Timo Aila, and Samuli Laine.             Huayu Chen, Zhengyi Wang, Ke Xu, Hang Su, and Jun
+     Elucidating the design space of diffusion-based generative           Zhu. Rdt-1b: a diffusion foundation model for bimanual
+     models. Advances in Neural Information Processing Sys-               manipulation. arXiv preprint arXiv:2410.07864, 2024. 3
+     tems, 35:26565–26577, 2022. 4, A1                               [46] Yifan Liu, Chenxin Li, Chen Yang, and Yixuan Yuan.
+[34] Nikhil Keetha, Jay Karhade, Krishna Murthy Jatavallab-               Endogaussian: Gaussian splatting for deformable surgical
+     hula, Gengshan Yang, Sebastian Scherer, Deva Ramanan,                scene reconstruction. arXiv preprint arXiv:2401.12561,
+     and Jonathon Luiten. Splatam: Splat track & map 3d gaus-             2024. 3
+     sians for dense rgb-d slam. In Proceedings of the IEEE/CVF      [47] Yu Liu, Baoxiong Jia, Ruijie Lu, Junfeng Ni, Song-Chun
+     Conference on Computer Vision and Pattern Recognition,               Zhu, and Siyuan Huang. Building interactable replicas of
+     pages 21357–21366, 2024. 3                                           complex articulated objects via gaussian splatting. In Pro-
+[35] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler,                ceedings of International Conference on Learning Repre-
+     and George Drettakis. 3d gaussian splatting for real-time            sentations (ICLR), 2025. 3
+     radiance field rendering. TOG, 42(4), 2023. 2, 3                [48] Haozhe Lou, Yurong Liu, Yike Pan, Yiran Geng, Jianteng
+[36] Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted                 Chen, Wenlong Ma, Chenglong Li, Lin Wang, Hengzhen
+     Xiao, Ashwin Balakrishna, Suraj Nair, Rafael Rafailov,               Feng, Lu Shi, et al. Robo-gs: A physics consistent spatial-
+     Ethan Foster, Grace Lam, Pannag Sanketi, et al. Open-                temporal model for robotic arm with hybrid representation.
+     vla: An open-source vision-language-action model. arXiv              arXiv preprint arXiv:2408.14873, 2024. 3
+     preprint arXiv:2406.09246, 2024. 3                              [49] Guanxing Lu, Shiyi Zhang, Ziwei Wang, Changliu Liu, Ji-
+[37] Vincent Leroy, Yohann Cabon, and Jérôme Revaud.                    wen Lu, and Yansong Tang. Manigaussian: Dynamic gaus-
+     Grounding image matching in 3d with mast3r. arXiv                    sian splatting for multi-task robotic manipulation. In Eu-
+     preprint arXiv:2406.09756, 2024. 3                                   ropean Conference on Computer Vision, pages 349–366.
+[38] Puhao Li, Tengyu Liu, Yuyang Li, Muzhi Han, Hao-                     Springer, 2024. 2, 3
+     ran Geng, Shu Wang, Yixin Zhu, Song-Chun Zhu, and               [50] Ruijie Lu, Yixin Chen, Yu Liu, Jiaxiang Tang, Junfeng Ni,
+     Siyuan Huang. Ag2manip: Learning novel manipulation                  Diwen Wan, Gang Zeng, and Siyuan Huang. Taco: Taming
+     skills with agent-agnostic visual and action representations.        diffusion for in-the-wild video amodal completion. arXiv
+     In Proceedings of International Conference on Intelligent            preprint arXiv:2503.12049, 2025. 3
+     Robots and Systems (IROS), pages 573–580. IEEE, 2024. 3         [51] Ruijie Lu, Yu Liu, Jiaxiang Tang, Junfeng Ni, Yuxi-
+[39] Puhao Li, Yingying Wu, Ziheng Xi, Wanlin Li, Yuzhe                   ang Wang, Diwen Wan, Gang Zeng, Yixin Chen, and
+     Huang, Zhiyuan Zhang, Yinghan Chen, Jianan Wang,                     Siyuan Huang. Dreamart: Generating interactable ar-
+     Song-Chun Zhu, Tengyu Liu, et al. Controlvla: Few-shot               ticulated objects from a single image. arXiv preprint
+     object-centric adaptation for pre-trained vision-language-           arXiv:2507.05763, 2025. 3
+     action models. arXiv preprint arXiv:2506.16211, 2025. 3         [52] Jonathon Luiten, Georgios Kopanas, Bastian Leibe, and
+[40] Xuanlin Li, Kyle Hsu, Jiayuan Gu, Karl Pertsch, Oier                 Deva Ramanan. Dynamic 3d gaussians: Tracking by per-
+     Mees, Homer Rich Walke, Chuyuan Fu, Ishikaa Lunawat,                 sistent dynamic view synthesis. In Proceedings of Interna-
+     Isabel Sieh, Sean Kirmani, et al. Evaluating real-world              tional Conference on 3D Vision (3DV), 2024. 3
+     robot manipulation policies in simulation. arXiv preprint       [53] Jianlan Luo, Zheyuan Hu, Charles Xu, You Liang Tan, Ja-
+     arXiv:2405.05941, 2024. 2                                            cob Berg, Archit Sharma, Stefan Schaal, Chelsea Finn, Ab-
+     hishek Gupta, and Sergey Levine. Serl: A software suite        [67] Julian Schrittwieser, Ioannis Antonoglou, Thomas Hubert,
+     for sample-efficient robotic reinforcement learning. In Pro-        Karen Simonyan, Laurent Sifre, Simon Schmitt, Arthur
+     ceedings of International Conference on Robotics and Au-            Guez, Edward Lockhart, Demis Hassabis, Thore Graepel,
+     tomation (ICRA), pages 16961–16969. IEEE, 2024. 3                   et al. Mastering atari, go, chess and shogi by planning with
+[54] Jianlan Luo, Charles Xu, Jeffrey Wu, and Sergey                     a learned model. Nature, 588(7839):604–609, 2020. 2
+     Levine. Precise and dexterous robotic manipulation via         [68] Younggyo Seo, Danijar Hafner, Hao Liu, Fangchen Liu,
+     human-in-the-loop reinforcement learning. arXiv preprint            Stephen James, Kimin Lee, and Pieter Abbeel. Masked
+     arXiv:2410.21845, 2024. 3                                           world models for visual control. In Conference on Robot
+[55] Ajay Mandlekar, Soroush Nasiriany, Bowen Wen, Iretiayo              Learning (CoRL), pages 1332–1344, 2023. 2
+     Akinola, Yashraj Narang, Linxi Fan, Yuke Zhu, and Di-          [69] Dongseok Shim, Seungjae Lee, and H Jin Kim. Snerl:
+     eter Fox. Mimicgen: A data generation system for scalable           Semantic-aware neural radiance fields for reinforcement
+     robot learning using human demonstrations. arXiv preprint           learning. In Proceedings of International Conference on
+     arXiv:2310.17596, 2023. 6, A1                                       Machine Learning (ICML), 2023. 3
+[56] Vincent Micheli, Eloi Alonso, and François Fleuret. Trans-    [70] Mohit Shridhar, Lucas Manuelli, and Dieter Fox. Perceiver-
+     formers are sample-efficient world models. International            actor: A multi-task transformer for robotic manipulation. In
+     Conference on Learning Representations, 2023. 2                     Conference on Robot Learning (CoRL), 2023. 3
+[57] Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik,           [71] Brandon Smart, Chuanxia Zheng, Iro Laina, and Vic-
+     Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:              tor Adrian Prisacariu. Splatt3r: Zero-shot gaussian splat-
+     Representing scenes as neural radiance fields for view syn-         ting from uncalibarated image pairs.         arXiv preprint
+     thesis. CACM, 65(1):99–106, 2021. 2, 3                              arXiv:2408.13912, 2024. 3
+[58] Yao Mu, Tianxing Chen, Zanxin Chen, Shijia Peng, Zhiqian       [72] Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan,
+     Lan, Zeyu Gao, Zhixuan Liang, Qiaojun Yu, Yude Zou,                 and Surya Ganguli. Deep unsupervised learning using
+     Mingkun Xu, et al. Robotwin: Dual-arm robot benchmark               nonequilibrium thermodynamics. International Conference
+     with generative digital twins. In Proceedings of Confer-            on Machine Learning, 2015. 2
+     ence on Computer Vision and Pattern Recognition (CVPR),        [73] Yang Song, Jascha Sohl-Dickstein, Diederik P Kingma,
+     pages 27649–27660, 2025. 3                                          Abhishek Kumar, Stefano Ermon, and Ben Poole. Score-
+[59] Soroush Nasiriany, Abhiram Maddukuri, Lance Zhang,                  based generative modeling through stochastic differential
+     Adeet Parikh, Aaron Lo, Abhishek Joshi, Ajay Man-                   equations. International Conference on Learning Repre-
+     dlekar, and Yuke Zhu. Robocasa: Large-scale simulation              sentations, 2020. 2, 4
+     of everyday tasks for generalist robots. arXiv preprint        [74] Jianlin Su, Murtadha Ahmed, Yu Lu, Shengfeng Pan, Wen
+     arXiv:2406.02523, 2024. 5, 6                                        Bo, and Yunfeng Liu. Roformer: Enhanced transformer
+[60] William Peebles and Saining Xie. Scalable diffusion mod-            with rotary position embedding. Neurocomputing, 568:
+     els with transformers. In Proceedings of International              127063, 2024. 5
+     Conference on Computer Vision (ICCV), pages 4195–4205,         [75] Stanislaw Szymanowicz, Christian Rupprecht, and Andrea
+     2023. 5                                                             Vedaldi. Splatter image: Ultra-fast single-view 3d recon-
+[61] Ethan Perez, Florian Strub, Harm De Vries, Vincent Du-              struction. arXiv preprint arXiv:2312.13150, 2023. 3
+     moulin, and Aaron Courville. Film: Visual reasoning with       [76] Octo Model Team, Dibya Ghosh, Homer Walke, Karl
+     a general conditioning layer. In Proceedings of AAAI Con-           Pertsch, Kevin Black, Oier Mees, Sudeep Dasari, Joey
+     ference on Artificial Intelligence (AAAI), 2018. 5                  Hejna, Tobias Kreiman, Charles Xu, et al.              Octo:
+[62] Skand Peri, Iain Lee, Chanho Kim, Li Fuxin, Tucker Her-             An open-source generalist robot policy. arXiv preprint
+     mans, and Stefan Lee. Point cloud models improve visual             arXiv:2405.12213, 2024. 3
+     robustness in robotic learners. In Proceedings of Inter-       [77] Thomas Unterthiner, Sjoerd Van Steenkiste, Karol Kurach,
+     national Conference on Robotics and Automation (ICRA),              Raphael Marinier, Marcin Michalski, and Sylvain Gelly.
+     2024. 2                                                             Towards accurate generative models of video: A new met-
+[63] Mohammad Nomaan Qureshi, Sparsh Garg, Francisco Yan-                ric & challenges. arXiv preprint arXiv:1812.01717, 2018.
+     dun, David Held, George Kantor, and Abhishesh Sil-                  6
+     wal. Splatsim: Zero-shot sim2real transfer of rgb manip-       [78] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob
+     ulation policies using gaussian splatting. arXiv preprint           Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser,
+     arXiv:2409.10161, 2024. 3                                           and Illia Polosukhin. Attention is all you need. In Proceed-
+[64] Alec Radford, Karthik Narasimhan, Tim Salimans, Ilya                ings of Advances in Neural Information Processing Systems
+     Sutskever, et al. Improving language understanding by gen-          (NeurIPS), 2017. 2
+     erative pre-training. 2018. 2                                  [79] Lirui Wang, Yiyang Ling, Zhecheng Yuan, Mohit Shrid-
+[65] Omar Rayyan. MuJoCoAR: Phone teleoperation for robots,              har, Chen Bao, Yuzhe Qin, Bailin Wang, Huazhe Xu,
+     2024. 8                                                             and Xiaolong Wang. Gensim: Generating robotic sim-
+[66] Jan Robine, Marc Höftmann, Tobias Uelwer, and Stefan               ulation tasks via large language models. arXiv preprint
+     Harmeling. Transformer-based world models are happy                 arXiv:2310.01361, 2023. 3
+     with 100k interactions. International Conference on Learn-     [80] Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris
+     ing Representations, 2023. 2                                        Chidlovskii, and Jerome Revaud. Dust3r: Geometric 3d
+     vision made easy. In Proceedings of the IEEE/CVF Confer-        [93] Biao Zhang and Rico Sennrich. Root mean square layer
+     ence on Computer Vision and Pattern Recognition, pages               normalization. Proceedings of Advances in Neural Infor-
+     20697–20709, 2024. 3                                                 mation Processing Systems (NeurIPS), 32, 2019. 5
+[81] Xiaofeng Wang, Zheng Zhu, Guan Huang, Xinze Chen,               [94] Biao Zhang, Jiapeng Tang, Matthias Niessner, and Peter
+     and Jiwen Lu. Drivedreamer: Towards real-world-driven                Wonka. 3dshape2vecset: A 3d shape representation for
+     world models for autonomous driving. arXiv preprint                  neural fields and generative diffusion models. ACM Trans-
+     arXiv:2309.09777, 2023. 2                                            actions On Graphics (TOG), 42(4):1–16, 2023. 3
+[82] Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P             [95] Bowen Zhang, Yiji Cheng, Jiaolong Yang, Chunyu Wang,
+     Simoncelli. Image quality assessment: from error visibil-            Feng Zhao, Yansong Tang, Dong Chen, and Baining Guo.
+     ity to structural similarity. Proceedings of Transactions on         Gaussiancube: Structuring gaussian splatting using opti-
+     Image Processing (TIP), 13(4):600–612, 2004. 6                       mal transport for 3d generative modeling. arXiv preprint
+[83] Jialong Wu, Shaofeng Yin, Ningya Feng, Xu He, Dong                   arXiv:2403.19655, 2024. 3
+     Li, Jianye Hao, and Mingsheng Long. ivideogpt: In-              [96] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shecht-
+     teractive videogpts are scalable world models. Proceed-              man, and Oliver Wang. The unreasonable effectiveness of
+     ings of Advances in Neural Information Processing Systems            deep features as a perceptual metric. In Proceedings of
+     (NeurIPS), 37:68082–68119, 2025. 2, 5, 6, 7                          Conference on Computer Vision and Pattern Recognition
+[84] Philipp Wu, Alejandro Escontrela, Danijar Hafner, Pieter             (CVPR), 2018. 6
+     Abbeel, and Ken Goldberg. Daydreamer: World models for          [97] Weipu Zhang, Gang Wang, Jian Sun, Yetian Yuan, and Gao
+     physical robot learning. In Conference on Robot Learning             Huang. Storm: Efficient stochastic transformer based world
+     (CoRL), pages 2226–2240, 2023. 2                                     models for reinforcement learning. In Thirty-seventh Con-
+[85] Tianyi Xie, Zeshun Zong, Yuxing Qiu, Xuan Li, Yutao                  ference on Neural Information Processing Systems, 2023.
+     Feng, Yin Yang, and Chenfanfu Jiang. Physgaussian:                   2
+     Physics-integrated 3d gaussians for generative dynamics. In     [98] Shunyuan Zheng, Boyao Zhou, Ruizhi Shao, Boning Liu,
+     Proceedings of Conference on Computer Vision and Pattern             Shengping Zhang, Liqiang Nie, and Yebin Liu. Gps-
+     Recognition (CVPR), 2024. 3                                          gaussian: Generalizable pixel-wise 3d gaussian splatting
+[86] Dejia Xu, Ye Yuan, Morteza Mardani, Sifei Liu, Jiaming               for real-time human novel view synthesis. arXiv preprint
+     Song, Zhangyang Wang, and Arash Vahdat. Agg: Amor-                   arXiv:2312.02155, 2023. 3
+     tized generative 3d gaussians for single image to 3d. arXiv     [99] Wenzhao Zheng, Weiliang Chen, Yuanhui Huang, Borui
+     preprint arXiv:2401.04099, 2024. 3                                   Zhang, Yueqi Duan, and Jiwen Lu. Occworld: Learning a
+[87] Yinghao Xu, Zifan Shi, Wang Yifan, Hansheng Chen,                    3d occupancy world model for autonomous driving. arXiv
+     Ceyuan Yang, Sida Peng, Yujun Shen, and Gordon Wet-                  preprint arXiv:2311.16038, 2023. 2
+     zstein. Grm: Large gaussian reconstruction model for ef-       [100] Xiaoyu Zhou, Zhiwei Lin, Xiaojun Shan, Yongtao Wang,
+     ficient 3d reconstruction and generation. arXiv preprint             Deqing Sun, and Ming-Hsuan Yang. Drivinggaussian:
+     arXiv:2403.14621, 2024. 3                                            Composite gaussian splatting for surrounding dynamic au-
+[88] Mengjiao Yang, Yilun Du, Kamyar Ghasemipour, Jonathan                tonomous driving scenes. In Proceedings of the IEEE/CVF
+     Tompson, Dale Schuurmans, and Pieter Abbeel. Learn-                  Conference on Computer Vision and Pattern Recognition,
+     ing interactive real-world simulators.        arXiv preprint         pages 21634–21643, 2024. 3
+     arXiv:2310.06114, 2023. 2, 3
+                                                                    [101] Haoyi Zhu, Yating Wang, Di Huang, Weicai Ye, Wanli
+[89] Denis Yarats, Rob Fergus, Alessandro Lazaric, and Lerrel
+                                                                          Ouyang, and Tong He. Point cloud matters: Rethinking the
+     Pinto. Mastering visual continuous control: Improved data-
+                                                                          impact of different observation spaces on robot learning.
+     augmented reinforcement learning. In Proceedings of Inter-
+                                                                          Proceedings of Advances in Neural Information Processing
+     national Conference on Learning Representations (ICLR),
+                                                                          Systems (NeurIPS), 2025. 2
+     2022. 6
+                                                                    [102] Zi-Xin Zou, Zhipeng Yu, Yuan-Chen Guo, Yangguang Li,
+[90] Weirui Ye, Shaohuai Liu, Thanard Kurutach, Pieter Abbeel,
+                                                                          Ding Liang, Yan-Pei Cao, and Song-Hai Zhang. Triplane
+     and Yang Gao. Mastering atari games with limited data.
+                                                                          meets gaussian splatting: Fast and generalizable single-
+     Proceedings of Advances in Neural Information Processing
+                                                                          view 3d reconstruction with transformers. arXiv preprint
+     Systems (NeurIPS), 34:25476–25488, 2021. 2
+                                                                          arXiv:2312.09147, 2023. 3
+[91] Tianhe Yu, Deirdre Quillen, Zhanpeng He, Ryan Julian,
+                                                                    [103] Sicheng Zuo, Wenzhao Zheng, Yuanhui Huang, Jie Zhou,
+     Karol Hausman, Chelsea Finn, and Sergey Levine. Meta-
+                                                                          and Jiwen Lu. Gaussianworld: Gaussian world model
+     world: A benchmark and evaluation for multi-task and meta
+                                                                          for streaming 3d occupancy prediction. In Proceedings of
+     reinforcement learning. In Conference on Robot Learning
+                                                                          Conference on Computer Vision and Pattern Recognition
+     (CoRL), pages 1094–1100, 2020. 5, 6
+                                                                          (CVPR), pages 6772–6781, 2025. 2
+[92] Yanjie Ze, Ge Yan, Yueh-Hua Wu, Annabella Macaluso,
+     Yuying Ge, Jianglong Ye, Nicklas Hansen, Li Erran Li, and
+     Xiaolong Wang. Gnfactor: Multi-task real robot learning
+     with generalizable neural feature fields. In Conference on
+     Robot Learning (CoRL), pages 284–301. PMLR, 2023. 2,
+     3
+   GWM: Towards Scalable Gaussian World Models for Robotic Manipulation
+                                                                                                                        Supplementary Material
+A. Datasets and Benchmarks                                                                                                             Table A2. Hyper-parameters of the Imitation Learning experi-
+                                                                                                                                       ments.
+Robocasa. The dataset consists of robot manipulation data
+extracted from the MuJoCo simulation environment using                                                                                   Hyper-parameter                                         Value
+a Franka Emika Panda robot, with a focus on kitchen sce-
+narios. For our experiments, we used the Human-50 (H-50)                                                                                 Policy Embedding dimension                              512
+and Generated-3000 (G-3000) datasets provided by Robo-                                                                                   Number of transformer layers                            6
+Casa, which are automatically generated using MimicGen                                                                                   Number of attention heads                               8
+[55] based on human demonstrations. The benchmark in-                                                                                    Context length                                          10
+cludes 24 atomic tasks, as detailed in Table 2.                                                                                          Activation                                              GELU
+Metaworld. MetaWorld is a commonly used benchmark                                                                                        Algorithm                                               Behavioral Cloning
+for meta-reinforcement learning and multi-task learning. It                                                                              Batch size                                              16
+consists of 50 distinct robotic manipulation tasks involv-                                                                               Learning rate                                           1e-4
+ing a Sawyer robot arm in simulation. The observation                                                                                    Optimizer                                               AdamW
+is an RGB image of size 64 × 64, and the action is a 4-                                                                                  L2 regularization                                       0.01
+dimensional continuous vector.
+                                                                                                                                         Number of atomic tasks                                  24
+Table A1. Hyper-parameters of the model-based RL experiments.                                                                            Training data                                           50 demos per task
+                                                                                                                                         Frame stack                                             10
+ Model-based RL         Hyper-parameter                                                                                    Value
+                        Init rollout batch size                                                                            640
+                        Interval                                                                                           200 steps   where σdata = 0.5. The noise parameter σ(τ ) is sampled
+ Rollout Phase
+                        Batch size                                                                                         32          to maximize the effectiveness of training as follows:
+                        Horizon                                                                                            10
+                        Init training steps                                                                                1000                        \log (\sigma (\tau ))\sim \mathcal {N}(P_{mean}, P_{std}^2),    (A5)
+                        world model training interval                                                                      10 steps
+                        Batch size                                                                                         16          where Pmean = −0.4, Pstd = 1.2.
+                        Sequence length                                                                                    12
+                        Context frames                                                                                     2           B.2. Architectural Design
+ Training phase         Prediction horizon per inference                                                                   1
+                        Learning rate                                                                                      1 × 10−4
+                                                                                                                                       The variational autoencoder employs a transformer-based
+                        Optimizer                                                                                          AdamW       architecture with point embedding for encoding point cloud
+                                                                                                                                       inputs. It uses farthest point sampling to downsample the
+                                                                                                                                       original point cloud (N = 2048) to a manageable number
+                                                                                                                                       of latent points (M = 512), followed by a series of self-
+B. Implementation Details                                                                                                              attention and cross-attention blocks. For the probabilistic
+                                                                                                                                       variant, the encoder outputs mean and logvar parameters to
+B.1. EDM Preconditioning
+                                                                                                                                       sample latent vectors through the reparameterization trick,
+As mentioned in Section 3.2, we list the preconditioners                                                                               with an optional KL divergence regularization term. The
+here that are designed to improve network training [33]:                                                                               diffusion model Dθ is structured as a Vision Transformer
+                                                                                                                                       (DiT), processing pointmap patches through multiple trans-
+                     c_{in}^\tau = \frac {1}{\sqrt {\sigma (\tau )^2 + \sigma _{data}^2}}                                       (A1)   former blocks with adaptive layer normalization (adaLN)
+                                                                                                                                       for conditioning on timesteps and actions. The input con-
+                                                                                                                                       sists of stacked current, noisy next observations, time em-
+                    c_{out}^\tau = \frac {\sigma (\tau )\sigma _{data}}{\sqrt {\sigma (\tau )^2 + \sigma _{data}^2}}            (A2)   bedding, and the current action embedding. The model pre-
+                                                                                                                                       dicts the denoised next state according to EDM formula-
+                                                                                                                                       tion. The reward model Rψ combines convolutional en-
+                          c_{noise}^\tau = \frac {1}{4}\log (\sigma (\tau ))                                                    (A3)   coding with sequential modeling, consisting of ResBlocks
+                                                                                                                                       with optional attention layers followed by an LSTM. The
+                                                                                                                                       encoder processes pairs of observations (current and next
+                     c_{skip}^\tau = \frac {\sigma _{data}^2}{\sigma _{data}^2 + \sigma ^2(\tau )},                             (A4)   states) while conditioning on embedded actions, and the
+LSTM captures temporal dependencies before final reward
+prediction through an MLP head. Before inference, the
+LSTM hidden states are initialized through a burn-in pro-
+cedure with conditioning frames.
+B.3. Hyper-parameters
+The hyper-parameters of the Robocasa and Metaworld ex-
+periments are listed in Table A2 and Table A1, respectively.
+

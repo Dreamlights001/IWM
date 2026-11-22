@@ -1,0 +1,31 @@
+{
+  "id": "P92",
+  "slug": "InstaScene",
+  "arxiv_id": "2507.08416",
+  "family": "segmentation",
+  "source_url": "https://arxiv.org/abs/2507.08416",
+  "accessed": "2026-11-11",
+  "title": "InstaScene: Towards Complete 3D Instance Decomposition and Reconstruction from Cluttered Scenes",
+  "authors": [
+    "Yang, Zesong",
+    "Yang, Bangbang",
+    "Dong, Wenqi",
+    "Cao, Chenxuan",
+    "Cui, Liyuan",
+    "Ma, Yuewen",
+    "Cui, Zhaopeng",
+    "Bao, Hujun"
+  ],
+  "publication_date": "2025/07/11",
+  "submitted_date": "2025/07/21",
+  "abstract": " Humans can naturally identify and mentally complete occluded objects in cluttered environments. However, imparting similar cognitive ability to robotics remains challenging even with advanced reconstruction techniques, which models scenes as undifferentiated wholes and fails to recognize complete object from partial observations. In this paper, we propose InstaScene, a new paradigm towards holistic 3D perception of complex scenes with a primary goal: decomposing arbitrary instances while ensuring complete reconstruction. To achieve precise decomposition, we develop a novel spatial contrastive learning by tracing rasterization of each instance across views, significantly enhancing semantic supervision in cluttered scenes. To overcome incompleteness from limited observations, we introduce in-situ generation that harnesses valuable observations and geometric cues, effectively guiding 3D generative models to reconstruct complete instances that seamlessly align with the real world. Experiments on scene decomposition and object completion across complex real-world and synthetic scenes demonstrate that our method achieves superior decomposition accuracy while producing geometrically faithful and visually intact objects.",
+  "submission_history": "Submission history From: Zesong Yang [ view email ] [v1] Fri, 11 Jul 2025 08:57:45 UTC (18,340 KB) [v2] Mon, 21 Jul 2025 12:20:18 UTC (7,736 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2507.08416v2",
+  "local_pdf": "papers/P92_InstaScene_2507.08416v2.pdf",
+  "sha256": "c2b793e79beea77f183d5c2c9cd4e2e1889386331eebfcc3846f144c989598ad",
+  "bytes": 8782794,
+  "pages": 11,
+  "text_file": "research/P92_InstaScene.txt",
+  "status": "downloaded_and_text_extracted"
+}

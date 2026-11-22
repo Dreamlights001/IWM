@@ -1,0 +1,634 @@
+                                             Multi-Agent Framework Leveraging Knowledge
+                                              Graphs for Virtual Commissioning Models
+                                                   Max Diekmann ∗†‡ , Jonas Nitzler ∗ , Jan Fischer∗ , Hans-Jürgen Pfisterer§ , Dirk Hartmann ∗†
+                                                                                         ∗ Siemens AG, Munich, Germany
+                                                                            † Technical University of Darmstadt, Darmstadt, Germany
+                                                                       § University of Applied Sciences Osnabrück, Osnabrück, Germany
+                                                                              ‡ Corresponding author: max.diekmann@siemens.com
+
+
+
+                                           Abstract—Virtual commissioning models (VCMs) of discrete          gineers to test sequences, signals, and machine interactions
+                                        manufacturing systems are used to validate automation behavior       before commissioning the real system. In this paper, a VCM is
+                                        before physical deployment, but creating and maintaining them
+arXiv:2606.03255v1 [cs.CE] 2 Jun 2026
+
+
+
+
+                                                                                                             understood as an offline, pre-deployment virtual representation
+                                        remains labor-intensive. Relevant engineering information is dis-
+                                        tributed across programmable logic controller (PLC) engineering      for commissioning support and is therefore distinct from a
+                                        projects such as Siemens TIA Portal and kinematic simulation         runtime digital twin, which requires ongoing synchronization
+                                        models such as Siemens NX Mechatronics Concept Designer              with a physical asset [4], [5]. Despite their practical rel-
+                                        (NX MCD), where it is stored in tool-specific, incompatible          evance, the development of VCMs remains labor-intensive
+                                        data structures. In practice, block-structured IEC 61131-3-based     because the required engineering knowledge is split across
+                                        PLC programs and variables are engineered separately from
+                                        rigid-body and kinematic simulation objects such as parts,           programmable logic controller (PLC) engineering environ-
+                                        joints, sensors, and actuators. As a result, understanding system    ments and kinematic simulation tools, each with tool-specific
+                                        behavior, generating simulation components, and mapping PLC          control and simulation data schemas [3]. A central technical
+                                        variables to corresponding control-relevant simulation objects       challenge is integrating information across two disconnected
+                                        require cross-domain expertise and remain largely manual.            engineering environments: automation logic development and
+                                        This paper presents a knowledge-graph-grounded multi-agent
+                                        framework for semi-automated support of VCM development.             simulation modeling [6]. In industrial practice, PLC software
+                                        A deterministic setup process systematically extracts structured     is created using block-structured programs under IEC 61131-
+                                        data from Siemens TIA Portal and Siemens NX MCD and                  3 [7], whereas rigid body simulation models are built in
+                                        transforms both sources into graph-based representations in a        tools such as Siemens NX Mechatronics Concept Designer
+                                        shared graph database. The framework utilizes a hierarchical         (NX MCD) using object-oriented component hierarchies. As
+                                        multi-agent architecture to support three selected task classes in
+                                        early-stage VCM development: system understanding, simulation        a result, information relevant for VCM development is frag-
+                                        component generation, and cross-domain signal mapping. For           mented across software environments. Expert engineers must
+                                        these tasks, the framework provides grounded natural-language        therefore manually interpret PLC programs and variables, trace
+                                        access to engineering knowledge, template-guided generation of       their usage, identify corresponding control-relevant simulation
+                                        executable NX Open journal scripts, and ranked mapping sug-          objects, and create simulation components such as sensors and
+                                        gestions between PLC variables and NX MCD simulation objects.
+                                        The approach was evaluated on a laboratory-scale discrete man-       actuators across tool boundaries. This process requires expert-
+                                        ufacturing system. The results demonstrate that transforming         level cross-domain knowledge [8] and becomes particularly
+                                        engineering data into an agent-accessible and interaction-ready      demanding in early development phases or for users who are
+                                        representation can reduce manual cross-domain interpretation         not yet familiar with the system structure [3].
+                                        effort and make recurring VCM engineering tasks more directly           Recent research offers foundational building blocks for
+                                        actionable. The contribution of this work lies in integrating
+                                        structured extraction, graph-based knowledge representation,         addressing this problem, but not yet an integrated solution
+                                        and agent-based task execution into a unified assistance workflow    for the present use case. Knowledge graphs have demon-
+                                        for semi-automated VCM development.                                  strated potential for structuring and linking heterogeneous
+                                           Index Terms—digital twin, virtual commissioning, knowledge        industrial information and for enhancing intelligent digital
+                                        graph, retrieval-augmented generation, multi-agent system, large     representations of technical systems [9]. At the same time,
+                                        language model
+                                                                                                             large language models (LLMs) and multi-agent systems are
+                                                                                                             increasingly explored as methods to support engineering and
+                                                              I. I NTRODUCTION
+                                                                                                             digital-twin-related workflows through natural language inter-
+                                            Virtual commissioning models (VCMs) of discrete manu-            action, retrieval support, and task decomposition [8], [10].
+                                        facturing systems [1] are an established means of validating         However, existing approaches typically focus either on seman-
+                                        automation software before physical deployment and thereby           tic data integration or on artificial intelligence (AI)-assisted
+                                        reducing commissioning effort, risk, and iteration time in man-      engineering support in isolation. This paper addresses the
+                                        ufacturing systems [2], [3]. In discrete manufacturing, VCMs         gap between combining PLC engineering data and simulation
+                                        combine control logic, mechanical structure, and simulation-         data by proposing a knowledge-graph-grounded multi-agent
+                                        relevant behavior in an offline environment that enables en-         framework for semi-automated support of VCM development
+in discrete manufacturing. The framework first applies a deter-     sources, modelling aspects, or toolchains [3]. Closely related
+ministic extraction (Phase I - setup) and integration process to    work on digital twins highlights the broader relevance of
+structured data from Siemens TIA Portal and Siemens NX              executable and simulation-based virtual representations across
+MCD and then uses a hierarchical multi-agent architecture           the lifecycle of industrial systems [5], [11], while application-
+(Phase II interaction) on top of the resulting graph-based rep-     oriented studies on 3D models and Siemens NX MCD demon-
+resentation layer to support three task classes: system under-      strate the practical value of simulation environments for manu-
+standing, simulation component generation, and cross-domain         facturing processes and control validation [12], [13]. However,
+signal mapping. More specifically, the framework provides (1)       these approaches generally assume that relevant simulation
+grounded natural-language access to engineering knowledge,          structures or engineering assets are already available in usable
+(2) template-guided generation of NX Open journal scripts for       form, leaving open how PLC - and simulation- engineering
+simulation components, and (3) ranked mapping suggestions           knowledge can be systematically integrated for VCM devel-
+between PLC variables and NX MCD objects.                           opment. A second relevant strand concerns the integration
+   We selected these three task classes because they represent      of heterogeneous engineering knowledge. Knowledge graphs
+three recurring requirements in early stage VCM development.        have been proposed as an effective representation for entities,
+In this phase, relevant engineering information is distributed      relations, and dependencies across engineering domains while
+across PLC engineering data and simulation model data, while        supporting semantic querying and reasoning [9], [13], [14].
+the latter is often available only as static 3D computer-           Standardized approaches such as AutomationML and the Asset
+aided-design (CAD) geometry rather than as a configured             Administration Shell target interoperable engineering data
+simulation model. System understanding therefore forms a            exchange and digital asset representation [15], [16]. In con-
+necessary starting point for identifying relevant program struc-    trast, this work focuses on direct extraction from proprietary
+tures, variables, and mechanical components. On that basis,         tool instances and their transformation into a graph-based
+simulation components can be generated in a targeted manner         representation tailored to concrete VCM tasks. Prior work
+from the available geometric representation. Once automation,       has also shown that knowledge graphs can support tasks such
+- and simulation elements are available in a usable form,           as simulation reuse, synchronization, and automatic kinematic
+cross-domain signal mapping becomes a further essential task.       model generation [17]. More recent studies further explore
+The selected task classes were therefore intended to cover a        the use of LLMs to construct or enrich digital-twin-related
+representative sequence of early-stage VCM activities rather        knowledge graphs in domain-specific settings [18], [19]. Still,
+than the full VCM workflow.                                         most of these approaches focus on semantic integration and
+   The main contributions of this work are threefold. First,        knowledge management rather than on VCM-specific support
+we present a structured extraction and integration pipeline         for simulation component generation or cross-domain signal
+that transforms heterogeneous PLC and kinematic engineering         mapping.
+data into a graph-based knowledge representation. Second, we           A third strand of related work addresses retrieval-augmented
+introduce a multi-agent framework that leverages retrieval,         generation (RAG), graph-based retrieval (graphRAG), and
+reasoning, and component generation for these three task            multi-agent systems for digital-twin-related tasks. RAG has
+classes. Third, we evaluate the approach on a laboratory-           emerged as an effective strategy for grounding LLM outputs
+scale discrete manufacturing system and demonstrate its fea-        in external knowledge [20]–[22]. Recent work on graphRAG
+sibility across all three tasks. The remainder of this paper        shows that knowledge graphs improve retrieval and support
+is structured as follows. Sec. II reviews related work on           reasoning over entity-relation data [23], [24]. In parallel, multi-
+virtual commissioning-related frameworks, knowledge graphs,         agent systems are increasingly used to decompose digital-twin-
+and agent-based engineering support. Sec. III describes the         related workflows into specialized reasoning, coordination,
+methodology. Sec. IV presents the results. Sec. V concludes         and interaction functions [10], [25]. Additional studies show
+the findings, limitations, and implications for future research     that LLM-driven digital twin architectures can integrate multi-
+and engineering practice.                                           modal data, capture temporal system characteristics, and main-
+                                                                    tain traceability in application-specific settings [26]. Recent
+                     II. R ELATED W ORK                             PLC-focused agentic LLM systems further indicate growing
+   Research relevant to this paper lies in existing virtual com-    interest in AI support for industrial engineering, but they
+missioning approaches, semantic industrial data integration,        primarily focus on engineering assistance within TIA Portal
+and AI-supported engineering assistance. Virtual commission-        e.g. on PLC code generation and verification [27], [28].
+ing is widely recognized as an effective means of validating           Recent advances in digital-twin-related AI increasingly
+automation behavior before physical deployment and of reduc-        address retrieval, orchestration, and system intelligence, but
+ing commissioning effort in manufacturing systems [2]. At the       largely remain at the architectural level rather than targeting
+same time, prior reviews identify kinematic simulation model        virtual commissioning engineering assistance specifically. This
+creation as a major obstacle to broader industrial adoption,        paper addresses the gap by extracting structured knowledge
+since the generation still requires substantial effort and domain   from Siemens TIA Portal and Siemens NX MCD, integrating
+expertise [3]. Existing automatic and semi-automatic simula-        it into a knowledge graph database, and employing a multi-
+tion generation approaches are typically tied to specific data      agent framework to support system understanding, simulation
+component generation, and cross-domain signal mapping in             sources and construct two knowledge graphs that preserve PLC
+semi-automated VCM workflows.                                        interconnections and the NX MCD hierarchy. On this basis, we
+                                                                     implement a graphRAG-enabled multi-agent system to support
+                      III. M ETHODOLOGY
+                                                                     the three evaluated task classes.
+    This section provides an overview of the methodology, the
+utilized data sources and their analysis, followed by the applied      inputs
+                                                                                             TIA Portal                     NX MCD
+data extraction pipelines to the automatic knowledge graph                                     project                   kinematic model
+creation. Data retrieval pipeline and the multi-agent architec-
+ture are described in the last two subsections, respectively.          phase I:           deterministic PLC        deterministic NX MCD
+                                                                        setup              logic extraction         kinematic extraction
+A. Study Design and System Overview
+   The manufacturing system under study is the Festo Didactic         phase II:                 knowledge graphs + graphRAG +
+                                                                     interaction                  three-tier multi agent system
+CP Factory [29], a modular, laboratory-scale production plat-
+form in which workpiece carriers transport an assembly along
+a conveyor-based line through a series of application stations.                      grounded natural-        NX Open        ranked PLC-to-NX
+                                                                       outputs
+To ground the evaluation queries in the physical system, Fig. 1                      language response         journal       mapping suggestions
+shows the first station module. It contains a stacking shaft
+holding front or back shells, a lifting cylinder that lowers to                 human-in-the-loop: final engineering acceptance before deployment
+deposit a shell onto a passing workpiece carrier, a separation
+cylinder that releases one shell at a time, and a stopper cylinder
+that halts the incoming carrier. Detection is handled by sensors     Figure 2. Two-phase methodology pipeline. Phase I (setup) runs deterministic
+                                                                     extraction and graph preparation scripts from Siemens TIA Portal and NX
+signaling magazine-empty state, carrier presence, and shell          MCD. Phase II (interaction) runs the multi-agent integration and produces
+type. These physical roles are what the queries in Tab. III          three outputs: grounded natural-language responses, NX Open journals, and
+probe across the three use cases.                                    ranked PLC-to-NX mapping suggestions.
+
+
+                                                                     B. PLC Logic Extraction from Siemens TIA Portal
+                                                                         This subsection describes deterministic preprocessing that
+                                                                     prepares PLC metadata for the later multi-agent interaction.
+                                                                     The extraction process targets PLC projects implemented in
+                                                                     IEC 61131-3 compliant languages, with particular focus on
+                                                                     the block-oriented program structures commonly used in TIA
+                                                                     Portal. The relevant logic is contained in organization blocks
+                                                                     (OBs), function blocks (FBs), and functions (FCs). In addition
+                                                                     to block-level information, the extraction pipeline captures
+                                                                     input and output variables, internal variables, and call relations
+ Z                                                                   between networks. For compact notation in the following
+     Y                                                               algorithm, let P denote the TIA Portal project, X the exported
+      X                                                              XML representation, T the global PLC tags, D the data blocks,
+                                                                     B the logic blocks (FB/FC/OB), and N the extracted network
+          Figure 1. Overview of the manufacturing under study
+                                                                     collection.
+                                                                        Alg. 1 then summarizes the extraction workflow as P →
+                                                                     X → T, D, B → N → (T, D, B, N ): the project P is
+   This work is a design and validation study of our framework       exported to XML X, from which T , D, B are extracted; N is
+for supporting VCM. To separate deterministic preprocessing          then initialized and populated by parsing each block network
+from multi-agent implementation, the workflow is organized           into its constituent elements (header, access, parts, and wires),
+into two phases, see Fig. 2. Phase I (setup phase) executes          after which (T , D, B, N ) is serialized for knowledge graph
+deterministic extraction and graph-construction scripts once         ingestion.
+per revision, see Sec. III-B - Sec. III-D. Phase II (interaction        Language-specific parsing is then applied per block, see
+phase) addresses the multi-agent integration on top of the           Alg. 2. Following IEC 61131-3 terminology, LAD denotes
+prepared graph representation, see Sec. III-E.                       Ladder Diagram, FBD Function Block Diagram, SCL Struc-
+   Our framework boundary comprises two inputs and three             tured Control Language, and STL Statement List. LAD/FBD
+task classes. Input 1 is a Siemens TIA Portal V19 project            are processed as graphical networks by traversing parts (logic
+containing PLC control logic. Input 2 is a Siemens NX MCD            element within a network) and wires (connecting logic ele-
+kinematic model, which may be empty, partially configured,           ments within a network). SCL/STL are retained as original
+or populated with mechanical components, joints, sensors,            source code in a dedicated code attribute rather than deeply
+and control interfaces. We extract structured data from both         parsed at this stage. This preserves structural and semantic
+Algorithm 1 TIA Portal data extraction pipeline                       of the extraction is not to reproduce the full graphical layout of
+Input: TIA Portal project file P                                      TIA Portal networks, but to preserve the subset of information
+Output: Extracted TIA variables T, D, blocks B, and networks N        that is required for querying and reasoning about program
+    initialize extraction :                                           behavior.
+ 1: X ← OpennessAPI.ExportToXML(P )
+ 2: T ← ExtractPLCTags(X)                                             C. Kinematic Model Extraction from Siemens NX MCD
+ 3: D ← ExtractDataBlocks(X)
+ 4: B ← ExtractLogicBlocks(X)
+                                                                         This subsection deterministically extracts kinematic meta-
+ 5: N ← ∅                                                             data to prepare graph structured input. Kinematic data is
+    loop process                                                      accessed from the Siemens NX MCD model of the manufac-
+ 6: for each block b ∈ B do                                           turing system through the NX Open API at assembly level.
+ 7:     componentData.block ← ExtractBlockMetadata(b)
+ 8:     compileU nits ← ExtractCompileUnits(b)
+                                                                      We therefore implemented a dedicated extraction pipeline
+ 9:     for each unit cu ∈ compileU nits do                           for Siemens NX MCD to transform the proprietary, object-
+10:         header ← ExtractNetworkHeader(cu)                         oriented representation into a semantically structured interme-
+11:         access ← ExtractNetworkAccess(cu)
+12:         parts ← ExtractNetworkParts(cu)
+                                                                      diate format suitable for knowledge graph integration.
+13:         wires ← ExtractNetworkWires(cu)                              The extraction process targets components that are relevant
+14:         network ← CombineNetworkElements(header, access,          for VCM creation and cross-domain reasoning. These include
+15:             parts, wires)
+16:         componentData.networks.append(network)
+                                                                      structural components and ownership relations and, where
+17:     end for                                                       available, rigid bodies, joints, actuators, and sensors. Together,
+18:     N ← N ∪ {componentData}                                       these elements represent the physical organization and motion-
+19: end for
+20: return T, D, B, N
+                                                                      enabling constraints of the manufacturing system and define
+                                                                      the simulation objects to be linked to PLC signals and control
+                                                                      logic.
+integrity for downstream agent-based interpretation. Nested              The pipeline follows six steps: (1) load the NX MCD
+calls are resolved recursively across FB/FC boundaries and            assembly, (2) traverse the component hierarchy from root
+stored as explicit call dependencies.                                 assemblies to leaf elements, (3) register category-specific
+   For each PLC block, the extraction pipeline stores block           observers in an observer registry, (4) extract metadata per
+identifier, block type, parent-child relation, interface variables,   category during traversal, (5) preserve ownership and struc-
+referenced variables, and call dependencies. For each variable,       tural relations between extracted objects, and (6) serialize the
+the pipeline stores symbolic name, datatype, comment, and             resulting metadata into JSON for graph integration.
+block affiliation (e.g. input, output or DB variable). The return        As illustrated in Fig. 3, the observer-based extraction archi-
+of the metadata is a structured JSON format.                          tecture selects category-specific metadata. Our architecture is
+                                                                      open to extensibility: new NX MCD component types can be
+Algorithm 2 TIA Portal logic data extraction pipeline                 integrated by adding dedicated observers without modifying
+Input: XML data X                                                     the traversal logic.
+Output: Extracted logic blocks B
+    initialize :                                                       ExtractionManager
+                                                                                                         connectTo()
+                                                                                                       connectsTo()
+ 1: B ← ∅                                                                               initialize()
+                                                                                       initialize()                                                               parallel data
+    iterate logic blocks                                                                                                                                           extraction
+                                                                                                                                                              part                relay
+                                                                                ObserverRegistry                                                                        joint
+ 2: for each block b ∈ X.f indall(SW.Blocks.*) do                                                                                                            extract
+                                                                                                                                                                       extract
+                                                                                                                                                                                 extract
+                                                                                                                          extractDataFrom()
+                                                                                                                             extractAllData()
+ 3:     language ← DetermineLanguage(b)                                           PartObserver → NXOpen::Part
+                                                                                                                                                             bodies              surface
+                                                                           RigidBodyObserver → RigidBody                                                     extract             extract
+        choose parsing strategy                                         CollisionBodyObserver → CollisionBody
+                                                                                                                                         toJSON()
+                                                                                                                                        toJSON()
+
+ 4:     if language = LAD ∨ language = FBD then                        CollisionSensorObserver → CollisionSensor
+ 5:         parsed ← ExtractGraphicalLanguage(b)                                                                        part      rigidBody          joint   transportSurface relay
+                                                                                RelayObserver → Relay
+                                                                                                                       name       name              name      name                name
+ 6:     else if language = SCL then                                              JointObserver → Joint
+                                                                                                                       tag        tag               tag       tag                 tag
+ 7:         parsed ← ExtractSCLCode(b)                                 PositionControlObserver → PositionControl       position   owner             owner     owner               owner
+ 8:     else if language = STL then                                   TransportSurfaceObserver → TransportSurface      rotation   ...               ...       ...                 ...
+
+ 9:         parsed ← ExtractSTLCode(b)
+10:     end if
+11:     B.append(parsed)                                              Figure 3. Architectural overview of the NX MCD data extraction pipeline,
+12: end for                                                           illustrating the component-category observer that executes parallel extraction
+13: return B                                                          of key attributes from component classes into a JSON-format.
+
+  The extraction has three relevant limitations. First, com-             As in the PLC extraction pipeline, this step preserves task-
+ments and free-text annotations are not consistently available        relevant semantics rather than reconstructing the full internal
+across projects and are therefore only used when present.             state of the authoring environment. It captures only the kine-
+Second, vendor specific blocks are captured syntactically but         matic entities and relations required for the downstream VCM
+may not be fully accessible and normalized semantically.              tasks evaluated in this study. Highly tool-specific configuration
+Third, interpretation quality for signal intent can still depend      details that do not contribute to these tasks are intentionally
+on naming quality and project-specific conventions. The goal          abstracted.
+D. Knowledge Graph Creation and Schema                                         data type, address, network language, name and comment) and
+    This subsection deterministically enables joint retrieval                  NX MCD attributes (such as tag, position, rotation, speed,
+across both engineering domains, then extracted metadata are                   ownership, name and comment) are attached to the resulting
+transformed into two knowledge graphs in one database.                         nodes as properties. Third, functional relations are instantiated
+   We implemented the knowledge graphs in Neo4j Graph                          explicitly as edges, see Fig. 4 and Fig. 5.
+Database [30] because TIA and NX MCD data are hetero-                             Explicit cross-domain mappings between automation vari-
+geneous, hierarchical, and highly relational. Its property-graph               ables and NX MCD simulation objects are not assumed to be
+model natively captures typed entities, relations, and attributes.             fully known a priori but are instead addressed as part of the
+Neo4j property graph data model enables multi-hop Cypher                       downstream signal mapping task.
+execution to utilize graphRAG [30].
+   Formally, the graphs are implemented as a labelled property-                                         Kinematic domain induced subgraph (NX MCD)
+
+graph structure [31]
+                                                                                     HAS CHILD                          MCDPart               HAS PHYSIC                 MCDPhysic
+                           G = (V, E, Φ, Ψ, λ),                                                                        StopperUnit                                       RB Stopper
+
+where V denotes the finite set of entities (nodes), E the finite                     MCDPart
+                                                                                                                                               HAS JOINT                HAS JOINT
+                                                                                   MagazineStation
+set of entities (edges), Φ : E → V × V maps each edge to
+its incident node pair, Ψ : V ∪ E → P(L) assigns labels to                                                            MCDActuator            HAS CONTROL                  MCDJoint
+nodes and edges, and λ : (V ∪ E) × K → N assigns property                                                              A Stopper                                          J Stopper
+
+values to graph objects. Here, L is the finite set of labels, K
+the set of property keys, and N the set of property values.
+The overall node set is defined as the union of the automation                 Figure 5. Representative induced subgraph from the NX MCD domain
+                                                                               showing structural and control-relevant relation types used for retrieval.
+and kinematic domain entities,
+                            Vsys = Vaut ∪ Vkin ,
+                                                                               E. Knowledge Retrieval and Agent Orchestration
+with
+                 Vaut = Vvariables ∪ Vblocks ∪ Vnetworks ,                       The multi-agent system was implemented using an open-
+and                                                                            source framework LangChain [32] as orchestration layer and
+                                                                               GPT-4o [33] as the underlying language model for all LLM-
+   Vkin = Vparts ∪ Vbodies ∪ Vsensors ∪ Vjoints ∪ Vactuators .                 based agents. LangChain was chosen as a pragmatic im-
+The edge set is defined analogously as                                         plementation framework because it provides modular agent
+                                                                               composition, tool integration, and controlled task routing [32],
+                           Esys = Eaut ∪ Ekin ,                                [34]. Other multi-agent frameworks are not compared in this
+where Eaut captures automation logic dependencies such as                      work.
+variable usage and block calls, and Ekin captures structural                                                          supervisor agent                                     orchestrator
+and simulation relations such as hierarchy, joint assignment,                  delegation                                                               information
+and control attachment.                                                        flow                                                                            flow
+                                                                                                                                                                      coordinates and
+                                                                                                                                                                      delegates tasks
+                                                                                                                                  S                                   across all agents
+                   Automation domain induced subgraph (TIA)
+                                                                                                sparring agent                        signal mapping agent                    partner
+
+      TIAInput                                                 TIABlock
+                                                                                                                         delegates
+                                                                                                                          delegate                                    works with
+      xCL BG5                                                 FB Magazine                                                                                             supervisor and other
+                                                                                                                                                                      agents for reasoning,
+                    USED IN                     PART OF                                                          SP                              SM                   mapping, or
+                                                                                                                                                                      interactive support
+                                 TIANetwork                                                                                                                                  supporter
+                                  NW 120
+                                                                                                         calls
+                                                                                                          call                               calls
+                                                                                                                                              call                    provides specialized
+                    USED IN                      CALLS                                                                                                                services such as
+                                                                                                                                                                      data export, access
+                                                                                          E     .xlsx                          N4                              T      knowledge graph, and
+   TIAOutput                                                    TIABlock         export agent                           graph agent                   track agent     activity tracking
+     xMB1                                                     FC StationCtrl
+
+
+                                                                               Figure 6. Agent roles and interaction pathways in the multi-agent system,
+Figure 4. Representative induced subgraph from the PLC domain showing          illustrating orchestration, collaboration, and specialist support among agents.
+typed node classes and edge types used for retrieval.                          Arrows indicate task and data flows.
+
+   The graph construction follows three sequential steps. First,                  Our role decomposition follows a hierarchical multi-agent
+the normalized metadata produced by the TIA and NX MCD                         coordination pattern known from manufacturing multi-agent
+extraction pipelines are transformed into graph entities using                 systems [35], where a central coordinator interacts with spe-
+deterministic mapping rules. Second, TIA attributes (such as                   cialized operational agents and additional supporting roles. We
+propose a three-tier architecture, see Fig. 6, with separation              passed to downstream agents. GraphRAG is used instead of
+into orchestrator, partner, and supporter tiers. The orchestrator           vector-only retrieval because the knowledge is represented as
+tier contains the supervisor agent for task classification and              structured entities and typed relations. The evaluated tasks
+routing. The partner tier contains the sparring agent and the               require deterministic access to block-call, variable-usage, and
+signal mapping agent, which transform retrieved engineering                 ownership relations through schema-constrained graph queries
+context into task-specific outputs. The supporter tier contains             rather than retrieval based primarily on semantic similarity.
+the graph agent, export agent, and track agent, which provide                  The signal mapping agent uses retrieved graph context and
+graph retrieval, output serialization, and runtime logging.                 returns ranked candidate lists of NX MCD objects for a given
+   Delegation is top-down following insights from [35], while               PLC variable using lexical, type-based, and structural cues.
+results and execution status propagate upward. Agent memory                 The export agent serializes output into tabular formats, while
+is scoped to the current request context; no persistent cross-              the track agent records execution time and token usage.
+request memory is used in this study.
+                                                                            F. Evaluation Protocol
+                                 Table I
+     M AIN FRAMEWORK COMPONENTS AND THEIR TASK - SPECIFIC                      This evaluation covers the three task classes introduced
+                        INTERFACES .                                        in Sec. I. Output quality was assessed for correctness, com-
+                                                                            pleteness, and grounding. Grounding required that each output
+ Component         Input                   Output
+                                                                            claim be supported by the retrieved graph context and contain
+ PLC extraction    TIA Portal XML          JSON (metadata)                  no unsupported technical facts, as verified by a domain expert
+                   export
+ NX MCD ex-        NX MCD assem-           JSON (simulation components)     familiar with the laboratory manufacturing system. Table III
+ traction          bly                                                      lists the evaluation set query used for the three use case groups.
+ graph transfor-   PLC and NX MCD          graph nodes, properties, and
+ mation            JSON                    edges
+ supervisor        user request            delegated task description                                  Table III
+ agent
+                                                                             E VALUATION QUERY SET USED IN THE PROTOCOL ACROSS UC1–UC3.
+ graph agent       task description        structured graph context
+                   and graph schema
+ sparring agent    graph context           NX Open journal script              Acro    Questions
+ signal mapping    graph context (both     ranked mapping table & NX
+ agent             domains)                Open journal                      UC1.Q1    Which component detects if the magazine is empty?
+ export agent      structured result       text response and table           UC1.Q2    What variable activates the conveyor belt motor?
+                   objects                                                   UC1.Q3    What controls the cylinder of the stopper?
+ track agent       agent execution         token usage and execution time    UC1.Q4    What TIA variable enables inch-travel mode of the DC motor?
+                   state                   logs                              UC1.Q5    Which outputs command separator close and separator open,
+                                                                                       and in which networks are those outputs written?
+                                                                             UC1.Q6    Which networks use xCL BG7 (pallet available) and
+   The selected LLM settings were determined empirically                               xCL BG8 (front cover available), and where are both vari-
+during development to obtain stable behavior for the evaluated                         ables evaluated?
+engineering tasks. Tab. I summarizes the task-specific inputs                UC1.Q7    What does it mean, when TIA Variable %Q1.1 is TRUE?
+                                                                             UC1.Q8    List all Festoplant MCD actuators, the joint each controls,
+and outputs of all framework components. The parameters of                             and their position/speed properties, then return a table.
+the selected LLM are reported in Tab. II for transparency.                   UC1.Q9    Rank all variables (TIA and MCD) by distinct usage, return
+                                                                                       name, ID, domain, block calls, and networks usage, then
+                                                                                       export to Excel.
+                          Table II
+    LLM- RELATED CONFIGURATION OF THE IMPLEMENTED AGENT                      UC2.Q1    Generate a NX MCD component for the mapped sensor
+                        WORKFLOW.                                                      corresponding to CL BG5.
+                                                                             UC2.Q2    Generate a NX MCD component for the rigid body
+                                                                                       RB Stopper as a linear lifting cylinder along the Z-axis.
+          Agent                   Temperature       Max tokens
+                                                                             UC2.Q3    Find the TIA component indicating the magazine lifting cylin-
+          supervisor agent            0.30              4096                           der is in the upper position, then generate the corresponding
+          sparring agent              0.05              4096                           NX MCD component from it.
+          signal mapping agent        0.20              4096
+                                                                             UC3.Q1    Map the TIA Variable xCL BG5 to an NX MCD sensor.
+          graph agent                 0.10              4096
+                                                                             UC3.Q2    Map the TIA Variable xMB1 to an NX MCD actuator.
+          export agent                0.15              4096
+                                                                             UC3.Q3    Map TIA variable xCL BG1 to the most likely NX MCD
+          track agent               no LLM                –
+                                                                                       component.
+                                                                             UC3.Q4    Map TIA variables xMB1 and xMB2 each to an NX MCD
+   For knowledge-grounded tasks, the supervisor forwards a                             actuator.
+structured request to the graph agent, which generates a
+Cypher query (a declarative graph query language for Neo4j)                    For system-understanding queries, these criteria were ap-
+using knowledge graph schema and task constraints. The re-                  plied directly to the returned answers. NX Open journal
+trieval process follows a three-step strategy: initial LLM-query            generation was evaluated by successful execution of the gen-
+generation based on task context, deterministic correction                  erated script in NX MCD without manual correction. Signal
+of syntactic or schema-related errors, and query refinement                 mapping was evaluated by the plausibility and consistency
+in case of empty or insufficient results. Retrieved context                 of the proposed correspondences between PLC variables and
+from the graph database is returned in structured form and                  simulation objects and, where no unique mapping could be
+assumed a priori, by whether the correct target appeared                  behavior of the discrete manufacturing system based on the
+among the top-ranked suggestions.                                         overall knowledge representation. The main evaluation criteria
+   Each use case was executed ten times to assess stability               were correctness, grounding, and completeness with respect to
+across runs. Where objective checks were available, correct-              the retrieved engineering context.
+ness was validated deterministically; otherwise, it was assessed             Tab. V summarizes the quantitative results for this task
+by expert review. In this study, token usage is treated as a              class. Fig. 7 provides an illustrative example of a system-
+proxy for LLM computational demand and context complexity                 understanding query and the corresponding response. Across
+rather than as a direct quality metric. The resulting mea-                ten runs per query, most UC1 responses were correct and
+surements were compared across task classes with respect to               grounded.
+computational cost, robustness, and output quality, as reported
+in Sec. IV.                                                                                          Table V
+   A limitation of this approach is that output quality depends             P ERFORMANCE OF THE SYSTEM - UNDERSTANDING TASK ACROSS TEN
+                                                                                                      RUNS .
+on the completeness of the retrieved graph context and the cov-
+erage of supported output templates. The framework therefore                Query     Token   Time (s)    Correct    Grounded     Complete
+supports semi-automated VCM workflows but does not replace
+                                                                            UC1.Q1    3112      17.3       10/10       10/10           10/10
+final expert validation.                                                    UC1.Q2    3357      24.0       10/10       10/10            7/10
+                                                                            UC1.Q3    2264      17.9       10/10       10/10           10/10
+                            IV. R ESULTS                                    UC1.Q4    3113      38.4       9/10         9/10            9/10
+    This section provides quantitative and qualitative results for          UC1.Q5    2821      38.2       10/10       10/10            8/10
+                                                                            UC1.Q6    2886      37.5       9/10         9/10            8/10
+the evaluated knowledge-graph-grounded multi-agent frame-                   UC1.Q7    2358      31.5       10/10       10/10           10/10
+work. We baselined our framework against LLM-only, single-                  UC1.Q8    1738      23.0       10/10       10/10            9/10
+agent and human-evaluator approaches. As context for the                    UC1.Q9    11097     56.3       6/10         6/10            6/10
+task-specific results, Tab. IV summarizes the size and compo-
+sition of the extracted source elements used in the evaluation.             Observed deficits were primarily related to completeness,
+In total, the extraction yielded 52,268 automation elements               with incomplete responses in UC1.Q2 (3/10), UC1.Q5 (2/10),
+and 3,404 kinematic simulation elements.                                  UC1.Q6 (2/10), and UC1.Q8 (1/10). In addition, UC1.Q4
+                                                                          produced one ungrounded response after failed graph retrieval,
+                            Table IV                                      and UC1.Q9 showed four graph-database memory overflows
+        E XTRACTED SOURCE ELEMENTS USED FOR EVALUATION .                  caused by a broad union query.
+        Domain        Element category                    Count           B. Simulation Component Generation
+        TIA Portal    variables                           2,511
+        TIA Portal    PLC blocks                           399               This task class evaluates the framework’s ability to gen-
+        TIA Portal    networks                            2,012           erate executable NX Open journal scripts for extending or
+        TIA Portal    network access elements             13,788          configuring the VCM in NX MCD. The primary evaluation
+        TIA Portal    network parts                       8,983
+        TIA Portal    wire connections                    24,894          criterion was therefore successful script execution without
+        TIA Portal    block call references                266            manual correction for the right component. For each query,
+        NX MCD        parts                               3,073           the sparring agent retrieved the required component context
+        NX MCD        physical simulation components       248
+        NX MCD        sensing and logic components          23            from the graph agent and selected an appropriate template
+        NX MCD        joint components                      32            for the requested simulation object. The template was then
+        NX MCD        actuation and motion components       28            parameterized with graph-derived metadata such as object
+                                                                          identifiers, component types, and configuration values. Tab. VI
+                                                                          summarizes the quantitative results for this task class.
+A. System Understanding
+                                                                                                     Table VI
+     Query: Which component detects if the magazine is empty?               P ERFORMANCE OF THE SIMULATION COMPONENT GENERATION TASK
+                                                                                                 ACROSS TEN RUNS .
+
+     Retrieved context: variable name, address, data type, and
+     comment                                                                Query     Token    Time (s)   Executable    Manual correction
+                                                                            UC2.Q1     1728     41.9         10/10              0/10
+     Generated response: xCL BG5 is a Boolean input at                      UC2.Q2     1270     14.7         10/10              0/10
+     %I0.4 and indicates magazine-empty state (0 = Magazine                 UC2.Q3     3626     104.5        10/10              0/10
+     empty).
+
+                                                                             UC2.Q1 and UC2.Q2 required fewer tokens and less run-
+Figure 7. Compact example of a system-understanding query workflow from
+user question to grounded response.                                       time (according to Tab. VI) than UC2.Q3 because their re-
+                                                                          quests specified the target component more explicitly. UC2.Q3
+  This class evaluates the framework’s ability to answer                  imposed an additional identification step before template in-
+exploratory and explanatory queries about the structure and               stantiation, increasing computational cost; nevertheless, all
+runs produced executable NX Open journals without manual                                     Table VIII
+correction.                                                           C OMPACT COMPARISON OF BASELINE CONFIGURATIONS AND THE
+                                                                               PROPOSED FRAMEWORK ACROSS UC1–UC3.
+
+C. Cross-Domain Signal Mapping
+                                                                    Configuration     UC1 score   UC2 score   UC3 score   Overall
+   This task class evaluates the framework’s ability to identify                        (%)         (%)         (%)        (%)
+correspondences between PLC variables from TIA Portal and           LLM-only            0.0         0.0          0.0       0.0
+control-relevant objects in the NX MCD assembly. Unlike             graph-grounded      55.5        66.6        25.0       49.0
+                                                                    single-agent
+system-understanding queries or template-based script gener-        proposed frame-     90.7        100.0       100.0      94.8
+ation, signal mapping requires explicit reasoning across two        work
+heterogeneous engineering domains.
+   Tab. VII summarizes the quantitative results for this task
+class. In addition to execution time and token consumption,        Missing semantic information, incomplete metadata, and weak
+we report Hit@1 as the task-quality metric and the agent’s         naming conventions reduced retrieval quality and increased
+self-reported confidence as an auxiliary diagnostic value. The     ambiguity during cross-domain alignment. Third, graph-query
+predicted mappings are then compared to reference map-             scalability is limited for very broad union-style requests over
+pings defined manually by a domain expert. Across UC3.Q1-          highly interconnected PLC structures. This behavior was ob-
+UC3.Q4, the top-ranked mapping was correct in all runs.            served for UC1.Q9, where a single query can exceed available
+Confidence represents the average of ten runs confidence of        database memory; reliable execution required decomposition
+the mapped signal.                                                 into narrower task-focused queries. Fourth, component gener-
+                                                                   ation is constrained by template coverage. Unsupported NX
+                             Table VII                             MCD component classes cannot be generated automatically
+ P ERFORMANCE OF THE CROSS - DOMAIN SIGNAL MAPPING TASK ACROSS     and therefore remain outside the current scope. These limita-
+                           TEN RUNS .
+                                                                   tions define the current operating boundaries of the framework
+                                                                   rather than invalidating its technical feasibility.
+        Query     Token   Time (s)   Hit@1    Confidence
+        UC3.Q1    3864      39.4     10/10       89%                                     V. C ONCLUSION
+        UC3.Q2    4410      53.6     10/10       85%
+        UC3.Q3    6574      66.6     10/10       91%                   This paper presented a knowledge-graph-grounded multi-
+        UC3.Q4    4225      61.5     10/10       78%               agent framework for semi-automated support of VCM devel-
+                                                                   opment in discrete manufacturing. The framework addresses
+                                                                   a recurring practical challenge: engineering knowledge re-
+D. Baseline Comparison and Observed Limitations                    quired for VCM development is fragmented between PLC
+   Tab. VIII shows a clear separation between the evaluated        engineering and the mechanical domain where early-stage data
+configurations. The LLM-only baseline scored 0.0% across all       is often limited to static 3D CAD geometry. Integrating this
+task classes because, without access to the graph database, it     information still demands substantial manual effort and cross-
+could not use domain-specific information from Siemens TIA         domain expertise.
+Portal and NX MCD. The knowledge-graph-grounded single-               The proposed approach integrates structured data extracted
+agent baseline improved performance in all three use cases,        from Siemens TIA Portal and Siemens NX MCD into a
+while the proposed framework achieved the highest scores           graph-based knowledge representation and employs a hierar-
+among the automated configurations, with an overall score          chical multi-agent architecture to support three task classes:
+of 94.8%. The comparison includes only task-quality scores;        system understanding, simulation component generation, and
+token consumption and execution time are excluded. The UC          cross-domain signal mapping. Evaluated on a laboratory-
+score reported in Tab. VIII was calculated as the mean task-       scale discrete manufacturing system, the framework showed
+quality score across all evaluation queries of the respective      consistency across all three task classes. System-understanding
+use case. For UC1, this score corresponds to the average of        queries were answered correctly and with full grounding in
+correctness, grounding, and completeness across all runs and       most runs, all simulation component generation queries pro-
+queries; for UC2, it is based on executable generation without     duced executable NX Open journal scripts without manual cor-
+manual correction; for UC3, it is based on Hit@1.                  rection, and cross-domain signal mapping returned the correct
+   Although the framework produced technically valid outputs       top-ranked result in all runs. The baseline comparison further
+across the evaluated task classes, four operational limitations    showed that the proposed framework outperformed both the
+were observed. First, applicability depends on graph coverage      LLM-only and the graph-grounded single-agent baselines.
+and source-data availability. The LLM-only baseline confirmed         The more relevant question is not which agent architec-
+that, without graph access and engineering data, no usable         ture performs best in isolation, but how efficiently a graph-
+outputs are produced. Likewise, if one domain is missing from      grounded framework can support engineers across tasks that
+the graph (e.g., NX MCD), corresponding cross-domain tasks         currently require manual cross-domain interpretation. This
+such as signal mapping cannot be solved. Second, output qual-      work contributes that structured extraction, graph-based re-
+ity depends on source-data completeness and naming quality.        trieval, and agent-based task execution can be integrated
+into a unified assistance workflow. The resulting workflow                         [14] Y. Zhu, D. Chen, C. Zhou, L. Lu, and X. Duan, “A knowledge
+makes cross-domain engineering knowledge accessible and                                 graph based construction method for Digital Twin Network,”
+                                                                                        in 1st International Conference on Digital Twins and Parallel
+actionable in early-stage VCM development while retaining                               Intelligence, DTPI. IEEE, 2021, pp. 362–365. [Online]. Available:
+human-in-the-loop validation as a required final step.                                  https://ieeexplore.ieee.org/document/9540177/
+   However, operational limitations define the current scope.                      [15] R. Drath, Ed., AutomationML: A Practical Guide. De Gruyter, 2021.
+                                                                                        [Online]. Available: https://doi.org/10.1515/9783110746235
+Output quality depends on graph coverage and source-data                           [16] International Electrotechnical Commission, “Asset Administration Shell
+completeness. Broad union-style queries can exceed graph-                               for industrial applications - Part 1: Asset Administration Shell structure,”
+database memory limits. Component generation is constrained                             2023. [Online]. Available: https://webstore.iec.ch/en/publication/65628
+                                                                                   [17] F. G. Listl, J. Fischer, and M. Weyrich, “An Architecture for Knowledge
+by the coverage of the implemented NX Open template library.                            Graph based Simulation Support,” in 28th International Conference on
+The framework was validated on a single laboratory-scale                                Emerging Technologies and Factory Automation, ETFA, 2023, pp. 1–8.
+system, and transferability to other machine architectures and                          [Online]. Available: https://ieeexplore.ieee.org/document/10275514/
+                                                                                   [18] Y. Yang, F. Ye, D. Xu, X. Zhang, and J. Xu, “LLM-Based
+toolchains remains to be demonstrated.                                                  Digital Twin Water Conservancy Knowledge Graph Construction,” in
+   Future work should focus on bringing other engineering data                          36th International Conference on Tools with Artificial Intelligence,
+into graph-ready form, extend the approach to larger industrial                         ICTAI. IEEE, 2024, pp. 656–662. [Online]. Available: https:
+                                                                                        //ieeexplore.ieee.org/document/10849426/
+cases, and more robust retrieval workflows.                                        [19] S. Mandal and N. E. O’Connor, “LLMasMMKG: LLM Assisted
+                                                                                        Synthetic Multi-Modal Knowledge Graph Creation For Smart City
+                               R EFERENCES                                              Cognitive Digital Twins,” Proceedings of the AAAI Symposium
+ [1] Verein deutscher Ingenieure, “VDI/VDE 3693 Blatt 1: Virtuelle                      Series, vol. 4, pp. 210–221, 2024. [Online]. Available: https:
+     Inbetriebnahme - Modellarten und Begriffe,” 2025. [Online].                        //ojs.aaai.org/index.php/AAAI-SS/article/view/31795
+     Available:       https://www.vdi.de/mitgliedschaft/vdi-richtlinien/details/   [20] K. Shuster, S. Poff, M. Chen, D. Kiela, and J. Weston, “Retrieval
+     vdivde-3693-blatt-1-virtuelle-inbetriebnahme-modellarten-und-begriffe              Augmentation Reduces Hallucination in Conversation,” in Findings
+ [2] P. Hoffmann, T. M. Maksoud, R. Schumann, and G. C. Premier,                        of the Association for Computational Linguistics: EMNLP, 2021,
+     “Virtual Commissioning Of Manufacturing Systems A Review                           pp. 3787–3803. [Online]. Available: https://doi.org/10.18653/v1/2021.
+     And New Approaches For Simplification,” in Proceedings - 24th                      findings-emnlp.320
+     European Conference on Modelling and Simulation, ECMS, 2010,                  [21] P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal,
+     pp. 175–181. [Online]. Available: http://www.scs-europe.net/dlib/2010/             H. Küttler, M. Lewis, W. tau Yih, T. Rocktäschel, S. Riedel,
+     2010-0175.htm                                                                      and D. Kiela, “Retrieval-Augmented Generation for Knowledge-
+ [3] N. Striffler and T. Voigt, “Concepts and trends of virtual commissioning           Intensive NLP Tasks,” Advances in neural information processing
+     – A comprehensive review,” Journal of Manufacturing Systems, vol. 71,              systems, NeurIPS, vol. 33, pp. 9459–9474, 2020. [Online]. Available:
+     pp. 664–680, 2023. [Online]. Available: https://linkinghub.elsevier.com/           https://arxiv.org/abs/2005.11401
+     retrieve/pii/S0278612523002145                                                [22] P. Zhao, H. Zhang, Q. Yu, Z. Wang, Y. Geng, F. Fu, L. Yang, W. Zhang,
+ [4] D. Hartmann, “Real-time digital twins,” Zenodo, 2021. [Online].                    J. Jiang, and B. Cui, “Retrieval-Augmented Generation for AI-Generated
+     Available: https://doi.org/10.5281/zenodo.5470479                                  Content: A Survey,” Data Science and Engineering, pp. 1–29, 2026.
+ [5] B. R. Barricelli, E. Casiraghi, and D. Fogli, “A Survey on Digital Twin:           [Online]. Available: https://doi.org/10.1007/s41019-025-00335-5
+     Definitions, Characteristics, Applications, and Design Implications,”         [23] Z. Zhu, T. Huang, K. Wang, J. Ye, X. Chen, and S. Luo, “Graph-based
+     IEEE Access, vol. 7, pp. 167 653–167 671, 2019. [Online]. Available:               Approaches and Functionalities in Retrieval-Augmented Generation: A
+     https://ieeexplore.ieee.org/document/8901113/                                      Comprehensive Survey,” ACM Computing Surveys, vol. 58, pp. 1–38,
+ [6] D. Hartmann and H. Van Der Auweraer, “Digital Twins - a golden                     2026. [Online]. Available: https://dl.acm.org/doi/10.1145/3795880
+     age for industrial mathematics,” Journal of Mathematics in Industry,          [24] D. Edge, H. Trinh, N. Cheng, J. Bradley, A. Chao, A. Mody, S. Truitt,
+     vol. 15, p. 6, 2025. [Online]. Available: https://mathematicsinindustry.           D. Metropolitansky, R. O. Ness, and J. Larson, “From Local to Global:
+     springeropen.com/articles/10.1186/s13362-025-00170-3                               A Graph RAG Approach to Query-Focused Summarization,” 2024.
+ [7] International Electrotechnical Commission, “IEC 61131-3: Pro-                      [Online]. Available: https://arxiv.org/abs/2404.16130
+     grammable controllers - Part 3: Programming languages,” 2025.                 [25] H. Marah and M. Challenger, “MADTwin: a framework for
+     [Online]. Available: https://webstore.iec.ch/en/publication/68533                  multi-agent digital twin development: smart warehouse case study,”
+ [8] L. Yang, S. Luo, X. Cheng, and L. Yu, “Leveraging Large Language                   Annals of Mathematics and Artificial Intelligence, vol. 92, pp.
+     Models for Enhanced Digital Twin Modeling: Trends, Methods, and                    975–1005, 2024. [Online]. Available: https://link.springer.com/10.1007/
+     Challenges,” 2025. [Online]. Available: https://arxiv.org/abs/2503.02167           s10472-023-09872-z
+ [9] N. Sahlab, S. Kamm, T. Müller, N. Jazdi, and M. Weyrich, “Knowledge          [26] Y. Sun, Q. Zhang, J. Bao, Y. Lu, and S. Liu, “Empowering
+     Graphs as Enhancers of Intelligent Digital Twins,” in 4th International            digital twins with large language models for global temporal feature
+     Conference on Industrial Cyber-Physical Systems, ICPS, 2021, pp. 19–               learning,” Journal of Manufacturing Systems, vol. 74, pp. 83–99,
+     24. [Online]. Available: https://ieeexplore.ieee.org/document/9468219/             2024. [Online]. Available: https://linkinghub.elsevier.com/retrieve/pii/
+[10] N. P. Greis, H. P. Cherukuri, and J. C. Outeiro, “Multi-Agent Systems              S0278612524000372
+     for Manufacturing Digital Twins: A Perspective on Agency and                  [27] Z. Liu, R. Zeng, D. Wang, and G. Peng, “Agents4PLC: Automating
+     Large Language Models,” IFAC-PapersOnLine, vol. 59, pp. 1612–1617,                 Closed-loop PLC Code Generation and Verification in Industrial
+     2025. [Online]. Available: https://linkinghub.elsevier.com/retrieve/pii/           Control Systems using LLM-based Agents,” IEEE Transactions
+     S2405896325010328                                                                  on Software Engineering, TSE, 2026. [Online]. Available: https:
+[11] M. Singh, E. Fuenmayor, E. Hinchy, Y. Qiao, N. Murray, and D. Devine,              //doi.org/10.1109/TSE.2026.3667895
+     “Digital Twin: Origin to Future,” Applied System Innovation, vol. 4,          [28] K. Adnyana and A. Schwung, “Benchmarking and validation of
+     p. 36, 2021. [Online]. Available: https://www.mdpi.com/2571-5577/4/                prompting techniques for AI-assisted industrial PLC programming,”
+     2/36                                                                               Machine Learning with Applications, vol. 23, p. 100804, 2026.
+[12] M. Li and D. Yang, “Design of a material sorting digital twin                      [Online]. Available: https://doi.org/10.1016/j.mlwa.2025.100804
+     system based on NX MCD,” Manufacturing Review, vol. 11, p. 13,                [29] Festo, “Festo Didactic CP Factory Complete System 404-1.” [On-
+     2024. [Online]. Available: https://mfr.edp-open.org/10.1051/mfreview/              line]. Available: https://ip.festo-didactic.com/Infoportal/CPFactoryLab/
+     2024010                                                                            hardware/details.php?model=CP-L-404-1&lang=en
+[13] P. Zheng, L. Xia, C. Li, X. Li, and B. Liu, “Towards Self-X                   [30] Neo4j, “Neo4j Graph Database,” 2026. [Online]. Available: https:
+     cognitive manufacturing network: An industrial knowledge graph-                    //neo4j.com/
+     based multi-agent reinforcement learning approach,” Journal of                [31] P. Skavantzos and S. Link, “Normalizing Property Graphs,” Proceedings
+     Manufacturing Systems, vol. 61, pp. 16–26, 2021. [Online]. Available:              of the VLDB Endowment, vol. 16, pp. 3031–3043, 2023. [Online].
+     https://linkinghub.elsevier.com/retrieve/pii/S0278612521001643                     Available: https://dl.acm.org/doi/10.14778/3611479.3611506
+[32] LangChain, “LangChain framework,” 2026. [Online]. Available:
+     https://www.langchain.com/
+[33] OpenAI et al., “GPT-4 Technical Report,” Tech. Rep., 2023. [Online].
+     Available: https://arxiv.org/abs/2303.08774
+[34] M. Holland and K. Chaudhari, Manufacturing Letters, vol. 40, pp.
+     100–103, 2024. [Online]. Available: https://doi.org/10.1016/j.mfglet.
+     2024.03.010
+[35] G. Andreadis, P. Klazoglou, K. Niotaki, and K.-D. Bouzakis,
+     “Classification and Review of Multi-agents Systems in the
+     Manufacturing Section,” Procedia Engineering, vol. 69, pp. 282–290,
+     2014. [Online]. Available: https://doi.org/10.1016/j.proeng.2014.02.233
+

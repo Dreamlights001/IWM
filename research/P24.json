@@ -1,0 +1,29 @@
+{
+  "id": "P24",
+  "slug": "ManiGaussian",
+  "arxiv_id": "2403.08321",
+  "family": "gaussian",
+  "source_url": "https://arxiv.org/abs/2403.08321",
+  "accessed": "2026-11-09",
+  "title": "ManiGaussian: Dynamic Gaussian Splatting for Multi-task Robotic Manipulation",
+  "authors": [
+    "Lu, Guanxing",
+    "Zhang, Shiyi",
+    "Wang, Ziwei",
+    "Liu, Changliu",
+    "Lu, Jiwen",
+    "Tang, Yansong"
+  ],
+  "publication_date": "2024/03/13",
+  "submitted_date": "2024/07/18",
+  "abstract": " Performing language-conditioned robotic manipulation tasks in unstructured environments is highly demanded for general intelligent robots. Conventional robotic manipulation methods usually learn semantic representation of the observation for action prediction, which ignores the scene-level spatiotemporal dynamics for human goal completion. In this paper, we propose a dynamic Gaussian Splatting method named ManiGaussian for multi-task robotic manipulation, which mines scene dynamics via future scene reconstruction. Specifically, we first formulate the dynamic Gaussian Splatting framework that infers the semantics propagation in the Gaussian embedding space, where the semantic representation is leveraged to predict the optimal robot action. Then, we build a Gaussian world model to parameterize the distribution in our dynamic Gaussian Splatting framework, which provides informative supervision in the interactive environment via future scene reconstruction. We evaluate our ManiGaussian on 10 RLBench tasks with 166 variations, and the results demonstrate our framework can outperform the state-of-the-art methods by 13.1\\% in average success rate. Project page: this https URL .",
+  "submission_history": "Submission history From: Guanxing Lu [ view email ] [v1] Wed, 13 Mar 2024 08:06:41 UTC (1,509 KB) [v2] Thu, 18 Jul 2024 04:45:47 UTC (1,423 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2403.08321v2",
+  "local_pdf": "papers/P24_ManiGaussian_2403.08321v2.pdf",
+  "sha256": "b38311f0229d7589fbebd08629ab0ae6d37e652283476a0f506ef729fb290f5d",
+  "bytes": 2228916,
+  "pages": 22,
+  "text_file": "research/P24_ManiGaussian.txt",
+  "status": "downloaded_and_text_extracted"
+}

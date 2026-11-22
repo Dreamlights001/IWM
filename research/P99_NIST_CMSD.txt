@@ -1,0 +1,473 @@
+      A Core Manufacturing Simulation Data Information Model for
+                     Manufacturing Applications
+                                         Swee Leong
+                                          Y. Tina Lee
+                                        Frank Riddick
+                        Manufacturing Systems Integration Division
+                       National Institute of Standards and Technology
+                           Gaithersburg, MD 20899-8260 U.S.A.
+                        301-975-5426, 301-975-3550, 301-975-3892
+         leong@cme.nist.gov, leet@cme.nist.gov, riddick@cme.nist.gov
+
+                                              Keywords:
+             manufacturing simulation, information model, interface standards, data exchange
+
+ABSTRACT: Simulation technology has been demonstrated to be an effective tool for reducing costs,
+improving quality, and shortening the time-to-market for manufactured goods in the manufacturing
+industry. But, there are a number of technical and economic barriers that hinder the use of this technology
+in the manufacturing industry. The cost of developing, implementing, and using simulation technology is
+high. The costs of integrating simulation systems with other manufacturing applications are even higher.
+There is always a need to transfer, exchange and share data between simulation and other manufacturing
+applications. Developing custom-built proprietary interfaces is too costly and makes using simulation
+technology prohibitive for most users. The development of reusable, neutral, standard interface, would
+make it easier and could help reduce the costs to integrate simulation and other manufacturing
+applications. NIST researchers in collaboration with industrial partners have been working on a standards
+development effort titled Core Manufacturing Simulation Data (CMSD) Product Development Group
+(PDG) under the guidelines, policies and procedures of the Simulation Interoperability Standards
+Organization (SISO). This paper presents the purpose of the CMSD effort, provides an overview of the
+CMSD Information Model, and describes an approach on how the CMSD Information Model is used to
+support             the          integration           of            manufacturing              simulations.
+
+1.0 Introduction                                          preserve the investment in these developed models,
+                                                          companies would like the capability to seamlessly
+The U.S. manufacturing industry continues to face         integrate these models with neutral standard
+challenges due to global competition, outsourcing,        interfaces instead of relying on costly custom
+and consolidation. Simulation technology has been         integration code. If the industrial user has several
+demonstrated to be an effective tool for reducing         different vendors’ simulation packages, unique
+costs, improving quality, and shortening the time-        models must be recreated for each package. The
+to-market for manufactured goods.                         models developed for one simulation system are of
+                                                          little or no use to another. The simulation
+The simulation model development process is time-         development process is very much an ad hoc
+consuming, labor-intensive and expensive. In many         process. Texts provide high-level guidelines, but
+cases, simulation models are constructed from             model development is perhaps more of an art than a
+scratch. Vendors and industrial users alike have          science.
+recognized that the development and maintenance
+of models of their production systems and resources       The cost of transferring data between simulation
+is very costly. For example, the development of a         and other manufacturing software applications is
+detailed simulation model of a single machine tool        often very high. Users must either re-enter data
+may take an engineer 4 to 6 weeks. Models must            when they use different software applications or
+now be custom developed for each simulation               pay high costs to system integrators for custom
+software package. Each industrial user must build         solutions. In some cases, it may not be possible to
+models of manufacturing systems, processes, and           integrate simulation and manufacturing applications
+resources. Through the merger and acquisition             due to undocumented, proprietary data file formats.
+process, companies often acquire or inherit
+simulation packages from multiple vendors. To             Interoperability   between   other   manufacturing
+
+
+                                                      1
+software applications and simulation is currently          manufacturing applications is even higher. There is
+extremely limited.      Achieving interoperability         always a need to transfer and share data between
+involves addressing a number of system integration,        simulation and other manufacturing software
+data translation, and model development issues.            applications. Custom-built proprietary interfaces
+The simulation software used to model and predict          are too costly and are making it prohibitive for
+the behavior of manufacturing systems does not use         users to use simulation technology. The
+the same data formats as the systems used to design        development of reusable, neutral standard interfaces
+products, engineer production systems, and manage          would help reduce the costs associated with
+production      operations.    Neutral     interface       simulation model construction and facilitate data
+specifications that would permit quick and easy            exchange      between    simulation      and    other
+integration of commercial off-the-shelf software do        manufacturing software applications. This would
+not currently exist.                                       make simulation technology more affordable and
+                                                           accessible to a wide range of industrial users.
+The National Institute of Standards & Technology
+staff has been working on an interface standards           2.2 Benefits of Simulation Technology and
+development effort titled “Core Manufacturing              Interface Standards
+Simulation Data (CMSD) Information Model” to
+address the interoperability between simulation            The development of simulation technology and
+systems and other manufacturing applications. The          neutral standard interfaces have been identified
+CMSD effort is under the guidelines, policies and          repeatedly by the manufacturing industry as a top
+procedures of the Simulation Interoperability              research priority that promises high payback. The
+Standards Organization (SISO) [1].                         Integrated Manufacturing Technology Roadmap
+                                                           (IMTR) stated that "Modeling and simulation
+The following sections present the purpose of the          (M&S) are emerging as key technologies to support
+CMSD effort, provide an overview of the CMSD               manufacturing in the 21st century, and no other
+Information Model, and describe an approach on             technology offers more than a fraction of the
+how the CMSD Information Model can be used to              potential that M&S does for improving products,
+support the integration of manufacturing                   perfecting processes, and reducing design-to-
+application and simulation.                                manufacturing cycle time." [2]
+
+2.0 Purpose of The CMSD Effort                             The National Research Council (NRC) has
+                                                           repeatedly identified simulation and modeling as a
+2.1 Problem Statement                                      high priority research area. It performed a study
+                                                           that identified simulation and modeling as one of
+Manufacturing systems, processes, and data are             two breakthrough-technologies that will accelerate
+growing and becoming more complex. Product                 progress in addressing the grand challenges facing
+design, manufacturing engineering, and production          manufacturing in 2020. The study went on to
+management decisions involve the consideration of          recommend advancement of "the state of the art by
+many interdependent factors and variables. These           establishing standards for the verification,
+often complex, interdependent factors and variables        validation, and accreditation of modeling tools and
+are too many for the human mind to cope with at            models. Fulfillment of the recommendation would
+one time. Whether the system is a production line,         provide fundamental building blocks for the
+an operating room or an emergency-response                 dynamic models and 'real-time' simulations of
+system, simulation is a powerful tool that provides        2020." The study also recommended research and
+the capability to allow designers to imagine new           development       in   "standards    for   software
+systems, conduct experiments to observe behavior           compatibility or robust software that does not need
+and evaluate the results of alternative decisions.         standards, … methods to make data accessible to
+Simulation can be used to study and compare                everyone       (protocols,     security,    format,
+alternative designs or to troubleshoot existing            interoperability), … interactive, 3-D, simulation-
+systems. However, a number of technical and                based visualizations of complex structures
+economic barriers hinder the widespread and                integrating behavioral, organizational, and people
+pervasive use of this technology in the                    issues." [3]
+manufacturing industry. The cost of implementing
+and using simulation technology is high. The cost          In 1999, the NRC completed another study that also
+of integrating simulation systems with other               identified manufacturing simulation as a priority
+                                                           research area. The report, titled "Defense
+
+
+                                                       2
+Manufacturing in 2010 and Beyond: Meeting the                         application interoperability
+Changing       Needs    of     National   Defense"
+recommended that research and development be                 3.0 Overview of the CMSD Specification
+augmented in four priority areas, one of which is
+"modeling and simulation-based design tools" (p.             3.1 Goals
+3). In a discussion on simulation and modeling (p.
+52), the report goes on to state that "Techniques            The CMSD Information Model [5] has been
+such as variation simulation analysis (VSA) and              developed with the following goals in mind: (1) to
+factory floor layout simulation can improve product          foster the development and use of simulations in
+performance.” [4]                                            manufacturing operations, (2) to facilitate data
+                                                             exchange      between    simulation   and    other
+Manufacturing simulation focuses on modeling the             manufacturing software applications, (3) to enable
+behavior      of    manufacturing      organizations,        and facilitate better testing and evaluation of
+processes, and systems including supply chains, as           manufacturing software, and (4) to increase
+well as people, machines, tools, and information             manufacturing          software        application
+systems. Examples of manufacturing simulation                interoperability.
+applications include the modeling and verification
+of discrete event processes such as steel fabrication,       3.2 Technical Approach
+machining, automotive assembly, aerospace
+assembly, semiconductor fabrication, inspection,             The primary objective was to develop data
+human operator modeling, shop floor layout                   structures for exchanging manufacturing data
+development, process and system visualization,               between      various     manufacturing       software
+ergonomic analysis, industrial manual and                    applications, including simulation. The idea was to
+hazardous tasks evaluation, supply chain operations          use the same data structures for managing actual
+analysis and evaluation, and business process                production operations and for simulating the
+engineering.                                                 manufacturing shop. The rationale was that if one
+                                                             structure can serve both purposes, the need for
+2.3 Objectives of the CMSD Effort                            translation and abstraction of the real data would be
+                                                             minimized when simulations are constructed. It is
+Due to the lack of interoperability between                  also recognized that maintaining data integrity and
+simulation systems and manufacturing software                minimizing the duplication of data were important
+applications, the CMSD effort was organized to               requirements. For this reason, each unique piece of
+address the issue. The CMSD Information Model                information appears in only one place in the model.
+defines a data specification for efficient exchange          Cross-reference links are used to avoid the creation
+of manufacturing data in a simulation environment.           of redundant copies of data.
+The specification provides a neutral data format for
+integrating manufacturing software applications              3.3 Scope
+with simulation systems. The initial effort is
+focusing on machine shop data definitions. The               The CMSD Information Model (CMSDIM)
+plan is to extend the data specification to include          describes the essential entities in the manufacturing
+supply chain, aerospace assembly operations,                 domain and the relationships between those entities
+automotive vehicle assembly operations, plant                that are necessary to create manufacturing
+layout, and other relevant manufacturing and                 simulations. This information model will facilitate
+simulation information.                                      the exchange of information between simulation
+                                                             and other manufacturing software applications.
+The CMSD specification, when completed, will                 Although the information defined in this model
+satisfy the following needs:                                 may be associated with one or more different
+     • Enable data exchange between simulation               manufacturing domains such as process planning,
+          systems, other software applications, and          scheduling, inventory management, production
+          databases                                          management, or supply chain management, the
+     • Support the construction of manufacturing             model is not intended to be an all-inclusive
+          simulators                                         definition of the entire manufacturing or simulation
+     • Support testing and evaluation                        domain. There is no implied or explicit provision
+          manufacturing software                             in the model for the direct specification of the
+     • Support manufacturing software                        execution behavior of a manufacturing entity in a
+
+
+
+                                                         3
+simulation or other manufacturing application. This
+means that while a process can be defined that              • Support package
+specifies a particular part resource in a particular          The Support package provides a grouping
+state may be processed on a particular machine                and model management function for four
+resource for a certain amount of time, the method              sub-packages. These sub-packages
+that a simulation should use to implement this                 contain definitions for basic data types
+process is not specified. No support is provided for           and data elements for various
+the creation of programming language or                        applications. Examples of these data
+simulation language executable constructs, or the              elements include commonly-used data
+association of such constructs with the                        structures and referenced data elements.
+manufacturing-related entities that can be defined in
+the CMSD Information Model.                                 • Resource Information package
+                                                              The Resource Information package
+3.4 CMSD Specification                                        contains definitions for the resources
+                                                              (employees, machines, stations, etc.)
+This section presents the CMSD specification’s                used in manufacturing, the skills
+modeling languages, the major Unified Modeling                associated with human resources, and
+Language (UML) [6] packages, and the major data               setup information required for the
+categories.                                                   efficient operation of machine resources.
+
+3.4.1 Modeling Languages                                    • Production Planning package
+                                                              This package contains definitions for
+The CMSD Information Model provides neutral                   information necessary to plan for
+definitions for information needed to integrate               effective manufacturing operations. It
+simulation systems with manufacturing software                contains definitions for organizations,
+applications. The CMSD Information Model is                   shifts, process plans, and operation and
+presented in two different documents: (1) the                 maintenance definitions.
+information model defined using the Unified
+Modeling Language (UML); and (2) the                        • Production Operations package
+information model defined using the eXtensible                This package contains definitions for
+Modeling Language (XML) [7].                                  information about the state manufacturing
+                                                              operations that are either currently taking
+3.4.2 Major UML Packages                                      place or that have been already planned
+                                                              for. This includes information about
+The      CMSD      Information    Model’s     UML             orders for the manufacture of parts, jobs
+representation has been organized using UML                   that state which manufacturing operation
+packages, see Figure 1. UML packages, depicted as             will take place using which resources,
+file folders, are UML constructs that can be used to          and schedules showing job or order
+organize model elements into groups.          UML             information for given resources over a
+packages make UML diagrams simpler and easier                 specific time period.
+to read. A brief description of each package is
+presented below.                                            • Part Information package
+                                                              This package contains information about
+The CMSD Information Model consists of the                    the products that will be produced as a
+following major UML packages:                                 result of the manufacturing process. Bill
+                                                              of materials information is also defined
+• CMSD package                                                in this package.
+  The CMSD package is the top-level
+  package of the CMSDIM. It provides a
+  grouping and model management
+  function for all of the other packages
+  defined in the architecture. All of the
+  other packages are either directly or
+  indirectly nested within this package.
+
+
+
+
+                                                        4
+                                                                 • Bill-of-materials cross-references the parts and
+      CMSD                                                       quantities required in a hierarchical bill-of materials
+                                                                 structure.
+     Part and Inventory                  Resource
+                                                                 • Inventory identifies the instances and locations for
+       Informantion                     Information              part, materials, tool, and fixture inventory.
+                                                                 • Process plan specifies a set of process plans that
+                                                                 are associated with production and support
+                                                                 activities for a particular part or parts. A process
+     Production Planning             Production Operations       plan has routing sheets and operation sheets that
+                                                                 correspond to the job and task level in the work
+                                                                 hierarchy.
+                                                                 • Work is used to specify a collection of a hierarchy
+                           Support                               of production orders, jobs, and tasks. It is also used
+                                                                 to specify a collection of internal support orders for
+                                                                 maintenance activities, inventory picking, and tool
+                                                                 preparation.
+                                                                 • Schedule lists planned assignment or mapping of
+                                                                 work to resources and resources to work.
+Figure 1. CMSD UML Package Diagram                               • Revision specifies information about a set of
+                                                                 revisions of the subjects. Information included in
+3.4.3 Major Data Categories                                      the element are each revision’s description, date,
+                                                                 creators, etc.
+The major categories of manufacturing information                • Probability distribution specifies distributions that
+that are defined in this information model include:              are used to vary processing times, breakdown and
+                                                                 repair time, and availability of resources, etc.
+• Organization is used to maintain organizational                • Reference describes the information about
+structure, contacts and address information for the              reference materials that support or further define
+manufacturing organization and its customers and                 that data elements contained within the CMSDIM
+suppliers.                                                       data structure.
+• Calendar identifies the shift schedules that are in
+effect for a period of time, breaks and holidays.                4.0 Concept of Applying the CMSD
+• Resource describes all the resources that may be
+                                                                 Information Model
+assigned to tasks in the shop. The resource types
+available in the shop environment include: stations
+                                                                 This section describes an approach on how the
+and machines, cranes, employees, tool and fixture
+                                                                 CMSD Information Model can be used to develop
+catalog items, and user-defined type of resource.
+                                                                 integration among manufacturing applications.
+• Skill definition lists the skills that an employee
+may posses and the levels of proficiency associated
+with those skills.                                               Figure 2 depicts the role of the standards interfaces.
+• Setup definition typically specifies tool or fixture           The information model/XML schema serves as a
+setups on a machine. Tool setups are typically the               neutral data format for representing and exchanging
+tools that are required in the tool magazine. Fixture            manufacturing application data. With the neutral
+setups are work holding devices mounted on the                   data format, XML parsers, CMSD Import/Export
+machine. Setups may also apply to cranes or                      Functions (to/from Database Management System
+stations.                                                        (DBMS) translators and to/from XML translators),
+• Operation definition defines the operations that               and manufacturing application data can be
+may be performed at a particular station or group of             represented in working forms (structured, in-
+stations in the shop.                                            memory representations), in database tables, or in
+• Maintenance definition defines preventive or                   XML instance documents. The XML parsers,
+corrective maintenance to be done on machines or                 “to/from DBMS translators,” and “to/from XML
+other maintained resources.                                      translators” are custom-built software programs.
+• Part provides elements for part specifications,                XML parsers convert XML schemas’ data elements
+group technology codes, customers, suppliers, as                 to structural in-memory presentations, such as C++
+well as links to bill of materials, process plans,               data structures. “To/from DBMS translators” and
+drawings, part models and other references.                      “to/from XML translators” allow manufacturing
+                                                                 application input/output data to be converted
+
+
+
+                                                             5
+among a user’s data format, database structures,                                               format to a manufacturing application’s
+and XML document formats.                                                                      internal file format.
+                                                                                3.             Importing the reformatted manufacturing
+To facilitate the use of the CMSD Information                                                  data to the manufacturing application.
+Model to integrate manufacturing applications, two
+translators will be developed at NIST. One converts
+an XML instance document to a Microsoft Access
+database; the other converts a database back to
+XML. XML data structures, which are parsed from                                                                   M anufacturing
+                                                                                                                   A pplic ation
+
+the XML Schemas, are used as intermediate                                                                              "B "
+
+                                                                                                                      CMSD
+                                                                                                                  Im port/E xport
+
+representation. A graphical user interface (GUI)                                                                     func tion
+
+
+
+
+system will also be generated to execute various
+
+
+
+
+                                                                                                                               Data Import
+functions, such as import, export, and translator                           M anufac turing
+                                                                             A pplication
+                                                                                 "A "
+                                                                                                                                                             M anufac turing
+                                                                                                                                                              A pplication
+                                                                                                                                                                  "C "
+
+execution.                                                                       CMSD
+                                                                             Im port/E xport
+                                                                                                                   C M S D F ile
+                                                                                                                      (XM L)
+                                                                                                                                                                 CMSD
+                                                                                                                                                             Im port/E xport
+                                                                                function                                                                        func tion
+                                                                                                  D ata E xport                              D ata Im port
+
+
+
+
+                                                                            M anufac turing                                                                  M anufac turing
+                                                                             A pplication                                                                     A pplication
+                                                                              D atas tore                                                                      D atas tore
+
+      CMSD
+                                                    Working Forms,
+   Information                       XML
+                                                         e.g.,
+     Model /                        Parsers
+                                                    C++ Structures
+  XML Schema
+
+
+
+
+  Manufacturing                  To/From DBMS                             Figure 3. Manufacturing Data Exchange Example
+   Application                     Translators
+    Simulator
+       I/O                                          CMSD Database
+                                                     Tables/Objects
+
+
+
+
+  CMSD Editor
+                                  To/From XML
+                                   Translators                            5.0 CMSD Product Development Group
+                                                      CMSD XML
+     I/O                                               Instance
+                                                      Documents
+                                                                          Status
+                               CMSD Import/Export
+                                  Functions
+
+
+                                                                          The CMSD Product Development Group (PDG)
+                                                                          was established at the SISO Fall 2004 Simulation
+                                                                          Interoperability Workshop (SIW). A key activity
+                                                                          of the CMSD PDG was to generate a CMSD
+Figure 2: Standard data interfaces based on the                           Information Model. A draft version of the CMSD
+CMSD Information Model                                                    Information Model in UML was released for review
+                                                                          and comment in early 2006 on the SISO CMSD
+                                                                          PDG discussions page. The version was an update
+                                                                          and enhancement to the “strawman” specification
+An example that demonstrates how manufacturing                            titled “ NIST Shop Data Model and interface
+data are exchanged among Manufacturing                                    Specification.” [8] A CMSD Information Model in
+Application “A”, Manufacturing Application “B”,                           the XML schema is to follow. Comments have been
+and Manufacturing Application “C” is depicted in                          collecting since the release of the draft document.
+Figure 3. Data exchanging is through the CMSD                             A meeting was held at the SISO 2006 Spring SIW
+Import/Export functions.                                                  to discuss some of the comments. Meetings are
+                                                                          scheduled at the SISO Simulation Interoperability
+A. Data export procedures:                                                Workshops to provide an update on the status and
+                                                                          activities of CMSD PDG. Interested partners in the
+       1.         Extracting manufacturing application data               simulation and modeling community are
+                  from the manufacturing application                      encouraged to participate and take an active role in
+                  datastore.                                              the CMSD PDG. Current participants include
+       2.         Converting the abstracted data to the                   representatives from the Defense Modeling and
+                  CMSD XML file.                                          Simulation Office, The Boeing Company, Ford
+       3.         Exporting the CMSD XML file.                            Motor Company, General Motors, John Deere,
+                                                                          Volvo Car Company, AutoSimulation, Delmia,
+B. Data import procedures:                                                FlexSim, Geer Mountain Software, ProModel,
+    1. Extracting data from the CMSD XML file,                            Rockwell Software, Simul8, University of Arizona,
+         as required.                                                     and George Washington University.
+    2. Reformatting the CMSD file from XML
+
+
+
+                                                                      6
+6.0 Conclusions                                           [8] McLean, C.; Lee, Y. T.; Shao, G. and Riddick,
+                                                              F.: “Shop Data Model and Interface
+Manufacturing simulation technology will have a               Specification.” NISTIR 7198, NIST,
+major impact on the way products are                          Gaithersburg, Maryland 2005.
+manufactured. Standard interfaces will increase the
+accessibility, interoperability, functionality, and       Disclaimer: No approval or endorsement of any
+reduce the costs of implementing simulation               commercial product by the National Institute of
+technology. The major long-term benefits of this          Standards and Technology is intended or implied.
+interface standards development effort could result       The work described was funded by the United
+from the widespread and pervasive implementation          States Government and is not subject to copyright.
+of manufacturing simulation technology. NIST staff
+is collaborating with partners in helping industry
+implement and deploy simulation and virtual               Author Biographies
+manufacturing technology through the development
+of standard interfaces.                                   Y. TINA LEE is a computer scientist in the
+                                                          Manufacturing Simulation and Modeling Group at
+References                                                NIST. She joined NIST in 1986. Her major
+[1] Simulation Interoperability Standards                 responsibility in recent years has been to develop
+   Organization (SISO): SISO Policies and                 information     models     to    support   various
+    Procedures, http://www.sisostds.org/.                 manufacturing application areas. Previously she
+                                                          worked at the Contel Federal Systems and at the
+[2] Integrated Manufacturing Technology Roadmap           Sperry Corporation. She received her BS in
+   (IMTR) Modeling and Simulation Workshop                Mathematics from Providence College and MS in
+   Group and IMTR Roadmapping Project Team:               Applied Science from the College of William and
+   IMTR Roadmap for Modeling and Simulation,              Mary. Her e-mail address is <leet@nist.gov>.
+   Integrated Manufacturing Technology
+   Roadmapping Project Office, Oak Ridge,                 SWEE LEONG is a senior manufacturing engineer
+   Centers for Manufacturing Technology, Oak              in the Manufacturing Simulation and Modeling
+   Ridge, TN, November 1998.                              Group at the National Institute of Standards and
+                                                          Technology (NIST) Manufacturing System
+[3] Committee on Visionary Manufacturing                  Integration Division since 1994. Previously he
+   Challenges, National Research Council:                 worked at Ford Motor Company, John Deere, and
+   Visionary Manufacturing Challenges for 2020,           IBM. His research interests are in modeling and
+   National Academy Press, Washington, DC.                simulation applications for the manufacturing
+   1998.                                                  industries and engineering tools integration
+                                                          program at NIST. Currently, Swee manages the
+[4] Committee on Defense Manufacturing in 2010            Simulation Standards Consortium at NIST. He
+    and Beyond, National Research Council:                received a Bachelor and Master Degree in
+    Defense Manufacturing in 2010 and Beyond:             Industrial Engineering from Purdue University in
+    Meeting the Changing Needs of National                West Lafayette, Indiana. He is a senior member of
+    Defense 1999.                                         the Society of Manufacturing Engineers. His e-mail
+                                                          address is <leong@nist.gov>.
+[5] Simulation Interoperability Standards
+   Organization (SISO) Core Manufacturing                 FRANK RIDDICK is a computer scientist in the
+   Simulation Data (CMSD) Product Development             Manufacturing Simulation and Modeling Group in
+   Group (PDG):                                           The National Institute of Standards and Technology
+http://discussions.sisostds.org/file.asp?file=CMSDP       (NIST) Manufacturing Systems Integration
+art102%2D28%2D06%2Epdf 2006.                              Division. He has participated in research and
+                                                          authored several papers relating to manufacturing
+[6] URL Resource Center: Unified Modeling                 simulation integration and product data modeling.
+   Language, http://www.rational.com/uml.                 He holds a Master's Degree in Mathematics from
+                                                          Purdue. His email address is <riddick@nist.gov>.
+[7] World Wide Web Consortium: XML,
+http://www.w3c.org/.
+
+
+
+
+                                                      7
+

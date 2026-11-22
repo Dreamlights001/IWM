@@ -1,0 +1,277 @@
+                                          ArtiTwinSplat: Interactable Digital Twin Reconstruction via Gaussian
+                                                              Splatting from RGB-D videos
+                                                        Pranjal Mishra1 , René Zurbrügg1 , Max Wilder-Smith1 , Marco Hutter1 , Marc Pollefeys1,2 ,
+                                                                                       Zuria Bauer1 , Hermann Blum3
+
+                                            Abstract— Deploying robots in unstructured real-world en-       a single moving camera remains highly underconstrained.
+                                         vironments needs accurate, interactive models of the objects.      Existing approaches that tackle this problem typically require
+                                         Constructing these models at scale remains a critical bottleneck   manual part annotations, pre-segmented inputs, or controlled
+                                         for robotic system integration. We present ArtiTwinSplat, a
+                                         framework that automatically constructs articulated, photo-        multi-view capture setups, these conditions rarely hold in
+                                                                                                            practical robotic deployment [11], [16], [17], [14].
+arXiv:2606.24628v1 [cs.RO] 23 Jun 2026
+
+
+
+
+                                         realistic digital twins of objects directly from RGB-D videos,
+                                         requiring no CAD models, simulation assets, or manual an-             In this work, we address this gap with ArtiTwinSplat,
+                                         notations. Our method is built on 3D Gaussian Splatting that       a fully automatic framework for reconstructing articulated
+                                         preserve geometric fidelity and photometric realism, coupled       objects from handheld RGB-D videos. Rather than relying
+                                         with an unsupervised articulation discovery pipeline that recov-
+                                         ers part structure and joint kinematics from observed motion       on part labels or multi-view rigs, our approach discovers
+                                         alone. With tracking and optimization stages our method            articulation structure directly from appearance and depth ob-
+                                         provides stable, queryable digital twins that support real-time    servations. We detect articulated regions through appearance-
+                                         rendering, viewpoint control, and interactive manipulation.        change analysis, enforce temporal consistency via reverse-
+                                         Unlike prior methods confined to simulation, ArtiTwinSplat         time propagation, and recover physically meaningful joint
+                                         operates directly on real-world observations and produces twins
+                                         that are immediately usable by downstream robot planning and       parameters. These motion priors then condition a joint-
+                                         learning systems. This method offers a practical, scalable path-   aware Gaussian optimization, yielding an articulated 3DGS
+                                         way toward digital twin construction, lowering the integration     model that supports continuous and physically consistent
+                                         barrier for articulated object manipulation in embodied AI and     articulation. Our main contributions are:
+                                         human-robot collaboration contexts.
+                                                                                                               • Automatic articulation discovery: an annotation-free
+
+                                                                I. INTRODUCTION                                  pipeline that detects articulated parts and recovers joint
+                                                                                                                 type, axis, pivot, and range of motion directly from
+                                            Articulated objects like drawers, doors, cabinets, and win-
+                                                                                                                 RGB-D video.
+                                         dows are central to everyday human-environment interactions
+                                                                                                               • Joint-conditioned optimization: a two-phase fine-
+                                         and have become a key focus in computer vision and
+                                                                                                                 tuning strategy that enforces physically consistent part
+                                         robotics [1], [3]. These objects appear in virtually every
+                                                                                                                 motion while maintaining global scene appearance, pro-
+                                         indoor environment, making their accurate perception and
+                                                                                                                 ducing stable articulated digital twins.
+                                         modeling essential for both scene understanding and physical
+                                                                                                               • Simulation-ready output: direct export of recon-
+                                         manipulation. Accurate reconstruction of articulated objects
+                                                                                                                 structed models as URDFs compatible with Isaac Sim,
+                                         is vital for a broad range of downstream applications, in-
+                                                                                                                 enabling a practical workflow from RGB-D captures to
+                                         cluding scene understanding [4], [5], [6], robotic interactions
+                                                                                                                 deployment-ready robotic assets.
+                                         [7], [8], and digital twin creation [9], [10]. High-fidelity
+                                         digital twins that jointly capture appearance, geometry, and                         II. RELATED WORK
+                                         articulation enable robust sim-to-real transfer for embodied       Articulated Object Reconstruction. Early reconstruction
+                                         agents and support learning-based reasoning in interactive         approaches relied on parametric or skeleton-based repre-
+                                         3D environments.                                                   sentations requiring prior knowledge of joint structures [1].
+                                            Despite growing interest, articulated object reconstruc-        Learning-based methods such as Real2Code[14] and Artic-
+                                         tion remains an open and difficult problem [2], [11]. The          ulateAnything [15] infer articulation parameters from visual
+                                         core difficulty lies in the tight coupling between geome-          input, but depend on large annotated datasets and generalize
+                                         try, appearance, and part-level motion: recovering structure       poorly to novel real-world scenes. Methods like PARIS
+                                         and articulation jointly from dynamic observations is inher-       [11] jointly model geometry and motion by decomposing
+                                         ently ill-posed. Off-the-shelf reconstruction methods such         objects into parts, yet assume pre-segmented inputs or ac-
+                                         as NeRF [12] and 3DGS [13] assume static scenes and                cess to multiple discrete object states — conditions rarely
+                                         do not generalize to articulated settings. Even under the          satisfied in unconstrained dynamic captures. More recent
+                                         simplifying assumption of rigid-body part motion, jointly          3DGS-based approaches including ArtGS [16] and SplArt
+                                         estimating part geometry and kinematic parameters from             [17] achieve high-quality articulation modeling but similarly
+                                           1 ETH Zürich, Zürich, Switzerland.                             require multi-view or multi-state observations and explicit
+                                           2 Microsoft, Zürich, Switzerland.                               part supervision. On the other hand, 3DGS [13] has become
+                                           3 University of Bonn, Bonn, Germany.                             the dominant representation for photorealistic reconstruction
+Fig. 1. ArtiTwinSplat pipeline for unsupervised articulated 3D reconstruction: (Stage I) A static pre-change sequence to train a canonical 3DGS model.
+(Stage II) A dynamic RGB-D capture is localized to the canonical model, and 2D appearance differences generate an initial change mask that seeds reverse
+SAM2 video object segmentation, giving dense per-frame object masks. (Stage III) Pixel correspondences are lifted to 3D for point tracking, and joint
+parameters: axis, pivot, and articulation variable q(t) per frame are estimated via joint priors estimation. (Stage IV) These priors condition articulation-aware
+3DGS optimization, producing a joint-conditioned articulated 3D representation.
+
+
+
+because of the rendering efficiency. Extensions such as                           Change Detection and Part Tracking. We detect
+Deformable 3DGS [18] and Shape-of-Motion [19] adapt the                           articulation-induced changes by comparing rendered canon-
+framework to non-rigid and dynamic settings by tracking 3D                        ical views against post-change frames in both appearance
+point trajectories across frames.                                                 and geometry spaces, following [22]. Specifically, dense
+   In contrast, ArtiTwinSplat operates on a RGB-D sequence                        feature embeddings are used to localize regions of motion,
+without part labels, pre-segmented inputs, or discrete articu-                    producing a coarse change mask at the final post-change
+lation states. By unifying appearance-based motion discov-                        frame. To obtain temporally consistent part masks across the
+ery, joint parameter estimation, and articulation-conditioned                     full dynamic sequence, including frames with occlusions or
+Gaussian optimization in a single pipeline, our approach                          partial visibility, we run SAM2 [20] in semi-supervised video
+bridges the gap between dynamic scene reconstruction and                          object segmentation mode. The process is initialized from the
+interactive articulated digital twin construction.                                final change mask and propagated in reverse temporal order
+                                                                                  from t = T back to t = 0. Since the articulated part is
+                            III. METHOD                                           most clearly visible and least occluded at the final frame,
+Overview. ArtiTwinSplat is a four-stage pipeline that takes                       initializing there and tracking backward gives cleaner and
+a static pre-change RGB-D sequence and a dynamic post-                            more temporally stable segmentations.
+change RGB-D video as input, and produces an interac-                             Joint Parameter Estimation. Using per-frame SAM2
+tive, articulated 3DGS digital twin as output. The stages                         masks, we sample query points within the articulated region
+are: (i) canonical scene reconstruction, (ii) change detection                    and track them across the full RGB-D sequence using
+and part tracking, (iii) joint parameter estimation, and (iv)                     TAPIP3D [23], which produces dense 3D point trajectories
+articulation-conditioned Gaussian optimization. An overview                       pi (t) ∈ R3 for i = 1, . . . , N and t = 0, . . . , T in
+is shown in Figure 1.                                                             world coordinates by leveraging persistent 3D correspon-
+Canonical Scene Reconstruction. We first reconstruct a                            dences across time. These spatio-temporal trajectories are
+static 3DGS model of the scene from the pre-change se-                            then passed to a 4D RANSAC procedure [24] that jointly
+quence using a standard SfM pipeline [21] for camera pose                         fits revolute and prismatic joint hypotheses by sampling
+estimation, which produces a sparse point cloud defining the                      minimal trajectory sets, computing inlier consensus, and
+canonical scene geometry. The resulting 3DGS model act as                         selecting the model with the highest inlier ratio and lowest
+both the geometric and photometric reference for all sub-                         residual. The estimator outputs the joint type, axis a, pivot
+sequent stages, and provides the initialization for Gaussian                      c, per-frame articulation variable q(t), and range of motion
+subset partitioning during optimization. Post-change frames                       [qmin , qmax ], all without manual annotation, part labels, or
+are localized against this canonical point cloud to establish                     category-specific priors. Raw estimates are further stabilized
+a shared coordinate frame across both sequences.                                  through outlier filtering and temporal smoothing before being
+                                                                               GT (Real)               Render                   Depth
+passed to the optimization stage.
+Articulation-Conditioned Gaussian Optimization. The re-
+covered joint parameters condition a two-phase fine-tuning
+
+
+
+
+                                                                    Scene 1a
+of the canonical 3DGS model, which is initialized from the
+static pre-change sequence. In Phase I, the dynamic post-
+change RGB-D frames are used as supervision. Scene Gaus-
+sians are partitioned into background Gbg , interior Ginterior ,
+and moving part Gpart subsets, where only Ginterior ∪ Gpart
+
+
+
+
+                                                                    Scene 1b
+are trainable. Part Gaussians are transformed at each timestep
+according to
+
+                   (
+                       Ra, q(t) (xi − c) + c,   revolute,
+       x′i (t) =                                             (1)
+
+
+
+
+                                                                    Scene 2a
+                       xi + q(t) a,             prismatic,
+
+   and optimized under photometric, depth, and joint consis-
+tency losses within the SAM2 mask region.
+   In Phase II, both the pre-change and post-change frames
+
+
+
+
+                                                                    Scene 2b
+are used jointly to refine global scene radiance. All Gaussian
+subsets are unfrozen and optimized under weak photomet-
+ric supervision while the learned articulation parameters
+{a, c, q(t)} remain fixed, ensuring consistent illumination
+and appearance continuity across the full scene.
+   The final model supports real-time rendering and inter-
+                                                                    Scene 3a
+
+
+active joint control at arbitrary configurations, and can be
+exported as a URDF for use in physics simulators such as
+Isaac Sim.
+
+                           IV. RESULTS
+                                                                    Scene 3b
+
+
+
+
+Setup. We evaluate ArtiTwinSplat on three real-world house-
+hold scenes captured with a handheld Apple iPhone Pro
+using the Record3D application, which provides synchro-            Fig. 2. Qualitative results across three real-world scenes at two articulation
+                                                                   states each. For every state we show the real captured RGB frame (GT),
+nized RGB frames, metric depth maps, and camera poses              our rendered RGB prediction, and the corresponding rendered depth map.
+via ARKit. No special capture rig are used at any stage.           ArtiTwinSplat faithfully reconstructs both appearance and geometry under
+Each scene consists of two recordings: a static pre-change         revolute (Scene 1), prismatic (Scene 2), and mixed revolute+prismatic
+                                                                   (Scene 3) articulation, directly from handheld RGB-D capture without
+sequence captured before any object interaction, and a dy-         manual annotation.
+namic post-change sequence in which the articulated object
+is manipulated by hand. With SfM-based refinement [21] is
+applied to the pre-change sequence to establish the canonical      compatible with Isaac Sim, providing simulation-ready ar-
+coordinate frame. All three scenes feature IKEA Kallax             ticulated digital twins from a single casual RGB-D capture,
+furniture units and cover both revolute joints (hinged cabinet     as shown in Fig. 3.
+doors) and prismatic joints (drawers), representing the artic-
+ulated object types most commonly encountered in domestic                       Real Capture                    Isaac Sim Digital Twin
+robotic deployment.
+Results. Figure 2 shows articulation-conditioned renderings
+at multiple joint states alongside real captured frames. Across
+all three scenes, our method reliably isolates moving com-
+ponents, recovers physically consistent joint parameters, and
+synthesizes photorealistic renderings under novel articula-
+tion configurations not seen during optimization. Prismatic
+reconstruction is particularly accurate due to consistent
+interior visibility throughout motion. Revolute joints are         Fig. 3. From real-world capture to simulation-ready digital twin. Left: A
+                                                                   real household Kallax unit captured image. Right: The reconstructed articu-
+reconstructed faithfully at the exterior; occasional minor         lated digital twin imported into NVIDIA Isaac Sim, complete with collision
+artifacts on interior surfaces stem from partial occlusion         meshes, revolute (hinged door) and prismatic (drawer) joint constraints, and
+during rotation causing incomplete SAM2 mask coverage.             URDF kinematics exported from ArtiTwinSplat
+The resulting models are directly exportable as URDFs
+                        V. CONCLUSION                                         [10] J. Kerr, C. M. Kim, M. Wu, B. Yi, Q. Wang, K. Goldberg, and A.
+                                                                                   Kanazawa, “Robot see robot do: Imitating articulated object manipu-
+   We presented ArtiTwinSplat, a fully unsupervised frame-                         lation with monocular 4D reconstruction,” in Proc. Conf. Robot Learn.
+work for constructing photo-realistic articulated digital twins                    (CoRL), 2024.
+from handheld RGB-D video. By combining appearance-                           [11] J. Liu, A. Mahdavi-Amiri, and M. Savva, “PARIS: Part-level re-
+                                                                                   construction and motion analysis for articulated objects,” in Proc.
+based change detection, SAM2-driven part tracking, joint es-                       IEEE/CVF Int. Conf. Comput. Vis. (ICCV), 2023.
+timation, and articulation-conditioned Gaussian optimization,                 [12] B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoor-
+our method recovers both geometry and kinematics of ar-                            thi, and R. Ng, “NeRF: Representing scenes as neural radiance fields
+                                                                                   for view synthesis,” in Proc. Eur. Conf. Comput. Vis. (ECCV), 2020.
+ticulated objects without manual annotations, pre-segmented                   [13] B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis, “3D Gaussian
+parts, or controlled capture setups. Qualitative results on                        splatting for real-time radiance field rendering,” ACM Trans. Graph.,
+real-world household scenes demonstrate photorealistic re-                         vol. 42, no. 4, 2023.
+                                                                              [14] Z. Mandi, Y. Weng, D. Bauer, and S. Song, “Real2Code: Reconstruct
+construction across revolute and prismatic joint types, and                        articulated objects via code generation,” arXiv:2406.08474, 2024.
+the resulting models are directly exportable as simulation-                   [15] L. Le, J. Xie, W. Liang, H.-J. Wang, Y. Yang, Y. J. Ma, K. Vedder, A.
+ready URDFs for robotic manipulation and embodied AI                               Krishna, D. Jayaraman, and E. Eaton, “Articulate-Anything: Automatic
+                                                                                   modeling of articulated objects via a vision language foundation
+applications.                                                                      model,” arXiv:2410.13882, 2024.
+Limitations and Future Work. Our pipeline inherits limi-                      [16] Y. Liu, B. Jia, R. Lu, J. Ni, S.-C. Zhu, and S. Huang, “Building
+tations from upstream foundation models. SAM2 may over-                            interactable replicas of complex articulated objects via Gaussian
+                                                                                   splatting,” in Proc. Int. Conf. Learn. Represent. (ICLR), 2025.
+or under-segment parts in regions with low texture or weak                    [17] S. Lin, J. Fang, M. Z. Irshad, V. C. Guizilini, R. A. Ambrus,
+visual boundaries, and TAPIP3D can produce noisy cor-                              G. Shakhnarovich, and M. R. Walter, “SplArt: Articulation esti-
+respondences under low texture or small motion, which                              mation and part-level reconstruction with 3D Gaussian splatting,”
+                                                                                   arXiv:2506.03594, 2025.
+degrades joint estimation. Interior surfaces that become vis-                 [18] Z. Yang, X. Gao, W. Zhou, S. Jiao, Y. Zhang, and X. Jin, “Deformable
+ible only during revolute articulation remain challenging to                       3D Gaussians for high-fidelity monocular dynamic scene reconstruc-
+reconstruct due to limited visibility and insufficient Gaussian                    tion,” arXiv:2309.13101, 2023.
+                                                                              [19] Q. Wang, V. Ye, H. Gao, W. Zeng, J. Austin, Z. Li, and A. Kanazawa,
+supervision. Sensor depth noise further reduces geometric                          “Shape of motion: 4D reconstruction from a single video,” in Proc.
+fidelity for thin structures. Future work will address these                       IEEE/CVF Int. Conf. Comput. Vis. (ICCV), 2025.
+challenges through joint multi-part optimization, custom                      [20] N. Ravi, V. Gabeur, Y.-T. Hu, R. Hu, C. Ryali, T. Ma, H. Khedr, R.
+                                                                                   Rädle, C. Rolland, L. Gustafson, E. Mintun, J. Pan, K. V. Alwala, N.
+gaussian densification strategies, and tighter integration of                      Carion, C.-Y. Wu, R. Girshick, P. Dollár, and C. Feichtenhofer, “SAM
+3D segmentation priors, moving toward a fully automated                            2: Segment anything in images and videos,” arXiv:2408.00714, 2024.
+pipeline for scalable digital twin construction in unstructured               [21] P.-E. Sarlin, C. Cadena, R. Siegwart, and M. Dymczyk, “From coarse
+                                                                                   to fine: Robust hierarchical localization at large scale,” in Proc.
+environments.                                                                      IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR), 2019.
+                                                                              [22] Z. Lu, J. Ye, and J. Leonard, “3DGS-CD: 3D Gaussian
+                            R EFERENCES                                            splatting-based change detection for physical object rearrangement,”
+                                                                                   arXiv:2411.03706 [cs.CV], 2025.
+ [1] G. Yang, C. Wang, N. D. Reddy, and D. Ramanan, “Reconstruct-             [23] B. Zhang, L. Ke, A. W. Harley, and K. Fragkiadaki, “TAPIP3D:
+     ing animatable categories from videos,” in Proc. IEEE/CVF Conf.               Tracking any point in persistent 3D geometry,” arXiv:2504.14717,
+     Comput. Vis. Pattern Recognit. (CVPR), 2023, pp. 16995–17005, doi:            2025.
+     10.1109/CVPR52729.2023.01630.                                            [24] H. Li, G. Wan, H. Li, A. Sharf, K. Xu, and B. Chen, “Mobility
+ [2] Y. Weng, B. Wen, J. Tremblay, V. Blukis, D. Fox, L. Guibas, and               fitting using 4D RANSAC,” Comput. Graph. Forum, vol. 35, no. 5,
+     S. Birchfield, “Neural implicit representation for building digital           pp. 79–88, 2016, doi: 10.1111/cgf.12965.
+     twins of unknown articulated objects,” in Proc. IEEE/CVF Conf.
+     Comput. Vis. Pattern Recognit. (CVPR), 2024, pp. 3141–3150, doi:
+     10.1109/CVPR52733.2024.00303.
+ [3] R. Luo, H. Geng, C. Deng, P. Li, Z. Wang, B. Jia, L. Guibas,
+     and S. Huang, “PhysPart: Physically plausible part completion for
+     interactable objects,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA),
+     2025, pp. 12386–12393, doi: 10.1109/ICRA55743.2025.11127496.
+ [4] B. Jia, Y. Chen, H. Yu, Y. Wang, X. Niu, T. Liu, Q. Li, and S. Huang,
+     “SceneVerse: Scaling 3D vision-language learning for grounded scene
+     understanding,” in Proc. Eur. Conf. Comput. Vis. (ECCV), 2024.
+ [5] J. Huang, S. Yong, X. Ma, X. Linghu, P. Li, Y. Wang, Q. Li, S.-C. Zhu,
+     B. Jia, and S. Huang, “An embodied generalist agent in 3D world,” in
+     Proc. Int. Conf. Mach. Learn. (ICML), 2024.
+ [6] X. Linghu, J. Huang, X. Niu, X. Ma, B. Jia, and S. Huang, “Multi-
+     modal situated reasoning in 3D scenes,” in Adv. Neural Inf. Process.
+     Syst. (NeurIPS), 2024.
+ [7] H. Geng, H. Xu, C. Zhao, C. Xu, L. Yi, S. Huang, and H. Wang,
+     “GAPartNet: Cross-category domain-generalizable object perception
+     and manipulation via generalizable and actionable parts,” arXiv
+     preprint arXiv:2211.05272, 2022.
+ [8] R. Gong, J. Huang, Y. Zhao, H. Geng, X. Gao, Q. Wu, W. Ai, Z.
+     Zhou, D. Terzopoulos, S.-C. Zhu, et al., “ARNOLD: A benchmark for
+     language-grounded task learning with continuous states in realistic 3D
+     scenes,” in Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV), 2023.
+ [9] M. Torne, A. Simeonov, Z. Li, A. Chan, T. Chen, A. Gupta, and
+     P. Agrawal, “Reconciling reality through simulation: A real-to-sim-
+     to-real approach for robust manipulation,” arXiv:2403.03949 [cs.RO],
+     2024.
+

@@ -1,0 +1,31 @@
+{
+  "id": "P58",
+  "slug": "Real_is_Sim",
+  "arxiv_id": "2504.03597",
+  "family": "sim2wm",
+  "source_url": "https://arxiv.org/abs/2504.03597",
+  "accessed": "2026-11-11",
+  "title": "Real-is-Sim: Bridging the Sim-to-Real Gap with a Dynamic Digital Twin",
+  "authors": [
+    "Abou-Chakra, Jad",
+    "Sun, Lingfeng",
+    "Rana, Krishan",
+    "May, Brandon",
+    "Schmeckpeper, Karl",
+    "Suenderhauf, Niko",
+    "Minniti, Maria Vittoria",
+    "Herlant, Laura"
+  ],
+  "publication_date": "2025/04/04",
+  "submitted_date": "2025/07/02",
+  "abstract": " We introduce real-is-sim, a new approach to integrating simulation into behavior cloning pipelines. In contrast to real-only methods, which lack the ability to safely test policies before deployment, and sim-to-real methods, which require complex adaptation to cross the sim-to-real gap, our framework allows policies to seamlessly switch between running on real hardware and running in parallelized virtual environments. At the center of real-is-sim is a dynamic digital twin, powered by the Embodied Gaussian simulator, that synchronizes with the real world at 60Hz. This twin acts as a mediator between the behavior cloning policy and the real robot. Policies are trained using representations derived from simulator states and always act on the simulated robot, never the real one. During deployment, the real robot simply follows the simulated robot's joint states, and the simulation is continuously corrected with real world measurements. This setup, where the simulator drives all policy execution and maintains real-time synchronization with the physical world, shifts the responsibility of crossing the sim-to-real gap to the digital twin's synchronization mechanisms, instead of the policy itself. We demonstrate real-is-sim on a long-horizon manipulation task (PushT), showing that virtual evaluations are consistent with real-world results. We further show how real-world data can be augmented with virtual rollouts and compare to policies trained on different representations derived from the simulator state including object poses and rendered images from both static and robot-mounted cameras. Our results highlight the flexibility of the real-is-sim framework across training, evaluation, and deployment stages. Videos available at this https URL .",
+  "submission_history": "Submission history From: Jad Abou-Chakra [ view email ] [v1] Fri, 4 Apr 2025 17:05:56 UTC (17,473 KB) [v2] Wed, 2 Jul 2025 03:27:04 UTC (17,604 KB)",
+  "version": "v2",
+  "pdf_url": "https://arxiv.org/pdf/2504.03597v2",
+  "local_pdf": "papers/P58_Real_is_Sim_2504.03597v2.pdf",
+  "sha256": "14ddb2b19a41628b38448e3814c500d18d3efc136f0c43d5c86ff8cf2475773b",
+  "bytes": 18327131,
+  "pages": 16,
+  "text_file": "research/P58_Real_is_Sim.txt",
+  "status": "downloaded_and_text_extracted"
+}
