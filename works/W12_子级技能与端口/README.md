@@ -33,7 +33,8 @@
 3. 人形与移动操作：NaVILA [arXiv 2412.04453](https://arxiv.org/abs/2412.04453)、LeVERB [arXiv 2506.13751](https://arxiv.org/abs/2506.13751)、Being-0 [arXiv 2503.12533](https://arxiv.org/abs/2503.12533)、BRS [arXiv 2503.05652](https://arxiv.org/abs/2503.05652)；下层用 [W06（全身动作数据）](../W06_全身动作数据/README.md) 的全身控制器。
 4. 失败检测与进度估计：AHA [arXiv 2410.00371](https://arxiv.org/abs/2410.00371)、FAIL-Detect [arXiv 2503.08558](https://arxiv.org/abs/2503.08558)；进度或奖励模型 VIP [arXiv 2210.00030](https://arxiv.org/abs/2210.00030)、LIV [arXiv 2306.00958](https://arxiv.org/abs/2306.00958)。
 5. 端口包装：统一前置条件检查、超时、返回事件和自报告字段（[W01（问题定义、接口与评测协议）](../W01_问题定义与接口/README.md) 的规范）。
-6. 标定自报告：在仿真和真实中重复执行，拟合耗时分布和成功率。
+6. 在 WWC 下，机器人向上暴露的主要是 WBC 的命令端口（根速度、末端位姿、夹爪或潜在动作），由统一模型直接填写；技能调用是同一模型较粗的动作。两种接口都要定义，便于与解耦做法对比（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md) 1.3 节）。
+7. 标定自报告：在仿真和真实中重复执行，拟合耗时分布和成功率。
 
 ## 4. 可以写成论文的方向
 
@@ -117,4 +118,4 @@
 
 ---
 
-说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
+说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对，2026-11-27 补充）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。

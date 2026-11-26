@@ -10,7 +10,7 @@
 
 ## 1. 为什么要做
 
-工厂场景中已有的相关工作：RoboFactory 用逻辑、空间、时间组合约束组织多具身智能体的协作 [P13](../../papers/P13_RoboFactory_2503.16408v1.pdf)；FMAPPO 在工厂中学习多机器人分工与导航 [P39](../../papers/P39_FMAPPO_Machine_Tending_2609.14567v1.pdf)；World Dreamer v5-lite 在 RoboFactory 上的平均成功率为 74.0%，比最强基线高 23.7 个百分点 [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)。这些工作都没有把机床的设备状态和工单放进协作问题（依据其摘要判断）。
+工厂场景中已有的相关工作：RoboFactory 用逻辑、空间、时间组合约束组织多具身智能体的协作 [P13](../../papers/P13_RoboFactory_2503.16408v1.pdf)；FMAPPO 在工厂中学习多机器人分工与导航 [P39](../../papers/P39_FMAPPO_Machine_Tending_2609.14567v1.pdf)；World Dreamer v5-lite 在 RoboFactory 上的平均成功率为 74.0%，比最强基线高 23.7 个百分点 [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)。这些工作都没有把机床的设备状态和工单放进协作问题（依据其摘要判断）。协作有两种组织方式：一是解耦，每台机器人一个控制器，上层 Agent 分配和协调，如 RoboOS [arXiv 2505.03673](https://arxiv.org/abs/2505.03673)、COHERENT [arXiv 2409.15146](https://arxiv.org/abs/2409.15146)；二是 WWC（全场统一控制），一个模型统一控制场景内的全部机器人（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md) 1.3 节）。本工作两种都要做，并做对照。
 
 ## 2. 输入与产物
 
@@ -36,7 +36,8 @@
 5. 任务分配：图注意力协调 [arXiv 1912.02059](https://arxiv.org/abs/1912.02059)、人机团队调度 [arXiv 2301.13279](https://arxiv.org/abs/2301.13279)、胶囊注意力网络 [arXiv 2205.03321](https://arxiv.org/abs/2205.03321)。
 6. 紧耦合协作：多机器人非抓取协作的流匹配联合生成 [arXiv 2511.10874](https://arxiv.org/abs/2511.10874)；SAI 用单操作员课程学习耦合策略 [arXiv 2606.16490](https://arxiv.org/abs/2606.16490)；数据生成见 [W05（机器人动作数据生成）](../W05_机器人动作数据生成/README.md) 方向 3。
 7. 用世界模型评估联合动作：MA-WAM 先由策略提出候选联合动作，再用世界模型打分 [arXiv 2609.31281](https://arxiv.org/abs/2609.31281)。
-8. 人机共处：PARTNR [arXiv 2411.00081](https://arxiv.org/abs/2411.00081)、Habitat 3.0 [arXiv 2310.13724](https://arxiv.org/abs/2310.13724)。
+8. WWC 的结构：共享世界状态加每台机器人一个查询 [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)；让各智能体置换等价、各自可控的编码 [arXiv 2605.28816](https://arxiv.org/abs/2605.28816)；与解耦做法在同一场景、同一组任务上对比。
+9. 人机共处：PARTNR [arXiv 2411.00081](https://arxiv.org/abs/2411.00081)、Habitat 3.0 [arXiv 2310.13724](https://arxiv.org/abs/2310.13724)。
 
 ## 4. 可以写成论文的方向
 
@@ -47,14 +48,21 @@
 - 已有工作与空白：MA-WAM 在 MAMuJoCo、SMAC、MPE 的 30 个离线 MARL 设置上，比直接执行平均提升 22.0% [arXiv 2609.31281](https://arxiv.org/abs/2609.31281)；这些环境中的智能体是同类的。工厂中的异构联合动作还未见研究（分析判断）。
 - 怎样验证：工单完成时间、冲突次数；与独立规划和规则基线对比。
 
-### 4.2 工厂多机器人协作基准
+### 4.2 WWC 与解耦做法的对照：统一控制在什么条件下有收益
+
+- 类型：实证（与 W01 的 WWC 定义衔接）
+- 研究问题：同一场景、同一组任务，比较"单机控制＋顶层 Agent"、分散式多智能体与 WWC 的吞吐、冲突、等待和死锁，并找出收益怎样随机器人数量、空间耦合程度和通信时延变化。
+- 已有工作与空白：在 LLM 任务规划层面，[arXiv 2309.15943](https://arxiv.org/abs/2309.15943) 比较了集中式、分散式和两种混合框架，发现混合框架成功率更高、随智能体数量扩展更好；World Dreamer v5-lite 用一个模型输出多台机器人的动作，在 RoboFactory 上平均成功率 74.0% [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)。控制层面的系统对照还未见（分析判断）。
+- 怎样验证：在 [W03（车间场景生成）](../W03_车间场景生成/README.md) 生成的场景里改变机器人数量和通道宽度，画出三种做法的指标曲线；加入通信时延和单机故障，检查 WWC 的退化程度。
+
+### 4.3 工厂多机器人协作基准
 
 - 类型：基准
 - 研究问题：设计含交接、共用工位、通道冲突的多机器人任务集，并给出 MARL、LLM 规划、MAPF 三类方法的基线。
 - 已有工作与空白：RoboFactory 关注多臂操作的组合约束 [P13](../../papers/P13_RoboFactory_2503.16408v1.pdf)；robotic-warehouse 环境和 MAPF 基准关注仓储运输 [arXiv 2006.07869](https://arxiv.org/abs/2006.07869) [arXiv 1906.08291](https://arxiv.org/abs/1906.08291)。同时含机床状态的协作基准还没有（分析判断）。
 - 怎样验证：任务覆盖面、基线结果、可复现性。
 
-### 4.3 LLM 协作规划与学习式协调的分工
+### 4.4 LLM 协作规划与学习式协调的分工
 
 - 类型：方法
 - 研究问题：LLM 负责任务分解、学习式方法负责实时协调时，怎样分工最合适？
@@ -103,6 +111,10 @@
 - **Learning Coordination Policies over Heterogeneous Graphs for Human-Robot Teams via Recurrent Neural Schedule Propagation**（2023），[arXiv 2301.13279](https://arxiv.org/abs/2301.13279)：异构图上的人机团队调度策略。
 - **Learning Scalable Policies over Graphs for Multi-Robot Task Allocation using Capsule Attention Networks**（2022），[arXiv 2205.03321](https://arxiv.org/abs/2205.03321)：胶囊注意力网络做可扩展的多机器人任务分配。
 
+### 全场统一控制（WWC）的结构
+
+- **Gamma-World: Generative Multi-Agent World Modeling Beyond Two Players**（2026），[arXiv 2605.28816](https://arxiv.org/abs/2605.28816)：Gamma-World：多个智能体置换等价、各自可控的生成式多智能体世界模型。
+
 ### 紧耦合协作与人机共处
 
 - **Collaborative Multi-Robot Non-Prehensile Manipulation via Flow-Matching Co-Generation**（2025），[arXiv 2511.10874](https://arxiv.org/abs/2511.10874)：多机器人非抓取协作：流匹配联合生成加多机器人运动规划。
@@ -130,4 +142,4 @@
 
 ---
 
-说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
+说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对，2026-11-27 补充）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。

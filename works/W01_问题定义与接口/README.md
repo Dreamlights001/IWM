@@ -10,7 +10,7 @@
 
 ## 1. 为什么要做
 
-本轮检索没有找到已发表的工厂级世界动作模型（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md)、[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md)）。最接近的工作是：多机器人共享世界状态的 World Dreamer v5-lite [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)、多智能体测试时规划的 MA-WAM [arXiv 2609.31281](https://arxiv.org/abs/2609.31281)、仓储车队预测的 DeepFleet [arXiv 2508.08574](https://arxiv.org/abs/2508.08574)、大脑—小脑多机器人框架 RoboOS [arXiv 2505.03673](https://arxiv.org/abs/2505.03673)。从摘要看，它们的状态里没有机床的 PLC／NC 模式和工单。没有统一的定义，后面的仿真、数据和模型就无法对齐，结果也无法比较。
+本轮检索没有找到已发表的工厂级世界动作模型（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md)、[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md)）。最接近的工作是：多机器人共享世界状态的 World Dreamer v5-lite [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)、多智能体测试时规划的 MA-WAM [arXiv 2609.31281](https://arxiv.org/abs/2609.31281)、仓储车队预测的 DeepFleet [arXiv 2508.08574](https://arxiv.org/abs/2508.08574)、大脑—小脑多机器人框架 RoboOS [arXiv 2505.03673](https://arxiv.org/abs/2505.03673)。从摘要看，它们的状态里没有机床的 PLC／NC 模式和工单。没有统一的定义，后面的仿真、数据和模型就无法对齐，结果也无法比较。2026-11-27 起，整厂层的目标按 WWC（Whole World Control，全场统一控制）表述：场景里的机器人和设备由同一个模型统一控制，而不是每台机器人一个控制器、上层再由 Agent 协调；工厂中的 WWC 即 FWAM（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md) 1.3 节）。规范要同时支持 WWC 和解耦做法，两者才能比较。
 
 ## 2. 输入与产物
 
@@ -24,6 +24,7 @@
 
 - 实体—关系图模式：节点类型、属性、边类型；事件类型表（[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md) 1.2 节）
 - 子级端口与自报告字段：技能调用、设备命令、AGV 目标、派工；预计耗时、成功概率、置信度
+- WWC 的联合动作格式：各机器人 WBC 的命令、设备命令和派工放在同一条动作记录里；解耦做法用同一格式记录，便于对比
 - 时间约定：哪些量按事件更新、哪些按固定频率采样；整厂、工位、机器人三层的决策周期
 - 数据记录格式：时钟、坐标系、ID 体系、单位，以及与 OPC UA for Machine Tools [S2](https://reference.opcfoundation.org/specs/OPC-40501-1/6)、MTConnect [S3](https://docs.mtconnect.org/MBSD_MTConnect_Part_2_2-1-0.pdf)、NIST CMSD [P99](../../papers/P99_NIST_CMSD.pdf) 字段的对应
 - 评测协议草案（交给 [W16（基准与评测）](../W16_基准与评测/README.md) 维护）和约束清单（交给 [W15（安全与约束）](../W15_安全与约束/README.md)）
@@ -33,20 +34,28 @@
 1. 选一个缩小版工厂作为第一个研究对象，例如两台 CNC、一台机器人、一个料架、一个检测台（[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md) 阶段 0）。
 2. 列出实体、属性、关系和事件类型，写成机器可读的模式文件（如 JSON Schema），再用一段真实或手写的生产过程检查能否完整记录。
 3. 定义每个子级端口的前置条件（如门已开、夹具松开）、返回事件和自报告字段。
-4. 规定时间尺度：整厂层决策周期（分钟级）与机器人控制周期的关系。按时间尺度分层是整厂控制结构设计的常用做法 [Skogestad 2004](https://skoge.folk.ntnu.no/publications/2004/control_structure_design_cce/cce04_skogestad.pdf)。
-5. 写评测协议草案：同初态不同动作的对照；多步预测误差，按几何、设备状态、事件时间分开统计；决策收益，包括吞吐、在制品、平均等待、死锁次数。
-6. 和 [W15（安全与约束）](../W15_安全与约束/README.md) 一起列出约束：安全区域、互锁、人员区域、设备限位。
+4. 写清 WWC 与解耦做法的接口差别：解耦做法里顶层只发任务，各机器人自己决定怎么动；WWC 里同一个模型给出全部机器人和设备的命令（[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md) 1.3 节）。两者共用状态、事件和评测。
+5. 规定时间尺度：整厂层决策周期（分钟级）与机器人控制周期的关系。按时间尺度分层是整厂控制结构设计的常用做法 [Skogestad 2004](https://skoge.folk.ntnu.no/publications/2004/control_structure_design_cce/cce04_skogestad.pdf)。
+6. 写评测协议草案：同初态不同动作的对照；多步预测误差，按几何、设备状态、事件时间分开统计；决策收益，包括吞吐、在制品、平均等待、死锁次数。
+7. 和 [W15（安全与约束）](../W15_安全与约束/README.md) 一起列出约束：安全区域、互锁、人员区域、设备限位。
 
 ## 4. 可以写成论文的方向
 
-### 4.1 工厂级世界动作模型的问题定义与分层接口
+### 4.1 WWC：比 WBC 高一级的全场统一控制
+
+- 类型：立场／概念论文（可与 W13 的对照实验合写）
+- 研究问题：把"一个场景内多台机器人和设备的统一控制"定义为 WBC 之上的一级（WWC），给出形式化、适用条件和工厂中的实现（FWAM），并用最小实验说明它与"单机控制＋顶层 Agent"的区别。
+- 已有工作与空白：截至 2026-11-27 的检索没有找到 "Whole World Control" 的同名用法。最接近的是 World Dreamer v5-lite：共享世界状态，每台机器人一个查询，动作流分开 [arXiv 2610.37518](https://arxiv.org/abs/2610.37518)；跨本体 WBC（X-WBC [arXiv 2609.15213](https://arxiv.org/abs/2609.15213)、XHugWBC [arXiv 2602.05791](https://arxiv.org/abs/2602.05791)）让一个 WBC 策略用于多种机器人身体，每次仍控制一台机器人；RoboOS-NeXT 用高层大脑模型做全局规划、各机器人的底层控制器在本地执行，在餐厅、超市和家庭任务上做了实验 [arXiv 2510.26536](https://arxiv.org/abs/2510.26536)，属于解耦做法。
+- 怎样验证：在缩小版工厂或一个餐厅、咖啡馆场景上，比较 WWC 与解耦做法的吞吐、等待、冲突和死锁；分析统一控制的收益怎样随机器人之间的耦合程度变化。
+
+### 4.2 工厂级世界动作模型（FWAM，工厂中的 WWC）的问题定义与分层接口
 
 - 类型：立场／形式化（可与 W03 的数据集或 W16 的基准合写）
 - 研究问题：整厂层的状态、动作和观测怎样定义，才能同时接住机器人的 VLA＋WBC、机床的 PLC／NC 和工单系统？
 - 已有工作与空白：两篇 WAM 综述把 WAM 定义为联合预测未来状态与动作的模型，讨论的对象以单个机器人为主 [arXiv 2605.12090](https://arxiv.org/abs/2605.12090) [arXiv 2609.16074](https://arxiv.org/abs/2609.16074)；柔性制造具身智能综述按“工业之眼、工业之手、工业之脑”组织，“脑”这一层是工艺规划与产线调度 [arXiv 2602.06966](https://arxiv.org/abs/2602.06966)；EIIR 框架提出世界模型、高层任务规划、底层技能控制、仿真器和物理系统五个模块 [arXiv 2505.09305](https://arxiv.org/abs/2505.09305)。本轮检索没有找到把这些层次写成同一个可训练世界模型的工作。
 - 怎样验证：用缩小版工厂的完整生产过程检查规范能否记录全部事件；给出从规范自动生成仿真接口和数据记录器的示例。
 
-### 4.2 面向工厂的“接口缺口”分析
+### 4.3 面向工厂的“接口缺口”分析
 
 - 类型：立场论文
 - 研究问题：参照“机器人需要的不只是 VLA 和世界模型”一文的写法，系统列出工厂场景缺的数据接口、具身接口、世界模型接口和奖励接口。
@@ -82,6 +91,13 @@
 - **RoboOS: A Hierarchical Embodied Framework for Cross-Embodiment and Multi-Agent Collaboration**（2025），[arXiv 2505.03673](https://arxiv.org/abs/2505.03673)：RoboOS：大脑—小脑结构的多机器人系统。
 - **Control structure design for complete chemical plants**（Skogestad, Computers & Chemical Engineering, 2004），[链接](https://skoge.folk.ntnu.no/publications/2004/control_structure_design_cce/cce04_skogestad.pdf)：整厂控制结构设计：按时间尺度把决策分层。
 
+### 全场统一控制（WWC）与相近概念
+
+- **X-WBC: A Cross-Embodiment Foundation Model for Humanoid Whole-Body Control**（2026），[arXiv 2609.15213](https://arxiv.org/abs/2609.15213)：X-WBC：跨本体的全身控制基础模型；统一的是一个策略对多种身体的适用性，每次仍控制一台机器人。
+- **Scalable and General Whole-Body Control for Cross-Humanoid Locomotion**（2026），[arXiv 2602.05791](https://arxiv.org/abs/2602.05791)：XHugWBC：一个全身控制策略零样本迁移到多种人形。
+- **RoboOS-NeXT: A Unified Memory-based Framework for Lifelong, Scalable, and Robust Multi-Robot Collaboration**（2025），[arXiv 2510.26536](https://arxiv.org/abs/2510.26536)：RoboOS-NeXT：高层大脑模型全局规划、各机器人本地执行，在餐厅、超市和家庭任务上实验；解耦做法的代表。
+- **Scalable Multi-Robot Collaboration with Large Language Models: Centralized or Decentralized Systems?**（2023），[arXiv 2309.15943](https://arxiv.org/abs/2309.15943)：LLM 多机器人规划中集中式、分散式与混合框架的比较：混合框架成功率更高、扩展更好。
+
 ### 数据与接口标准
 
 - **OPC UA for Machine Tools, Part 1**（official documentation），[链接](https://reference.opcfoundation.org/specs/OPC-40501-1/6)：OPC UA for Machine Tools：机床状态、程序、报警的信息模型。
@@ -97,4 +113,4 @@
 
 ---
 
-说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
+说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对，2026-11-27 补充）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
