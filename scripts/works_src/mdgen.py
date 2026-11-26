@@ -4,7 +4,7 @@ from .refs import ROOT
 
 STAGE = {s['id']: s for s in common.STAGES}
 CIRC = '①②③④⑤⑥'
-NOTE = ('说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对）；P 编号对应 `papers/` 中的本地 PDF；'
+NOTE = ('说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对，2026-11-27 补充）；P 编号对应 `papers/` 中的本地 PDF；'
         'GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。')
 
 
@@ -77,6 +77,8 @@ def index_md(works, src, totals):
          '然后做子级（机器人与工位）和整厂层的模型与决策，最后做安全校核、评测和部署。有些工作之间要反复迭代，用 6 个闭环表示。', '',
          '打开 [research_board.html](research_board.html) 看总图：蓝色实线是顺序交付，红色虚线是闭环；点击卡片可看上下游和精选文献。'
          '每项工作有一个文件夹，写明要解决的问题、具体任务、可以写成论文的方向和高价值参考文献。', '',
+         '整厂层的目标按 WWC（Whole World Control，全场统一控制）表述：比 WBC 高一级，场景内的机器人和设备由同一个模型统一控制，'
+         '而不是每台机器人一个控制器、上层再由 Agent 协调；工厂中的 WWC 即 FWAM，定义见 [../链路/00_总览_工厂级世界动作模型](../链路/00_总览_工厂级世界动作模型/README.md) 第 1.3 节。', '',
          '本目录不推荐技术路线。各条链路（STEP 资产化、扫描孪生、JEPA、视频模型等）的做法见 [../链路/](../链路/README.md)；'
          '本目录回答的是“按什么顺序做研究、每一步做什么、哪里能出论文”。', '',
          f'统计：{totals["works"]} 项工作，{totals["papers"]} 个论文方向，引用 {totals["refs"]} 篇不重复的文献和文档，{totals["repos"]} 个开源项目。', '',

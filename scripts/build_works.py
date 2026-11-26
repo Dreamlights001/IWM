@@ -19,7 +19,7 @@ from works_src.mdgen import work_md, index_md, ref_count  # noqa: E402
 from works_src import htmlgen as hg  # noqa: E402
 
 OUT = ROOT / 'works'
-DATE = '2026-11-22'
+DATE = '2026-11-27'
 
 
 def check(works):
@@ -75,12 +75,13 @@ def page(works, src, totals):
 <title>工厂级世界模型：研究步骤看板</title><style>{hg.asset('board.css')}</style></head><body>
 <header class="mast"><div class="mast-in"><p class="kicker">工业世界模型 · works</p><h1>从零开始做工厂级世界模型：研究步骤看板</h1>
 <p class="lede">目前没有公开的工厂级世界模型，也没有对应的数据集。下图按研究顺序列出 17 项工作：先定义问题和评测，再解决数据，然后做子级（机器人与工位）和整厂层的模型与决策，最后做安全校核、评测和部署。每项工作在 <a href="README.md">works/</a> 下有一个文件夹，列出具体任务、可以写成论文的方向和高价值参考文献。</p>
+<p class="lede">整厂层的目标按 WWC（Whole World Control，全场统一控制）表述：比 WBC 高一级，场景内的机器人和设备由同一个模型统一控制，而不是每台机器人一个控制器、上层再由 Agent 协调。工厂中的 WWC 即 FWAM，定义见 <a href="../链路/00_总览_工厂级世界动作模型/README.md">00 总览</a> 第 1.3 节。</p>
 <p class="lede">本看板不推荐技术路线。STEP 资产化、扫描孪生、JEPA、视频模型等做法见 <a href="../链路/README.md">链路/</a> 和 <a href="../pipeline_board.html">链路看板</a>；本看板回答的是按什么顺序做、每一步做什么、哪里能出论文。</p>
 <p class="meta">{E(meta)}</p></div></header>
 <nav class="toc"><div class="in">{''.join(f'<a href="#{i}"><b>{n:02d}</b>{t}</a>' for n, (i, t) in enumerate(nav, 1))}<a href="README.md">works/README.md</a><a href="../report.html">调研报告</a></div></nav>
 <main>{body}</main>
 <aside id="drawer" aria-hidden="true" aria-label="详情"><div class="dh"><span class="dt"></span><button class="x" type="button">关闭 Esc</button></div><div class="body"></div></aside>
-<footer><div class="in">arXiv 文献的标题取自 arXiv 页面元数据，{DATE} 核对；P 编号是 <a href="../papers/README.md">papers/</a> 中的本地 PDF；GitHub 仓库用 gh api 核对，均未归档；ISO 和出版社页面拒绝脚本访问，已用网页搜索和 Crossref 核对。“分析判断”表示本看板的推断，未经验证。重新生成：<code>python3 scripts/verify_works_sources.py &amp;&amp; python3 scripts/build_works.py</code>（数据在 scripts/works_src/）。</div></footer>
+<footer><div class="in">arXiv 文献的标题取自 arXiv 页面元数据，2026-11-22 核对、2026-11-27 补充；P 编号是 <a href="../papers/README.md">papers/</a> 中的本地 PDF；GitHub 仓库用 gh api 核对，均未归档；ISO 和出版社页面拒绝脚本访问，已用网页搜索和 Crossref 核对。“分析判断”表示本看板的推断，未经验证。重新生成：<code>python3 scripts/verify_works_sources.py &amp;&amp; python3 scripts/build_works.py</code>（数据在 scripts/works_src/）。</div></footer>
 <script type="application/json" id="board-data">{blob}</script><script>{hg.asset('board.js')}</script></body></html>
 '''
 

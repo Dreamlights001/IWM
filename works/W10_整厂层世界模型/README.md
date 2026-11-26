@@ -10,7 +10,7 @@
 
 ## 1. 为什么要做
 
-整厂状态不适合用像素表示：工厂太大，PLC 模式、工单和质量这类关键状态在画面里看不到（[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md) 1.2 节）。可借鉴的方向有四类：图与关系模型（Graph Networks [arXiv 1806.01261](https://arxiv.org/abs/1806.01261)、Interaction Networks [arXiv 1612.00222](https://arxiv.org/abs/1612.00222)、TGN [arXiv 2006.10637](https://arxiv.org/abs/2006.10637)）；事件时间模型（Neural Hawkes [arXiv 1612.09328](https://arxiv.org/abs/1612.09328)、Transformer Hawkes [arXiv 2002.09291](https://arxiv.org/abs/2002.09291)）；车队与多主体预测（DeepFleet [arXiv 2508.08574](https://arxiv.org/abs/2508.08574)、MAPF-World [arXiv 2508.12087](https://arxiv.org/abs/2508.12087)、COMBO [arXiv 2404.10775](https://arxiv.org/abs/2404.10775)）；离散事件仿真的代理模型 [arXiv 2507.10714](https://arxiv.org/abs/2507.10714) [arXiv 2605.27556](https://arxiv.org/abs/2605.27556)。
+整厂状态不适合用像素表示：工厂太大，PLC 模式、工单和质量这类关键状态在画面里看不到（[L11](../../链路/L11_工厂级世界动作模型_FWAM/README.md) 1.2 节）。可借鉴的方向有四类：图与关系模型（Graph Networks [arXiv 1806.01261](https://arxiv.org/abs/1806.01261)、Interaction Networks [arXiv 1612.00222](https://arxiv.org/abs/1612.00222)、TGN [arXiv 2006.10637](https://arxiv.org/abs/2006.10637)）；事件时间模型（Neural Hawkes [arXiv 1612.09328](https://arxiv.org/abs/1612.09328)、Transformer Hawkes [arXiv 2002.09291](https://arxiv.org/abs/2002.09291)）；车队与多主体预测（DeepFleet [arXiv 2508.08574](https://arxiv.org/abs/2508.08574)、MAPF-World [arXiv 2508.12087](https://arxiv.org/abs/2508.12087)、COMBO [arXiv 2404.10775](https://arxiv.org/abs/2404.10775)）；离散事件仿真的代理模型 [arXiv 2507.10714](https://arxiv.org/abs/2507.10714) [arXiv 2605.27556](https://arxiv.org/abs/2605.27556)。按 WWC（全场统一控制，[00 总览](../../链路/00_总览_工厂级世界动作模型/README.md) 1.3 节），整厂层世界模型是 FWAM 的预测部分：全场的联合动作要先预测后果，才能选择。
 
 ## 2. 输入与产物
 
@@ -126,4 +126,4 @@
 
 ---
 
-说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
+说明：arXiv 文献的标题取自 arXiv 页面元数据（2026-11-22 核对，2026-11-27 补充）；P 编号对应 `papers/` 中的本地 PDF；GitHub 仓库已用 `gh api` 核对，均未归档。“分析判断”表示本目录的推断，尚未验证。本文件由 `scripts/build_works.py` 生成，请改 `scripts/works_src/` 后重新生成。
